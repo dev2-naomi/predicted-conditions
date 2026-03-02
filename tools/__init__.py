@@ -1,0 +1,89 @@
+"""
+tools/__init__.py — Exports ALL_TOOLS and per-step tool lists.
+
+ALL_TOOLS is imported by agent.py and step_loader.py.
+"""
+
+from __future__ import annotations
+
+from tools.general import (
+    add_flag,
+    get_workflow_status,
+    save_step_report,
+    write_todo,
+)
+from tools.scenario_tools import (
+    build_scenario_summary,
+    detect_contradictions,
+    parse_extracted_entities,
+    parse_loan_file,
+    route_to_facets,
+)
+from tools.crosscutting_tools import (
+    check_overlay_conflicts,
+    generate_crosscutting_conditions,
+)
+from tools.income_tools import generate_income_conditions, load_guideline_sections
+from tools.assets_tools import generate_asset_conditions
+from tools.credit_tools import generate_credit_conditions
+from tools.property_tools import generate_property_conditions
+from tools.title_tools import generate_title_conditions
+from tools.compliance_tools import generate_compliance_conditions
+from tools.merger_tools import generate_final_output, merge_conditions, rank_conditions
+
+# General tools — always available regardless of step
+GENERAL_TOOLS = [
+    write_todo,
+    add_flag,
+    save_step_report,
+    get_workflow_status,
+]
+
+# Per-step tool lists (mirrors registry.py for convenience)
+STEP_TOOLS = {
+    "STEP_00": [
+        parse_loan_file,
+        parse_extracted_entities,
+        build_scenario_summary,
+        detect_contradictions,
+        route_to_facets,
+    ],
+    "STEP_01": [
+        check_overlay_conflicts,
+        generate_crosscutting_conditions,
+    ],
+    "STEP_02": [
+        load_guideline_sections,
+        generate_income_conditions,
+    ],
+    "STEP_03": [
+        load_guideline_sections,
+        generate_asset_conditions,
+    ],
+    "STEP_04": [
+        load_guideline_sections,
+        generate_credit_conditions,
+    ],
+    "STEP_05": [
+        load_guideline_sections,
+        generate_property_conditions,
+    ],
+    "STEP_06": [
+        load_guideline_sections,
+        generate_title_conditions,
+    ],
+    "STEP_07": [
+        load_guideline_sections,
+        generate_compliance_conditions,
+    ],
+    "STEP_08": [
+        merge_conditions,
+        rank_conditions,
+        generate_final_output,
+    ],
+}
+
+# All tools — full flat list used for agent initialization
+ALL_TOOLS = list(
+    {t.name: t for t in GENERAL_TOOLS + [t for step in STEP_TOOLS.values() for t in step]}.values()
+)

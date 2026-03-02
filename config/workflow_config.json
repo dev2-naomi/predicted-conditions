@@ -1,0 +1,129 @@
+{
+  "phases": {
+    "SCENARIO": {
+      "order": 1,
+      "steps": [0]
+    },
+    "CONDITIONS": {
+      "order": 2,
+      "steps": [1, 2, 3, 4, 5, 6, 7]
+    },
+    "FINALIZATION": {
+      "order": 3,
+      "steps": [8]
+    }
+  },
+  "steps": {
+    "STEP_00": {
+      "name": "Scenario Builder",
+      "description": "Parse MISMO XML and extracted-entities JSON into scenario_summary; detect missing variables and contradictions; route docs and overlays to facets.",
+      "plan_file": "step_00_scenario_builder.md",
+      "substeps": [
+        { "id": "0.1", "name": "Parse MISMO XML loan file", "tools": ["parse_loan_file"] },
+        { "id": "0.2", "name": "Parse extracted entities JSON", "tools": ["parse_extracted_entities"] },
+        { "id": "0.3", "name": "Build scenario summary and detect contradictions", "tools": ["build_scenario_summary", "detect_contradictions"] },
+        { "id": "0.4", "name": "Route docs and overlays to facets", "tools": ["route_to_facets"] },
+        { "id": "0.5", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_01": {
+      "name": "Cross-Cutting Gatekeeper",
+      "description": "Generate cross-cutting conditions: missing core variables, contradictions, overlay conflicts, universal compliance prerequisites.",
+      "plan_file": "step_01_cross_cutting.md",
+      "substeps": [
+        { "id": "1.1", "name": "Check overlay conflicts", "tools": ["check_overlay_conflicts"] },
+        { "id": "1.2", "name": "Generate cross-cutting conditions", "tools": ["generate_crosscutting_conditions"] },
+        { "id": "1.3", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_02": {
+      "name": "Income Conditions Engine",
+      "description": "Generate income-only conditions for W2, self-employed, bank statement, retirement, rental, DSCR, etc.",
+      "plan_file": "step_02_income.md",
+      "substeps": [
+        { "id": "2.1", "name": "Load income guideline sections", "tools": ["load_guideline_sections"] },
+        { "id": "2.2", "name": "Generate income conditions", "tools": ["generate_income_conditions"] },
+        { "id": "2.3", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_03": {
+      "name": "Assets Conditions Engine",
+      "description": "Generate conditions for assets, funds to close, and reserves.",
+      "plan_file": "step_03_assets.md",
+      "substeps": [
+        { "id": "3.1", "name": "Load assets guideline sections", "tools": ["load_guideline_sections"] },
+        { "id": "3.2", "name": "Generate asset conditions", "tools": ["generate_asset_conditions"] },
+        { "id": "3.3", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_04": {
+      "name": "Credit Conditions Engine",
+      "description": "Generate credit-only conditions covering report completeness, housing history, bankruptcy, etc.",
+      "plan_file": "step_04_credit.md",
+      "substeps": [
+        { "id": "4.1", "name": "Load credit guideline sections", "tools": ["load_guideline_sections"] },
+        { "id": "4.2", "name": "Generate credit conditions", "tools": ["generate_credit_conditions"] },
+        { "id": "4.3", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_05": {
+      "name": "Property and Appraisal Conditions Engine",
+      "description": "Generate conditions for subject property and appraisal requirements.",
+      "plan_file": "step_05_property_appraisal.md",
+      "substeps": [
+        { "id": "5.1", "name": "Load property guideline sections", "tools": ["load_guideline_sections"] },
+        { "id": "5.2", "name": "Generate property and appraisal conditions", "tools": ["generate_property_conditions"] },
+        { "id": "5.3", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_06": {
+      "name": "Title and Closing Conditions Engine",
+      "description": "Generate conditions for title, escrow, payoffs, and closing.",
+      "plan_file": "step_06_title_closing.md",
+      "substeps": [
+        { "id": "6.1", "name": "Load title guideline sections", "tools": ["load_guideline_sections"] },
+        { "id": "6.2", "name": "Generate title and closing conditions", "tools": ["generate_title_conditions"] },
+        { "id": "6.3", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_07": {
+      "name": "Compliance Conditions Engine",
+      "description": "Generate conditions for compliance, disclosures, and affidavits.",
+      "plan_file": "step_07_compliance.md",
+      "substeps": [
+        { "id": "7.1", "name": "Load compliance guideline sections", "tools": ["load_guideline_sections"] },
+        { "id": "7.2", "name": "Generate compliance conditions", "tools": ["generate_compliance_conditions"] },
+        { "id": "7.3", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_08": {
+      "name": "Merger and Ranker",
+      "description": "Merge outputs from modules 01-07; de-duplicate, resolve conflicts, rank, and output final JSON.",
+      "plan_file": "step_08_merger_ranker.md",
+      "substeps": [
+        { "id": "8.1", "name": "Merge and de-duplicate conditions", "tools": ["merge_conditions"] },
+        { "id": "8.2", "name": "Rank conditions", "tools": ["rank_conditions"] },
+        { "id": "8.3", "name": "Generate final output", "tools": ["generate_final_output"] },
+        { "id": "8.4", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    }
+  },
+  "general_tools": [
+    "write_todo",
+    "get_workflow_status",
+    "add_flag",
+    "save_step_report"
+  ],
+  "middleware": {
+    "summarization": { "enabled": true },
+    "tool_filtering": { "enabled": true },
+    "plan_injection": { "enabled": true },
+    "max_tool_result_size": 30000
+  },
+  "dev_mode": {
+    "enabled": false,
+    "skip_steps": [],
+    "cutoff_step": null,
+    "run_only_substeps": []
+  }
+}
