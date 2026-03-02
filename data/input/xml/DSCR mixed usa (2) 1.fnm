@@ -1,0 +1,53 @@
+EH                                20250929   ENV1     
+TH T100099-002TRAN1    
+TPI1.00 01                              N
+0001  3.20 W
+00ANN
+01A01                                                                                                              92010190845          600000.00  7.74936005                                                                                                                                                                
+02A25 SCHOOL ST                                      BRISTOL                            NH03222      4F1SEE PRELIM TITLE REPORT                                                         1930
+02B  05                                                                                D                                                            1        
+02CGreig Morrison                                              
+02D2012      700000.00      128277.86           0.00           0.0001                                                                                            0.00
+03ABW017600054Greig                                                                 Morrison                               5083263697 60  M 0N         19641208jgm1519@gmail.com                                                               
+03C017600054ZG170 Severance Rd                                  Moultonborough                     NH03226    O12                                                    
+05H017600054226        4298.06
+05H017600054201         540.17
+05H017600054214         565.11
+05I017600054SI       -5403.34
+06G01760005425 SCHOOL ST                       BRISTOL                            NH03222    R       1147000.00      128215.46           0.00        4298.06        1105.28       -5403.34NY1                
+06G017600054170 Severance Rd                   Moultonborough                     NH03226    R        750000.00           0.00           0.00           0.00         800.00           0.00YN2                
+06L017600054M CARRINGTON MORTGAGE SE                                                                                              3000119788                            3329.00356      344153.00N  NN  
+06L017600054M VSB                                                                                                                 1710001013                            2598.80  0       98285.39Y1 NNYY
+06L017600054I SBA                                                                                                                 8219448604                             171.00  0       35000.00N  NN  
+06L017600054M VSB                                                                                                                 170219701                              534.49  0       29930.07Y1 NNYY
+06L017600054R AMEX                                                                                                                3499931725057643                       164.00 31        4998.00N  NN  
+06L017600054R CITICARDS CBNA                                                                                                      5424181458431637                        41.00 85        3464.00N  NN  
+06L017600054F VW CREDIT INC                                                                                                       8135734953                             427.00  5        2136.00N  NN  
+06L017600054R SYNCB/LOWE                                                                                                          7981924223187436                        30.00 58        1728.00N  NN  
+07A           0.00           0.00           0.00      128277.86       11295.76       21274.99           0.00        4500.00           0.00           0.00           0.00
+08A017600054NN       01NY101
+08B01760005492                                                                                                                                                                                                                                                               
+08B01760005493                                                                                                                                                                                                                                                               
+08B01760005496                                                                                                                                                                                                                                                               
+10A017600054N2                              M
+10B Robert Beaty                                                        3175088402Ixonia Bank                        W 1046 Marietta Avenue                                                Ixonia                             WI53036    
+10R0176000545 
+00070 3.20 
+99B F1     1147000.00       01   Stephen Wells                                               NH Certified General Appraiser     NHCG-275         
+ADSLoanOriginatorID                   445487                                            
+ADSLoanOriginationCompanyID           423065                                            
+ADSAppraisalIdentifier                                                                  
+ADSTotalMortgagedPropertiesCount      1                                                 
+ADSHMDAGenderType                     017600054:Male                                    
+ADSHMDAGenderRefusalIndicator         017600054:N                                       
+ADSHMDAEthnicityType                  017600054:NotHispanicOrLatino                     
+ADSHMDAEthnicityRefusalIndicator      017600054:N                                       
+ADSHMDARaceType                       017600054:1:White                                 
+ADSHMDARaceRefusalIndicator           017600054:N                                       
+ADSApplicationTakenMethodType         017600054:Telephone                               
+00011 3.20 
+LNC1C01        16       N     0.000                      N2025092520251101  0.000   1.656 N
+PIDDSCR Multi & Mixed Use 30yr Fi                    
+PCH360N01N   
+TT TRAN1    
+ET ENV1     

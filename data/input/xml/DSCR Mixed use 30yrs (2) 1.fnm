@@ -1,0 +1,81 @@
+EH                                20250929   ENV1     
+TH T100099-002TRAN1    
+TPI1.00 01                              N
+0001  3.20 W
+00AYN
+01A01                                                                                                              92010191532          636000.00  9.99836005                                                                                                                                                                
+02A687 E 234TH ST                                    BRONX                              NY10466      4F1SEE PRELIM TITLE REPORT                                                         1930
+02B  16                                                                                D                                                            1        
+02CJose F Luzon                                                
+02CMonica E Vigay Heras                                        
+02E        212000.00Checking                                                                        
+03ABW869810930Jose                               F                                  Luzon                                  9145654647 49  M 0Y88787720919760119JLuzon19@gmail.com                                                              
+03AQZ887877209Monica                             E                                  Vigay Heras                            9145654647 43  M 0Y86981093019820715monicavigay82@hotmail.com                                                       
+03C869810930ZG967 E 178th street                                Bronx                              NY10460    O 5                                                    
+03C887877209ZG967  E 178th street                               Bronx                              NY10460    O 5                                                    
+05H869810930126        3073.00
+05H869810930226        5580.42
+05H869810930201         765.76
+05H869810930214        2645.74
+05I869810930SI       -8991.92
+06G869810930967 E. 178th St                    Bronx                              NY10460    R        850000.00      356384.00           0.00        3073.00           0.00           0.00YN1                
+06L869810930A Past Due Property Taxes                                                                                                                                      0.00  0       11761.00N  NN  
+06L869810930M FREEDOM MORTGAGE                   11988 EXIT 5 PRKWY BLDG 4          FISHERS                            IN46037    60702768                              3073.00272      356384.00N1 NNNY
+06L869810930I TOYOTA FINANCIAL SER               CREDIT DISPUTE RESEARCH TEAM       CEDAR RAPIDS                       IA52409    70402268471870001                     1091.00 55       53281.00N  NN  
+06L887877209R TD RCS/RAYMOUR & FLA               1000 MACARTHUR BLVD.               MAHWAH                             NJ         6006101208908043                       115.00 27        3062.00N  NN  
+06L869810930R BANK OF AMERICA                    PO BOX 982238                      EL PASO                            TX79998    4400663078506220                        25.00 92        2293.00N  NN  
+06L869810930R CITICARDS CBNA                     5800 SOUTH CORPORATE PLACE         SIOUX FALLS                        SD57108    542418142180                            41.00 50        2045.00N  NN  
+06L887877209R AMEX/DSNB                          PO BOX 6789                        SIOUX FALLS                        SD57117    377481579345999                         30.00  4         112.00N  NN  
+07A      848000.00           0.00           0.00           0.00       17425.12       56263.26           0.00           0.00           0.00           0.00           0.00
+07B01       40000.00
+07B02       48000.00
+07B         15900.00
+08A869810930NN       03NN   
+08A887877209NN       03NN   
+08B86981093092                                                                                                                                                                                                                                                               
+08B86981093093                                                                                                                                                                                                                                                               
+08B86981093096                                                                                                                                                                                                                                                               
+08B88787720992                                                                                                                                                                                                                                                               
+08B88787720993                                                                                                                                                                                                                                                               
+08B88787720996                                                                                                                                                                                                                                                               
+10A869810930N1                              M
+10A887877209N1                              F
+10B Eli Weissman                                                        7188077423Align Capital Corp.                11 Miller Cir,                                                        Armonk                             NY10504    
+10R8698109305 
+10R8878772095 
+00070 3.20 
+99BN        920000.00       01   Kenneth V. Wolf                                             Allied Appraisal Co                46000040245      
+ADSLoanOriginatorID                   00000                                             
+ADSLoanOriginationCompanyID           000                                               
+ADSAppraisalIdentifier                                                                  
+ADSTotalMortgagedPropertiesCount      2                                                 
+ADSHMDAGenderType                     869810930:Male                                    
+ADSHMDAGenderRefusalIndicator         869810930:N                                       
+ADSHMDAEthnicityType                  869810930:HispanicOrLatino                        
+ADSHMDAEthnicityOriginType            869810930:Other                                   
+ADSHMDAEthnicityOriginTypeOtherDesc   869810930:hispanic                                
+ADSHMDAEthnicityRefusalIndicator      869810930:N                                       
+ADSHMDARaceType                       869810930:1:White                                 
+ADSHMDARaceRefusalIndicator           869810930:N                                       
+ADSHMDAEthnicityCollectedBasedOnVisual869810930:Y                                       
+ADSHMDAGenderCollectedBasedOnVisual   869810930:Y                                       
+ADSHMDARaceCollectedBasedOnVisual     869810930:Y                                       
+ADSApplicationTakenMethodType         869810930:FaceToFace                              
+ADSHMDAGenderType                     887877209:Female                                  
+ADSHMDAGenderRefusalIndicator         887877209:N                                       
+ADSHMDAEthnicityType                  887877209:HispanicOrLatino                        
+ADSHMDAEthnicityOriginType            887877209:Other                                   
+ADSHMDAEthnicityOriginTypeOtherDesc   887877209:hispanic                                
+ADSHMDAEthnicityRefusalIndicator      887877209:N                                       
+ADSHMDARaceType                       887877209:1:White                                 
+ADSHMDARaceRefusalIndicator           887877209:N                                       
+ADSHMDAEthnicityCollectedBasedOnVisual887877209:Y                                       
+ADSHMDAGenderCollectedBasedOnVisual   887877209:Y                                       
+ADSHMDARaceCollectedBasedOnVisual     887877209:Y                                       
+ADSApplicationTakenMethodType         887877209:FaceToFace                              
+00011 3.20 
+LNC1C01        16       N     0.000                      N2025092320251101  0.000   4.095 N
+PIDDSCR Multi & Mixed Use 30yr Fi                    
+PCH360N01Y   
+TT TRAN1    
+ET ENV1     
