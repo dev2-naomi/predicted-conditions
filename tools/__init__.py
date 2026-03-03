@@ -15,8 +15,9 @@ from tools.general import (
 from tools.scenario_tools import (
     build_scenario_summary,
     detect_contradictions,
-    parse_extracted_entities,
     parse_loan_file,
+    parse_loan_profile,
+    parse_submitted_documents,
     route_to_facets,
 )
 from tools.crosscutting_tools import (
@@ -43,7 +44,8 @@ GENERAL_TOOLS = [
 STEP_TOOLS = {
     "STEP_00": [
         parse_loan_file,
-        parse_extracted_entities,
+        parse_loan_profile,
+        parse_submitted_documents,
         build_scenario_summary,
         detect_contradictions,
         route_to_facets,

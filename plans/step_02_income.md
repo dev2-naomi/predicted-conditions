@@ -11,6 +11,11 @@ You must NOT generate:
 - reserves-only asset conditions (unless directly needed to calculate income via bank statement program)
 - credit-only conditions
 - appraisal/title conditions
+- OFAC/CIP/identity screening conditions (those belong to Compliance STEP_07)
+- entity vesting restriction conditions (those belong to Compliance STEP_07)
+- borrower eligibility conditions (those belong to Compliance STEP_07)
+- conditions for requirements that are exempt, not applicable, or already satisfied
+- speculative "if applicable" conditions — only generate when evidence triggers the requirement
 
 ## Inputs
 - scenario_summary

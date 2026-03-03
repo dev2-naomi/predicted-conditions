@@ -39,7 +39,7 @@ Return:
 Group conditions by condition_family_id.
 If condition_family_id missing, derive from title using known mappings; if cannot, keep separate.
 
-### 2) Choose the “Strictest” Requirement
+### 2) Choose the "Strictest" Requirement
 When two conditions in same family differ:
 - Prefer HARD-STOP over SOFT-STOP
 - Prefer lower priority number: P0 > P1 > P2 > P3
@@ -89,8 +89,23 @@ Within same band:
 (You may adjust ordering if scenario indicates something more urgent, but do not violate priority/severity.)
 
 ### 6) Quality Filters
+**a) Remove "not applicable" / negative conditions:**
+Any condition whose title says "not applicable", "not required", "exempt", "exemption applies",
+or similar is NOT an actionable condition — remove it. If a requirement doesn't apply, it
+should never have been generated.
+
+**b) Remove speculative / hypothetical conditions:**
+Any condition whose title says "if applicable", "if any", etc. without positive evidence
+should be removed. Conditions must be evidence-driven, not "just in case".
+
+**c) Cross-module de-duplication:**
+Normalize condition_family_id by stripping module prefixes (INC_, CRD_, CMP_, TTL_, AST_, PROP_)
+and matching against a synonym table. Merge OFAC conditions from Credit and Compliance into one.
+Merge entity vesting conditions from Income, Title, and Compliance into one.
+
+**d) Satisfied conditions:**
 Remove conditions that are clearly satisfied by evidence_found only if:
-- evidence_found contains explicit “meets requirement” facts
+- evidence_found contains explicit "meets requirement" facts
 AND
 - guideline_trace indicates no further verification needed
 Otherwise keep.

@@ -3,6 +3,10 @@ crosscutting_tools.py — Tools for STEP_01: Cross-Cutting Gatekeeper.
 
 Generates conditions for missing core variables, contradictions,
 overlay conflicts, and universal compliance prerequisites.
+
+Cross-cutting conditions are structural (missing data, contradictions)
+so they remain deterministic, but guideline_trace is populated from
+the actual guidelines.md content.
 """
 
 from __future__ import annotations
@@ -10,9 +14,13 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from langchain_core.tools import InjectedToolArg, tool
+from langchain_core.messages import ToolMessage
+from langchain_core.tools import InjectedToolCallId, tool
+from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import Annotated
+
+from tools.shared.guidelines import build_guideline_trace
 
 
 def _make_condition(
@@ -59,7 +67,8 @@ def _make_condition(
 
 @tool
 def check_overlay_conflicts(
-    state: Annotated[dict, InjectedToolArg] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
     Identify overlays that attempt to relax NQMF guidelines without
@@ -95,19 +104,22 @@ def check_overlay_conflicts(
             })
             illegal_overlays.append(overlay.get("overlay_id"))
 
+    msg = f"Found {len(seen_conflicts)} overlay conflict(s), {len(illegal_overlays)} illegal relaxation(s)."
     return Command(update={
         "module_outputs": {
             "01_overlay_conflicts": {
                 "seen_conflicts": seen_conflicts,
                 "illegal_overlay_ids": illegal_overlays,
             }
-        }
+        },
+        "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
     })
 
 
 @tool
 def generate_crosscutting_conditions(
-    state: Annotated[dict, InjectedToolArg] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
     Generate cross-cutting conditions:
@@ -161,13 +173,9 @@ def generate_crosscutting_conditions(
             confidence=0.95,
             triggers=[f"missing: {v}" for v in missing],
             required_data_elements=missing,
-            guideline_trace=[{
-                "section": "GENERAL UNDERWRITING REQUIREMENTS",
-                "requirement": (
-                    "All loan scenario variables required for eligibility determination "
-                    "must be present and verifiable before underwriting proceeds."
-                ),
-            }],
+            guideline_trace=build_guideline_trace(
+                ["GENERAL UNDERWRITING REQUIREMENTS"], "eligibility"
+            ),
             resolution_criteria=[
                 f"Provide and confirm the value for: {v}" for v in missing
             ],
@@ -207,13 +215,9 @@ def generate_crosscutting_conditions(
             triggers=[f"{ctype} detected"] + [c.get("details", "")[:80] for c in group],
             required_documents=["Corrected/updated documents resolving the discrepancy"],
             required_data_elements=["Corrected field values from both sources"],
-            guideline_trace=[{
-                "section": "GENERAL UNDERWRITING REQUIREMENTS",
-                "requirement": (
-                    "All data elements must be consistent across the loan file and "
-                    "supporting documents. Discrepancies must be resolved in writing."
-                ),
-            }],
+            guideline_trace=build_guideline_trace(
+                ["GENERAL UNDERWRITING REQUIREMENTS"], "discrepan"
+            ),
             resolution_criteria=[
                 "Provide a written explanation and corrected documentation resolving "
                 f"the {ctype.replace('_', ' ').lower()}."
@@ -244,13 +248,9 @@ def generate_crosscutting_conditions(
             confidence=0.75,
             triggers=[f"overlay {oid} attempts relaxation without exception"],
             required_data_elements=["exception_allowed confirmation from overlay source"],
-            guideline_trace=[{
-                "section": "GENERAL UNDERWRITING REQUIREMENTS",
-                "requirement": (
-                    "Overlays may only relax guidelines if exception_allowed=true is "
-                    "explicitly set by the overlay source."
-                ),
-            }],
+            guideline_trace=build_guideline_trace(
+                ["GENERAL UNDERWRITING REQUIREMENTS"], "overlay"
+            ),
             overlay_trace=[{"overlay_id": oid}],
             resolution_criteria=[
                 f"Confirm overlay '{oid}' has exception_allowed=true or remove the overlay."
@@ -263,7 +263,10 @@ def generate_crosscutting_conditions(
         "seen_conflicts": seen_conflicts,
     }
 
+    titles = [c["title"] for c in conditions]
+    msg = f"Generated {len(conditions)} crosscutting condition(s): {titles}" if conditions else "No crosscutting conditions generated."
     return Command(update={
         "module_outputs": {"01": module_output},
         "current_step": "STEP_01",
+        "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
     })

@@ -8,6 +8,10 @@ Do NOT generate:
 - income docs
 - appraisal/title items
 - reserves items
+- OFAC/CIP screening conditions (those belong to Compliance STEP_07)
+- conditions for requirements that are exempt or not applicable to this scenario
+  (e.g., if DSCR exempts credit inquiries, do NOT generate an "exempt" condition — just omit it)
+- speculative conditions without evidence
 
 ## Inputs
 - scenario_summary
@@ -27,9 +31,10 @@ Do NOT generate:
 - LETTER_OF_EXPLANATION_CREDIT_EVENT
 - BANKRUPTCY_DISCHARGE_DOCUMENTS
 - FORECLOSURE_SHORTSALE_DOCUMENTS
-- FRAUD_ALERT_OFAC_VERIFICATION
 - UNDISCLOSED_DEBT_INQUIRY_EXPLANATION
 - TRADLINE_REQUIREMENTS_VERIFICATION
+
+Note: FRAUD_ALERT_OFAC_VERIFICATION belongs to Compliance (STEP_07). Do NOT generate it here.
 
 ## Deterministic Checks
 1) Credit report completeness:
@@ -37,11 +42,11 @@ Do NOT generate:
 2) Mortgage/rent history:
    - Per NQMF "HOUSING HISTORY" section requirements (e.g., 0x30 last 12 months), request VOM or housing history evidence if not present
 3) Credit events:
-   - If indicators present (BK/FC/SS), request discharge/recording dates + LOE per NQMF "HOUSING EVENTS AND PRIOR BANKRUPTCY" section
+   - ONLY if indicators present (BK/FC/SS), request discharge/recording dates + LOE per NQMF "HOUSING EVENTS AND PRIOR BANKRUPTCY" section
 4) Disputed accounts:
-   - If disputes present, request removal or LOE and re-score per NQMF "DISPUTED ACCOUNTS" section
+   - ONLY if disputes present, request removal or LOE and re-score per NQMF "DISPUTED ACCOUNTS" section
 5) Inquiries:
-   - If recent inquiries, request LOE per NQMF "CREDIT INQUIRIES" section
+   - ONLY if recent inquiries exist and the program does NOT exempt them. If exempted, omit entirely.
 
 ## Overlay Handling
 Apply stricter overlays (e.g., minimum tradelines, max disputes) as additional/tightened conditions.

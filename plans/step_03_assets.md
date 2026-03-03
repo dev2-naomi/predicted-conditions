@@ -4,7 +4,13 @@
 Generate predictive underwriting conditions related to ASSETS, FUNDS TO CLOSE, and RESERVES.
 Use only asset docs, asset overlays, and the relevant NQMF guideline sections.
 
-Do NOT generate income documentation conditions (except when asset evidence directly affects a KG rule like “business funds used for down payment require CPA letter” if that is tagged asset rule).
+Do NOT generate:
+- Income documentation conditions (except when asset evidence directly impacts asset rules)
+- Conditions for requirements that are exempt or not applicable to this scenario
+  (e.g., do NOT say "large deposits not required for DSCR" — just omit it)
+- Speculative "if applicable" conditions (e.g., do NOT generate gift funds conditions
+  unless there is actual evidence of gift funds in the scenario)
+- OFAC/CIP/identity conditions (those belong to Compliance STEP_07)
 
 ## Inputs
 - scenario_summary
@@ -34,10 +40,10 @@ Do NOT generate income documentation conditions (except when asset evidence dire
 1) Completeness: require all pages, all accounts, consecutive months per KG/overlay
 2) Ownership: names match borrower(s); if mismatch -> condition (or send to CrossCutting if identity-level)
 3) Large deposits:
-   - If extracted_entities.large_deposit_flag=true OR deposits exceed threshold per NQMF "ASSET DOCUMENTATION" section
+   - ONLY if extracted_entities.large_deposit_flag=true OR deposits exceed threshold per NQMF "ASSET DOCUMENTATION" section
    - Request source documentation + LOE + paper trail
 4) Gifts:
-   - If gift indicator or doc present, request gift letter + donor ability + transfer evidence per NQMF "GIFT FUNDS" section
+   - ONLY if gift indicator or gift doc is actually present — do NOT generate if no gift evidence exists
 5) Reserves:
    - If program requires reserves based on occupancy/property/loan amount per NQMF "RESERVES" section, request proof and specify PITIA months
    - If PITIA unknown -> request PITIA or payment breakdown

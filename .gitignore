@@ -211,3 +211,6 @@ __marimo__/
 logs/
 *.log
 .DS_Store
+test_output.json
+agent-transcripts/
+*.local

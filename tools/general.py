@@ -9,7 +9,9 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from langchain_core.tools import InjectedToolArg, tool
+from langchain_core.messages import ToolMessage
+from langchain_core.tools import InjectedToolCallId, tool
+from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import Annotated
 
@@ -20,7 +22,8 @@ def write_todo(
     name: str,
     status: str,
     note: str = "",
-    state: Annotated[dict, InjectedToolArg] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
     Track the status of a substep.
@@ -31,7 +34,6 @@ def write_todo(
         status: One of "pending", "in_progress", "completed", "skipped", "failed".
         note: Optional note about this substep's result or reason for status.
     """
-    existing: list[dict] = (state or {}).get("todos", [])
     entry = {
         "substep_id": substep_id,
         "name": name,
@@ -39,10 +41,10 @@ def write_todo(
         "note": note,
         "updated_at": datetime.datetime.utcnow().isoformat(),
     }
-    # Replace existing entry for this substep_id if present
-    updated = [e for e in existing if e.get("substep_id") != substep_id]
-    updated.append(entry)
-    return Command(update={"todos": [entry]})
+    return Command(update={
+        "todos": [entry],
+        "messages": [ToolMessage(f"Todo '{substep_id}' set to {status}", tool_call_id=tool_call_id)],
+    })
 
 
 @tool
@@ -51,7 +53,8 @@ def add_flag(
     title: str,
     severity: str,
     detail: str,
-    state: Annotated[dict, InjectedToolArg] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
     Add a flag to the workflow state.
@@ -69,7 +72,16 @@ def add_flag(
         "detail": detail,
         "flagged_at": datetime.datetime.utcnow().isoformat(),
     }
-    return Command(update={"flags": [flag]})
+    return Command(update={
+        "flags": [flag],
+        "messages": [ToolMessage(f"Flag added: [{severity}] {title}", tool_call_id=tool_call_id)],
+    })
+
+
+_STEP_SEQUENCE = [
+    "STEP_00", "STEP_01", "STEP_02", "STEP_03", "STEP_04",
+    "STEP_05", "STEP_06", "STEP_07", "STEP_08",
+]
 
 
 @tool
@@ -77,10 +89,12 @@ def save_step_report(
     step_id: str,
     summary: str,
     outputs: dict,
-    state: Annotated[dict, InjectedToolArg] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Persist the findings for a completed step.
+    Persist the findings for a completed step and advance to the next step.
+    You MUST call this after completing each step's tools.
 
     Args:
         step_id: The step identifier (e.g. "STEP_00").
@@ -93,12 +107,25 @@ def save_step_report(
         "outputs": outputs,
         "completed_at": datetime.datetime.utcnow().isoformat(),
     }
-    return Command(update={"step_reports": {step_id: report}})
+
+    idx = _STEP_SEQUENCE.index(step_id) if step_id in _STEP_SEQUENCE else -1
+    if idx >= 0 and idx + 1 < len(_STEP_SEQUENCE):
+        next_step = _STEP_SEQUENCE[idx + 1]
+        msg = f"Step report saved for {step_id}. Advancing to {next_step}. Continue with {next_step} tools now."
+    else:
+        next_step = step_id
+        msg = f"Step report saved for {step_id}. This is the final step."
+
+    return Command(update={
+        "step_reports": {step_id: report},
+        "current_step": next_step,
+        "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
+    })
 
 
 @tool
 def get_workflow_status(
-    state: Annotated[dict, InjectedToolArg] = None,
+    state: Annotated[dict, InjectedState] = None,
 ) -> dict:
     """
     Return a summary of overall workflow progress: current step, completed steps,

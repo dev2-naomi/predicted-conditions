@@ -76,7 +76,8 @@ def _last_value(old: Any, new: Any) -> Any:  # noqa: ARG001
 class PredictiveConditionsState(TypedDict, total=False):
     # ---- Input fields (shown in LangGraph UI) ----
     loan_file_xml: str
-    extracted_entities_json: str
+    loan_profile_json: str
+    submitted_documents_json: str
     env: str  # "Test" | "Prod"
 
     # ---- Message history ----

@@ -235,6 +235,11 @@ def parse_mismo_xml(xml_content: str) -> dict[str, Any]:
         _find_text(root, "LOAN_DETAIL > BalloonIndicator")
     )
 
+    # ---- Refinance ----
+    result["cash_out_amount"] = _safe_float(
+        _find_text(root, "REFINANCE > RefinanceCashOutAmount")
+    )
+
     # ---- Property ----
     prop_nodes = _find_all(root, "SUBJECT_PROPERTY") or _find_all(root, "PROPERTY")
     if prop_nodes:
@@ -290,12 +295,50 @@ def parse_mismo_xml(xml_content: str) -> dict[str, Any]:
     if ltv_elem:
         result["ltv"] = _safe_float(ltv_elem)
     cltv_elem = _find_text(root, "COMBINED_LTV > CombinedLTVRatioPercent")
-    result["cltv"] = _safe_float(cltv_elem)
+    if cltv_elem:
+        result["cltv"] = _safe_float(cltv_elem)
 
-    # ---- FICO (FNM only) ----
+    # ---- FICO ----
     fico_nodes = _find_all(root, "CREDIT_SCORE_DETAIL")
-    if fico_nodes:
-        result["fico"] = _safe_float(_elem_text(fico_nodes[0], "CreditScoreValue"))
+    credit_scores: list[dict] = []
+    for cs_node in fico_nodes:
+        score_val = _safe_float(_elem_text(cs_node, "CreditScoreValue"))
+        if score_val and score_val > 0:
+            credit_scores.append({
+                "score": int(score_val),
+                "source": _elem_text(cs_node, "CreditRepositorySourceType"),
+                "model": _elem_text(cs_node, "CreditScoreModelType"),
+            })
+    result["credit_scores"] = credit_scores
+    if credit_scores:
+        result["fico"] = min(cs["score"] for cs in credit_scores)
+
+    # ---- DTI / Qualification ----
+    result["total_monthly_income"] = _safe_float(
+        _find_text(root, "QUALIFICATION > TotalMonthlyIncomeAmount")
+    )
+    result["total_monthly_liabilities"] = _safe_float(
+        _find_text(root, "QUALIFICATION > TotalLiabilitiesMonthlyPaymentAmount")
+    )
+    result["proposed_housing_expense"] = _safe_float(
+        _find_text(root, "QUALIFICATION > TotalMonthlyProposedHousingExpenseAmount")
+    )
+    if result["total_monthly_income"] and result["total_monthly_income"] > 0:
+        total_liabs = result.get("total_monthly_liabilities") or 0
+        result["dti"] = round(total_liabs / result["total_monthly_income"] * 100, 2)
+
+    # ---- Housing Expenses ----
+    housing_expenses: dict[str, list[dict]] = {"present": [], "proposed": []}
+    for he_node in _find_all(root, "HOUSING_EXPENSE"):
+        timing = _elem_text(he_node, "HousingExpenseTimingType") or ""
+        exp_type = _elem_text(he_node, "HousingExpenseType") or ""
+        amount = _safe_float(_elem_text(he_node, "HousingExpensePaymentAmount"))
+        entry = {"type": exp_type, "amount": amount}
+        if timing.lower() == "present":
+            housing_expenses["present"].append(entry)
+        elif timing.lower() == "proposed":
+            housing_expenses["proposed"].append(entry)
+    result["housing_expenses"] = housing_expenses
 
     # ---- Borrowers ----
     borrower_count_raw = _find_text(root, "LOAN_DETAIL > BorrowerCount")

@@ -4,6 +4,17 @@
 Generate predictive underwriting conditions related to COMPLIANCE, DISCLOSURES, and AFFIDAVITS.
 Use only compliance docs, overlays, and the relevant NQMF guideline sections.
 
+This is the ONLY module that should generate:
+- OFAC/exclusionary list screening conditions
+- CIP (Customer Identification Program) conditions
+- Entity vesting restriction conditions
+- Borrower eligibility conditions
+Other modules must NOT duplicate these.
+
+Do NOT generate:
+- conditions for requirements that are not applicable or already satisfied — just omit them
+- speculative conditions without evidence
+
 ## Inputs
 - scenario_summary
 - documents_subset: docs_by_facet.compliance
@@ -18,9 +29,13 @@ Use only compliance docs, overlays, and the relevant NQMF guideline sections.
 - BUSINESS_PURPOSE_AFFIDAVIT_REQUIRED (if business-purpose / investment / DSCR contexts)
 - BORROWER_AUTHORIZATION_FOR_VERIFICATIONS
 - PATRIOT_ACT_OFAC_VERIFICATION
-- TRID_TIMING_OR_DISCLOSURE_ACK (if applicable to your workflow)
+- CIP_IDENTITY_VERIFICATION
+- ENTITY_VESTING_RESTRICTION (if entity/LLC evidence detected)
 - OCCUPANCY_AFFIDAVIT (if required)
-- IDENTITY_DOCUMENTS_REQUIRED (if you keep it here; otherwise CrossCutting)
+- HPML_HIGH_COST_DETERMINATION
+- PREPAYMENT_PENALTY_COMPLIANCE
+- POINTS_AND_FEES_VERIFICATION
+- TRID_TIMING_OR_DISCLOSURE_ACK (if applicable to your workflow)
 
 Rules:
 - Don't "invent" compliance requirements; always trace to a specific NQMF guideline section or overlay.
