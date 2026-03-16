@@ -26,6 +26,7 @@ Output format per document:
 from __future__ import annotations
 
 import json
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Union
 
@@ -247,6 +248,145 @@ def _extract_entity_fields(metadata: dict) -> dict:
     return {k: v for k, v in metadata.items() if k not in NON_ENTITY_META_KEYS}
 
 
+def _parse_date(val: object) -> date | None:
+    """Parse a YYYY-MM-DD string into a date, returning None on failure."""
+    if not val or not isinstance(val, str):
+        return None
+    try:
+        return date.fromisoformat(val.strip())
+    except ValueError:
+        return None
+
+
+def _merge_paystubs(
+    paystub_entries: list[dict],
+    target_days: int = 30,
+) -> list[dict]:
+    """
+    Combine consecutive paystub entries so that the merged period spans
+    at least `target_days`.
+
+    Strategy:
+    - Parse payStubPeriodFrom / payStubPeriodTo from each entry's
+      extracted_fields.
+    - Sort entries chronologically (most recent last).
+    - Walk backwards from the most recent stub, accumulating entries
+      until the combined span (earliest_from → latest_to) >= target_days
+      OR all available stubs are consumed.
+    - Merge the selected entries into a single output entry:
+        * payStubPeriodFrom  — earliest date in the window
+        * payStubPeriodTo    — latest date in the window
+        * current_total      — sum of all per-period gross amounts
+        * YTD                — from the most recent stub (highest value)
+        * hours_total        — sum of hoursWorked across the window
+        * pay_periods        — list of individual period summaries (for
+                               traceability)
+        * all other fields   — taken from the most recent stub
+    - Entries that have no parseable dates are returned unchanged.
+
+    The function handles any pay frequency: weekly, bi-weekly,
+    semi-monthly, monthly, etc.
+    """
+    # Separate entries with parseable periods from those without
+    dated: list[tuple[date, date, dict]] = []
+    undated: list[dict] = []
+
+    for entry in paystub_entries:
+        fields = entry.get("extracted_fields", {})
+        from_dt = _parse_date(fields.get("payStubPeriodFrom"))
+        to_dt = _parse_date(fields.get("payStubPeriodTo"))
+        if from_dt and to_dt:
+            dated.append((from_dt, to_dt, entry))
+        else:
+            undated.append(entry)
+
+    if not dated:
+        return undated
+
+    # Sort chronologically by period start, then end
+    dated.sort(key=lambda x: (x[0], x[1]))
+
+    # Walk backwards from most-recent, accumulating until >= target_days
+    selected: list[tuple[date, date, dict]] = []
+    for item in reversed(dated):
+        selected.append(item)
+        earliest = min(x[0] for x in selected)
+        latest = max(x[1] for x in selected)
+        if (latest - earliest).days + 1 >= target_days:
+            break
+
+    # If we have only one stub and it doesn't cover target_days,
+    # include all available stubs regardless
+    if len(selected) < len(dated):
+        earliest = min(x[0] for x in selected)
+        latest = max(x[1] for x in selected)
+        if (latest - earliest).days + 1 < target_days:
+            selected = dated[:]  # use all
+
+    # Re-sort selected oldest→newest so we aggregate correctly
+    selected.sort(key=lambda x: (x[0], x[1]))
+
+    # Most-recent stub supplies the "header" fields
+    _, _, most_recent_entry = selected[-1]
+    most_recent_fields = most_recent_entry.get("extracted_fields", {})
+
+    # Aggregate numeric fields
+    current_total = 0.0
+    hours_total = 0.0
+    ytd = 0.0
+    pay_periods: list[dict] = []
+
+    for from_dt, to_dt, entry in selected:
+        fields = entry.get("extracted_fields", {})
+        try:
+            current_total += float(fields.get("current") or 0)
+        except (TypeError, ValueError):
+            pass
+        try:
+            hours_total += float(fields.get("hoursWorked") or 0)
+        except (TypeError, ValueError):
+            pass
+        try:
+            candidate_ytd = float(fields.get("YTD") or 0)
+            if candidate_ytd > ytd:
+                ytd = candidate_ytd
+        except (TypeError, ValueError):
+            pass
+        pay_periods.append({
+            "from": from_dt.isoformat(),
+            "to": to_dt.isoformat(),
+            "current": fields.get("current"),
+            "hoursWorked": fields.get("hoursWorked"),
+        })
+
+    earliest_from = selected[0][0]
+    latest_to = selected[-1][1]
+    span_days = (latest_to - earliest_from).days + 1
+
+    # Build merged extracted_fields on top of the most-recent stub's fields
+    merged_fields = dict(most_recent_fields)
+    merged_fields.update({
+        "payStubPeriodFrom": earliest_from.isoformat(),
+        "payStubPeriodTo": latest_to.isoformat(),
+        "periodSpanDays": span_days,
+        "current_total": current_total,
+        "hours_total": hours_total,
+        "YTD": ytd if ytd else most_recent_fields.get("YTD"),
+        "pay_periods": pay_periods,
+    })
+
+    merged_entry = dict(most_recent_entry)
+    merged_entry["extracted_fields"] = merged_fields
+    merged_entry["name"] = (
+        f"Paystub ({earliest_from.isoformat()} – {latest_to.isoformat()}, "
+        f"{len(selected)} period{'s' if len(selected) != 1 else ''}, "
+        f"{span_days} days)"
+    )
+
+    # Return the single merged entry plus any undated stubs
+    return [merged_entry] + undated
+
+
 def parse_manifest(manifest_path: Union[str, Path]) -> list[dict]:
     """
     Parse a Tasktile manifest JSON and return a submitted_documents list
@@ -297,7 +437,10 @@ def parse_manifest(manifest_path: Union[str, Path]) -> list[dict]:
             groups[key] = (doc, ts)
 
     # Build output — one entry per unique (category_id, group_name)
+    # Collect paystubs separately so they can be merged into a 30-day window.
     result: list[dict] = []
+    paystub_entries: list[dict] = []
+
     for (category_id, _group_name), (doc, _ts) in sorted(
         groups.items(), key=lambda x: (x[0][0], x[0][1])
     ):
@@ -308,13 +451,22 @@ def parse_manifest(manifest_path: Union[str, Path]) -> list[dict]:
         doc_type = CATEGORY_ID_TO_DOC_TYPE.get(category_id, "other")
         extracted = _extract_entity_fields(metadata)
 
-        result.append({
+        entry = {
             "doc_id": str(category_id),
             "name": category_name,
             "doc_type": doc_type,
             "extracted_fields": extracted,
             "flags": [],
-        })
+        }
+
+        if doc_type == "paystub":
+            paystub_entries.append(entry)
+        else:
+            result.append(entry)
+
+    # Merge paystubs into a combined 30-day window entry
+    if paystub_entries:
+        result.extend(_merge_paystubs(paystub_entries, target_days=30))
 
     return result
 
