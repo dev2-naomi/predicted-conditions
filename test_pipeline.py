@@ -128,13 +128,12 @@ def main():
         )
 
     initial_message = (
-        "Execute the FULL predictive conditions workflow from STEP_00 through STEP_08.\n\n"
+        "Execute the FULL predictive conditions workflow from STEP_00 through STEP_09.\n\n"
         "You MUST complete ALL steps in sequence. Do NOT stop after a single step.\n"
         "Do NOT output a summary between steps — just call the tools.\n\n"
         "Step sequence:\n"
         f"{step_sequence}\n"
         "  STEP_00b: check_submission_completeness\n"
-        "  STEP_00c: load_program_matrix, then generate_matrix_conditions\n"
         "  STEP_01: check_overlay_conflicts, generate_crosscutting_conditions\n"
         "  STEP_02: load_guideline_sections (income sections), then generate_income_conditions\n"
         "  STEP_03: load_guideline_sections (asset sections), then generate_asset_conditions\n"
@@ -142,7 +141,8 @@ def main():
         "  STEP_05: load_guideline_sections (property sections), then generate_property_conditions\n"
         "  STEP_06: load_guideline_sections (title sections), then generate_title_conditions\n"
         "  STEP_07: load_guideline_sections (compliance sections), then generate_compliance_conditions\n"
-        "  STEP_08: merge_conditions, rank_conditions, generate_final_output\n\n"
+        "  STEP_08: check_matrix_eligibility (deterministic), load_program_matrix (trimmed), generate_matrix_conditions\n"
+        "  STEP_09: merge_conditions, rank_conditions, generate_final_output\n\n"
         "For STEP_02 through STEP_07: first load the relevant guideline sections, then "
         "reason over the scenario_summary + guidelines to generate conditions.\n"
         f"{doc_info}"
@@ -232,11 +232,11 @@ def main():
         conditions_full = final_output.get("conditions_full", conditions)
     else:
         mo = state_vals.get("module_outputs", {})
-        ranked = mo.get("08_rank", {}).get("ranked_conditions", [])
-        merged = mo.get("08_merge", {}).get("merged_conditions", [])
+        ranked = mo.get("09_rank", {}).get("ranked_conditions", [])
+        merged = mo.get("09_merge", {}).get("merged_conditions", [])
         conditions_full = ranked or merged
         if not conditions_full:
-            for module_key in ["00c", "01", "02", "03", "04", "05", "06", "07"]:
+            for module_key in ["01", "02", "03", "04", "05", "06", "07", "08"]:
                 mod = mo.get(module_key, {})
                 conditions_full.extend(mod.get("conditions", []))
         conditions = _distill(conditions_full)

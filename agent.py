@@ -10,17 +10,26 @@ Architecture:
   to scope available tools to the current step (60-75% context reduction).
 - DynamicPlanMiddleware: injects the current step's plan as a transient
   system message before each LLM invocation (not persisted in history).
-- SummarizationMiddleware: stub — extend to compress completed-step context.
+- SummarizationMiddleware: compresses completed-step messages into a compact
+  summary before each LLM call, keeping only the current step's messages
+  in full detail.
 """
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Annotated, Any, Literal
 from typing_extensions import NotRequired
 
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt.tool_node import ToolNode
@@ -114,6 +123,85 @@ _llm = ChatAnthropic(
 
 
 # ---------------------------------------------------------------------------
+# Message summarization
+# ---------------------------------------------------------------------------
+
+_STEP_SAVE_REPORT_PATTERN = "Step report saved for "
+
+
+def _extract_step_from_tool_message(msg: ToolMessage) -> str | None:
+    """If a ToolMessage indicates a step was saved, return the step ID."""
+    content = msg.content if isinstance(msg.content, str) else ""
+    if _STEP_SAVE_REPORT_PATTERN in content:
+        # "Step report saved for STEP_02. Advancing to STEP_03..."
+        after = content.split(_STEP_SAVE_REPORT_PATTERN, 1)[1]
+        return after.split(".")[0].strip()
+    return None
+
+
+def _summarize_completed_steps(
+    messages: list[BaseMessage],
+    current_step: str | None,
+    step_reports: dict,
+) -> list[BaseMessage]:
+    """
+    Compress messages from completed steps into a single summary message.
+
+    Keeps the first HumanMessage (initial instructions) and all messages
+    from the current step in full detail. Everything in between gets
+    replaced by a compact summary built from step_reports.
+    """
+    if not messages or not current_step or not step_reports:
+        return messages
+
+    # Find the boundary: the last ToolMessage that says
+    # "Step report saved for STEP_XX. Advancing to {current_step}."
+    boundary_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        if isinstance(msg, ToolMessage):
+            step_id = _extract_step_from_tool_message(msg)
+            if step_id and step_id != current_step:
+                boundary_idx = i
+                break
+
+    # If no boundary found or very few messages, no need to summarize
+    if boundary_idx < 3:
+        return messages
+
+    # Build summary from step_reports
+    summary_lines = ["[COMPLETED STEPS SUMMARY]", ""]
+    for step_id, report in sorted(step_reports.items()):
+        summary_text = report.get("summary", "No summary.")
+        # Truncate very long summaries
+        if len(summary_text) > 300:
+            summary_text = summary_text[:300] + "..."
+        summary_lines.append(f"## {step_id}: {summary_text}")
+
+    # Also summarize condition counts from module_outputs if available
+    summary_lines.append("")
+
+    summary = "\n".join(summary_lines)
+
+    # Keep: first HumanMessage + summary + messages from current step onward
+    first_human = None
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            first_human = msg
+            break
+
+    current_step_messages = messages[boundary_idx + 1:]
+
+    result: list[BaseMessage] = []
+    if first_human:
+        result.append(first_human)
+    result.append(SystemMessage(content=summary))
+    result.extend(current_step_messages)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Graph nodes
 # ---------------------------------------------------------------------------
 
@@ -123,26 +211,46 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
     Main ReAct node.
 
     Before invoking the LLM:
-    1. Resolve tools for the current step (DynamicToolMiddleware).
-    2. Inject the current step's plan as a transient system message (DynamicPlanMiddleware).
+    1. Summarize completed-step messages (SummarizationMiddleware).
+    2. Resolve tools for the current step (DynamicToolMiddleware).
+    3. Inject the current step's plan as a transient system message
+       (DynamicPlanMiddleware).
     """
     # Dynamic tool binding
     step_tools = resolve_tools_for_step(state)
     llm_with_tools = _llm.bind_tools(step_tools)
 
-    # Build message list with optional transient plan injection
+    # Build message list with summarization
     messages: list[BaseMessage] = list(state.get("messages", []))
+    current_step = state.get("current_step")
+    step_reports = state.get("step_reports", {})
 
+    # Compress completed steps into a summary
+    messages = _summarize_completed_steps(messages, current_step, step_reports)
+
+    # Build the system prefix: plan + summary are merged into a single
+    # SystemMessage to satisfy Anthropic's constraint against multiple
+    # non-consecutive system messages.
     plan = resolve_plan_for_step(state)
+    system_parts: list[str] = []
     if plan:
-        # Insert plan as a system message immediately before the latest user/tool messages
-        injected = [SystemMessage(content=f"[CURRENT STEP PLAN]\n\n{plan}")] + messages
-    else:
-        # Use global system prompt on first call
-        if not messages:
-            injected = [SystemMessage(content=_SYSTEM_PROMPT)]
+        system_parts.append(f"[CURRENT STEP PLAN]\n\n{plan}")
+
+    # Extract any SystemMessage we inserted for the summary and merge it
+    # into the system prefix so there's only one SystemMessage at the front.
+    non_system: list[BaseMessage] = []
+    for msg in messages:
+        if isinstance(msg, SystemMessage):
+            system_parts.append(msg.content if isinstance(msg.content, str) else str(msg.content))
         else:
-            injected = messages
+            non_system.append(msg)
+
+    if system_parts:
+        injected = [SystemMessage(content="\n\n---\n\n".join(system_parts))] + non_system
+    elif not non_system:
+        injected = [SystemMessage(content=_SYSTEM_PROMPT)]
+    else:
+        injected = non_system
 
     response: AIMessage = llm_with_tools.invoke(injected)
     return {"messages": [response]}

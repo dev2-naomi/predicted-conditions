@@ -1,7 +1,7 @@
-# 08 — Condition Merger, De-Duper, Conflict Resolver, Ranker
+# 09 — Condition Merger, De-Duper, Conflict Resolver, Ranker
 
 ## Role
-You merge condition outputs from modules 01–07 into a single consolidated AUS-like set.
+You merge condition outputs from modules 01–08 into a single consolidated AUS-like set.
 You must:
 - De-duplicate using condition_family_id
 - Merge traces, required docs, and resolution criteria

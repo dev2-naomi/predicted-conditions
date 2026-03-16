@@ -21,7 +21,7 @@ from tools.scenario_tools import (
     route_to_facets,
 )
 from tools.doc_completeness_tools import check_submission_completeness
-from tools.matrix_eligibility_tools import generate_matrix_conditions, load_program_matrix
+from tools.matrix_eligibility_tools import check_matrix_eligibility, generate_matrix_conditions, load_program_matrix
 from tools.crosscutting_tools import (
     check_overlay_conflicts,
     generate_crosscutting_conditions,
@@ -55,10 +55,6 @@ STEP_TOOLS = {
     "STEP_00b": [
         check_submission_completeness,
     ],
-    "STEP_00c": [
-        load_program_matrix,
-        generate_matrix_conditions,
-    ],
     "STEP_01": [
         check_overlay_conflicts,
         generate_crosscutting_conditions,
@@ -88,6 +84,11 @@ STEP_TOOLS = {
         generate_compliance_conditions,
     ],
     "STEP_08": [
+        check_matrix_eligibility,
+        load_program_matrix,
+        generate_matrix_conditions,
+    ],
+    "STEP_09": [
         merge_conditions,
         rank_conditions,
         generate_final_output,

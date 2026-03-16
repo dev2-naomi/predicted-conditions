@@ -87,35 +87,6 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 }
         ],
     },
-    "STEP_00c": {
-        "name": "Program Matrix Eligibility Check",
-        "description": "Load the program-specific matrix from program_matrices.md and verify the loan meets LTV/FICO grid, geographic, borrower, property, and DTI eligibility requirements.",
-        "plan_file": "step_00c_program_eligibility.md",
-        "tools": ["load_program_matrix", "generate_matrix_conditions"],
-        "substeps": [
-                {
-                        "id": "0c.1",
-                        "name": "Load program matrix",
-                        "tools": [
-                                "load_program_matrix"
-                        ]
-                },
-                {
-                        "id": "0c.2",
-                        "name": "Generate matrix eligibility conditions",
-                        "tools": [
-                                "generate_matrix_conditions"
-                        ]
-                },
-                {
-                        "id": "0c.3",
-                        "name": "Save step report",
-                        "tools": [
-                                "save_step_report"
-                        ]
-                }
-        ],
-    },
     "STEP_01": {
         "name": "Cross-Cutting Gatekeeper",
         "description": "Generate cross-cutting conditions: missing core variables, contradictions, overlay conflicts, universal compliance prerequisites.",
@@ -320,34 +291,70 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         ],
     },
     "STEP_08": {
-        "name": "Merger and Ranker",
-        "description": "Merge outputs from modules 01-07; de-duplicate, resolve conflicts, rank, and output final JSON.",
-        "plan_file": "step_08_merger_ranker.md",
-        "tools": ["merge_conditions", "rank_conditions", "generate_final_output"],
+        "name": "Program Matrix Eligibility Check",
+        "description": "Load the program-specific matrix from program_matrices.md and verify the loan meets LTV/FICO grid, geographic, borrower, property, and DTI eligibility requirements.",
+        "plan_file": "step_08_program_eligibility.md",
+        "tools": ["check_matrix_eligibility", "load_program_matrix", "generate_matrix_conditions"],
         "substeps": [
                 {
                         "id": "8.1",
+                        "name": "Run deterministic matrix checks",
+                        "tools": [
+                                "check_matrix_eligibility"
+                        ]
+                },
+                {
+                        "id": "8.2",
+                        "name": "Load trimmed matrix for LLM review",
+                        "tools": [
+                                "load_program_matrix"
+                        ]
+                },
+                {
+                        "id": "8.3",
+                        "name": "Generate additional matrix conditions",
+                        "tools": [
+                                "generate_matrix_conditions"
+                        ]
+                },
+                {
+                        "id": "8.4",
+                        "name": "Save step report",
+                        "tools": [
+                                "save_step_report"
+                        ]
+                }
+        ],
+    },
+    "STEP_09": {
+        "name": "Merger and Ranker",
+        "description": "Merge outputs from modules 01-08; de-duplicate, resolve conflicts, rank, and output final JSON.",
+        "plan_file": "step_09_merger_ranker.md",
+        "tools": ["merge_conditions", "rank_conditions", "generate_final_output"],
+        "substeps": [
+                {
+                        "id": "9.1",
                         "name": "Merge and de-duplicate conditions",
                         "tools": [
                                 "merge_conditions"
                         ]
                 },
                 {
-                        "id": "8.2",
+                        "id": "9.2",
                         "name": "Rank conditions",
                         "tools": [
                                 "rank_conditions"
                         ]
                 },
                 {
-                        "id": "8.3",
+                        "id": "9.3",
                         "name": "Generate final output",
                         "tools": [
                                 "generate_final_output"
                         ]
                 },
                 {
-                        "id": "8.4",
+                        "id": "9.4",
                         "name": "Save step report",
                         "tools": [
                                 "save_step_report"
@@ -362,7 +369,7 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
 # Step ordering (derived from phases)
 # ---------------------------------------------------------------------------
 
-STEP_ORDER: list[str] = ["STEP_00", "STEP_00b", "STEP_00c", "STEP_01", "STEP_02", "STEP_03", "STEP_04", "STEP_05", "STEP_06", "STEP_07", "STEP_08"]
+STEP_ORDER: list[str] = ["STEP_00", "STEP_00b", "STEP_01", "STEP_02", "STEP_03", "STEP_04", "STEP_05", "STEP_06", "STEP_07", "STEP_08", "STEP_09"]
 
 
 # ---------------------------------------------------------------------------

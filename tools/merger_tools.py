@@ -1,5 +1,5 @@
 """
-merger_tools.py — Tools for STEP_08: Merger, De-Duper, Conflict Resolver, Ranker.
+merger_tools.py — Tools for STEP_09: Merger, De-Duper, Conflict Resolver, Ranker.
 
 Merges outputs from modules 01-07, de-duplicates by condition_family_id,
 resolves conflicts, ranks by priority, and generates the final output JSON.
@@ -230,7 +230,7 @@ def merge_conditions(
     all_conditions: list[dict] = []
     all_seen_conflicts: list[dict] = []
 
-    for module_key in ["00c", "01", "02", "03", "04", "05", "06", "07"]:
+    for module_key in ["01", "02", "03", "04", "05", "06", "07", "08"]:
         mod = module_outputs.get(module_key, {})
         all_conditions.extend(mod.get("conditions", []))
         all_seen_conflicts.extend(mod.get("seen_conflicts", []))
@@ -311,7 +311,7 @@ def merge_conditions(
     )
     return Command(update={
         "module_outputs": {
-            "08_merge": {
+            "09_merge": {
                 "merged_conditions": resolved,
                 "seen_conflicts": unique_conflicts,
             }
@@ -330,17 +330,17 @@ def rank_conditions(
     Order: P0 HARD-STOP → P1 HARD-STOP → P1 SOFT-STOP → P2 → P3.
     Within same band: Program Eligibility, Compliance, Credit, Income,
     Assets, Property/Appraisal, Title/Closing.
-    Returns ranked_conditions in module_outputs["08_rank"].
+    Returns ranked_conditions in module_outputs["09_rank"].
     """
     s = state or {}
     merged: list[dict] = (
-        s.get("module_outputs", {}).get("08_merge", {}).get("merged_conditions", [])
+        s.get("module_outputs", {}).get("09_merge", {}).get("merged_conditions", [])
     )
 
     ranked = sorted(merged, key=_sort_key)
 
     return Command(update={
-        "module_outputs": {"08_rank": {"ranked_conditions": ranked}},
+        "module_outputs": {"09_rank": {"ranked_conditions": ranked}},
         "messages": [ToolMessage(
             f"Ranked {len(ranked)} conditions by priority and severity.",
             tool_call_id=tool_call_id,
@@ -357,7 +357,7 @@ def generate_final_output(
     Assemble the final output JSON per the schema in 08_MergerRanker.md and
     the orchestrator prompt.
 
-    Returns the final_output dict in state, also stored in step_reports["STEP_08"].
+    Returns the final_output dict in state, also stored in step_reports["STEP_09"].
     """
     s = state or {}
     mo = s.get("module_outputs", {})
@@ -368,11 +368,11 @@ def generate_final_output(
         if not k.startswith("_")
     }
 
-    seen_conflicts = mo.get("08_merge", {}).get("seen_conflicts", [])
-    conditions: list[dict] = mo.get("08_rank", {}).get("ranked_conditions", [])
+    seen_conflicts = mo.get("09_merge", {}).get("seen_conflicts", [])
+    conditions: list[dict] = mo.get("09_rank", {}).get("ranked_conditions", [])
 
     if not conditions:
-        conditions = mo.get("08_merge", {}).get("merged_conditions", [])
+        conditions = mo.get("09_merge", {}).get("merged_conditions", [])
 
     # Stats
     hard_stops = sum(1 for c in conditions if c.get("severity") == "HARD-STOP")
@@ -405,7 +405,7 @@ def generate_final_output(
 
     return Command(update={
         "final_output": final,
-        "current_step": "STEP_08",
+        "current_step": "STEP_09",
         "messages": [ToolMessage(
             f"Final output generated: {len(conditions)} conditions, "
             f"{hard_stops} hard-stop(s). By priority: {by_priority}",

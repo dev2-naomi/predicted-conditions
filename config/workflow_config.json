@@ -2,15 +2,15 @@
   "phases": {
     "SCENARIO": {
       "order": 1,
-      "steps": [0, "0b", "0c"]
+      "steps": [0, "0b"]
     },
     "CONDITIONS": {
       "order": 2,
-      "steps": [1, 2, 3, 4, 5, 6, 7]
+      "steps": [1, 2, 3, 4, 5, 6, 7, 8]
     },
     "FINALIZATION": {
       "order": 3,
-      "steps": [8]
+      "steps": [9]
     }
   },
   "steps": {
@@ -33,16 +33,6 @@
       "substeps": [
         { "id": "0b.1", "name": "Check submission completeness", "tools": ["check_submission_completeness"] },
         { "id": "0b.2", "name": "Save step report", "tools": ["save_step_report"] }
-      ]
-    },
-    "STEP_00c": {
-      "name": "Program Matrix Eligibility Check",
-      "description": "Load the program-specific matrix and verify LTV/FICO grid, geographic, borrower, property, and DTI eligibility.",
-      "plan_file": "step_00c_program_eligibility.md",
-      "substeps": [
-        { "id": "0c.1", "name": "Load program matrix", "tools": ["load_program_matrix"] },
-        { "id": "0c.2", "name": "Generate matrix eligibility conditions", "tools": ["generate_matrix_conditions"] },
-        { "id": "0c.3", "name": "Save step report", "tools": ["save_step_report"] }
       ]
     },
     "STEP_01": {
@@ -116,14 +106,25 @@
       ]
     },
     "STEP_08": {
-      "name": "Merger and Ranker",
-      "description": "Merge outputs from modules 01-07; de-duplicate, resolve conflicts, rank, and output final JSON.",
-      "plan_file": "step_08_merger_ranker.md",
+      "name": "Program Matrix Eligibility Check",
+      "description": "Load the program-specific matrix and verify LTV/FICO grid, geographic, borrower, property, and DTI eligibility.",
+      "plan_file": "step_08_program_eligibility.md",
       "substeps": [
-        { "id": "8.1", "name": "Merge and de-duplicate conditions", "tools": ["merge_conditions"] },
-        { "id": "8.2", "name": "Rank conditions", "tools": ["rank_conditions"] },
-        { "id": "8.3", "name": "Generate final output", "tools": ["generate_final_output"] },
+        { "id": "8.1", "name": "Run deterministic matrix checks", "tools": ["check_matrix_eligibility"] },
+        { "id": "8.2", "name": "Load trimmed matrix for LLM review", "tools": ["load_program_matrix"] },
+        { "id": "8.3", "name": "Generate additional matrix conditions", "tools": ["generate_matrix_conditions"] },
         { "id": "8.4", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_09": {
+      "name": "Merger and Ranker",
+      "description": "Merge outputs from modules 01-08; de-duplicate, resolve conflicts, rank, and output final JSON.",
+      "plan_file": "step_09_merger_ranker.md",
+      "substeps": [
+        { "id": "9.1", "name": "Merge and de-duplicate conditions", "tools": ["merge_conditions"] },
+        { "id": "9.2", "name": "Rank conditions", "tools": ["rank_conditions"] },
+        { "id": "9.3", "name": "Generate final output", "tools": ["generate_final_output"] },
+        { "id": "9.4", "name": "Save step report", "tools": ["save_step_report"] }
       ]
     }
   },
