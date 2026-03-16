@@ -376,7 +376,7 @@ STEP_ORDER: list[str] = ["STEP_00", "STEP_00b", "STEP_01", "STEP_02", "STEP_03",
 # General tools — always available regardless of current step
 # ---------------------------------------------------------------------------
 
-GENERAL_TOOL_NAMES: list[str] = ["write_todo", "get_workflow_status", "add_flag", "save_step_report"]
+GENERAL_TOOL_NAMES: list[str] = ["write_todo", "get_workflow_status", "save_step_report"]
 
 
 # ---------------------------------------------------------------------------

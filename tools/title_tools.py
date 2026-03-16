@@ -29,6 +29,7 @@ def generate_title_conditions(
         conditions: List of condition dicts conforming to the standard schema.
     """
     for c in conditions:
+        c["category"] = "Title"
         c.setdefault("tags", [])
         for tag in ("title", "closing"):
             if tag not in c["tags"]:

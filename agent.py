@@ -61,18 +61,6 @@ def _append_list(old: list | None, new: list | None) -> list:
     return (old or []) + (new or [])
 
 
-def _dedupe_flags(old: list | None, new: list | None) -> list:
-    combined = (old or []) + (new or [])
-    seen: set[tuple] = set()
-    result: list[dict] = []
-    for flag in combined:
-        key = (flag.get("substep", ""), flag.get("title", ""))
-        if key not in seen:
-            seen.add(key)
-            result.append(flag)
-    return result
-
-
 def _last_value(old: Any, new: Any) -> Any:  # noqa: ARG001
     return new
 
@@ -100,7 +88,6 @@ class PredictiveConditionsState(TypedDict, total=False):
     overlays_by_facet: Annotated[NotRequired[dict], _merge_dicts]
     guideline_section_refs: Annotated[NotRequired[dict], _merge_dicts]
     module_outputs: Annotated[NotRequired[dict], _merge_dicts]
-    flags: Annotated[NotRequired[list[dict]], _dedupe_flags]
     current_step: Annotated[NotRequired[str], _last_value]
     step_reports: Annotated[NotRequired[dict], _merge_dicts]
     final_output: Annotated[NotRequired[dict], _last_value]

@@ -29,6 +29,7 @@ def generate_property_conditions(
         conditions: List of condition dicts conforming to the standard schema.
     """
     for c in conditions:
+        c["category"] = "Property"
         c.setdefault("tags", [])
         for tag in ("property", "appraisal"):
             if tag not in c["tags"]:

@@ -47,37 +47,6 @@ def write_todo(
     })
 
 
-@tool
-def add_flag(
-    substep: str,
-    title: str,
-    severity: str,
-    detail: str,
-    tool_call_id: Annotated[str, InjectedToolCallId] = "",
-    state: Annotated[dict, InjectedState] = None,
-) -> Command:
-    """
-    Add a flag to the workflow state.
-
-    Args:
-        substep: The substep identifier that triggered this flag.
-        title: Short title describing the flag.
-        severity: "HARD-STOP" | "SOFT-STOP" | "INFO".
-        detail: Full description of what was flagged and why.
-    """
-    flag = {
-        "substep": substep,
-        "title": title,
-        "severity": severity,
-        "detail": detail,
-        "flagged_at": datetime.datetime.utcnow().isoformat(),
-    }
-    return Command(update={
-        "flags": [flag],
-        "messages": [ToolMessage(f"Flag added: [{severity}] {title}", tool_call_id=tool_call_id)],
-    })
-
-
 _STEP_SEQUENCE = [
     "STEP_00", "STEP_00b", "STEP_01", "STEP_02", "STEP_03", "STEP_04",
     "STEP_05", "STEP_06", "STEP_07", "STEP_08", "STEP_09",
@@ -129,17 +98,14 @@ def get_workflow_status(
 ) -> dict:
     """
     Return a summary of overall workflow progress: current step, completed steps,
-    pending todos, and any flags raised.
+    and pending todos.
     """
     s = state or {}
     todos: list[dict] = s.get("todos", [])
-    flags: list[dict] = s.get("flags", [])
     step_reports: dict = s.get("step_reports", {})
 
     return {
         "current_step": s.get("current_step"),
         "completed_steps": list(step_reports.keys()),
         "todos": todos,
-        "flag_count": len(flags),
-        "hard_stops": sum(1 for f in flags if f.get("severity") == "HARD-STOP"),
     }

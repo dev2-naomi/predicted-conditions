@@ -29,6 +29,7 @@ def generate_asset_conditions(
         conditions: List of condition dicts conforming to the standard schema.
     """
     for c in conditions:
+        c["category"] = "Assets"
         c.setdefault("tags", [])
         if "assets" not in c["tags"]:
             c["tags"].append("assets")

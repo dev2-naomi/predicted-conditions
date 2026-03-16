@@ -7,7 +7,6 @@ ALL_TOOLS is imported by agent.py and step_loader.py.
 from __future__ import annotations
 
 from tools.general import (
-    add_flag,
     get_workflow_status,
     save_step_report,
     write_todo,
@@ -37,7 +36,6 @@ from tools.merger_tools import generate_final_output, merge_conditions, rank_con
 # General tools — always available regardless of step
 GENERAL_TOOLS = [
     write_todo,
-    add_flag,
     save_step_report,
     get_workflow_status,
 ]

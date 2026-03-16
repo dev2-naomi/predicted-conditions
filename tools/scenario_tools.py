@@ -331,12 +331,17 @@ def parse_loan_file(
     xml_content = (state or {}).get("loan_file_xml", "")
     if not xml_content:
         return Command(update={
-            "flags": [{
-                "substep": "0.1",
-                "title": "Missing loan file XML",
+            "module_outputs": {"00": {"conditions": [{
+                "category": "Program Eligibility",
                 "severity": "HARD-STOP",
-                "detail": "No loan_file_xml provided in state. Cannot proceed.",
-            }],
+                "priority": "P0",
+                "title": "Missing Loan File XML",
+                "description": "No loan_file_xml provided in state. Cannot proceed.",
+                "required_documents": ["MISMO XML loan file"],
+                "required_data_elements": [],
+                "condition_family_id": "missing_loan_file_xml",
+                "source_module": "00",
+            }]}},
             "messages": [ToolMessage("HARD-STOP: No loan_file_xml provided.", tool_call_id=tool_call_id)],
         })
 
@@ -344,12 +349,17 @@ def parse_loan_file(
 
     if "parse_error" in profile:
         return Command(update={
-            "flags": [{
-                "substep": "0.1",
-                "title": "XML parse error",
+            "module_outputs": {"00": {"conditions": [{
+                "category": "Program Eligibility",
                 "severity": "HARD-STOP",
-                "detail": profile["parse_error"],
-            }],
+                "priority": "P0",
+                "title": "XML Parse Error",
+                "description": f"XML parse error: {profile['parse_error']}",
+                "required_documents": ["Corrected MISMO XML loan file"],
+                "required_data_elements": [],
+                "condition_family_id": "xml_parse_error",
+                "source_module": "00",
+            }]}},
             "messages": [ToolMessage(f"HARD-STOP: XML parse error: {profile['parse_error']}", tool_call_id=tool_call_id)],
         })
 
@@ -399,12 +409,17 @@ def parse_loan_profile(
         external = json.loads(raw) if isinstance(raw, str) else raw
     except json.JSONDecodeError as e:
         return Command(update={
-            "flags": [{
-                "substep": "0.2",
-                "title": "Invalid loan profile JSON",
+            "module_outputs": {"00": {"conditions": [{
+                "category": "Program Eligibility",
                 "severity": "SOFT-STOP",
-                "detail": f"JSON parse error: {e}",
-            }],
+                "priority": "P1",
+                "title": "Invalid Loan Profile JSON",
+                "description": f"The external loan profile JSON could not be parsed: {e}. Falling back to XML-derived profile.",
+                "required_documents": ["Corrected loan profile JSON"],
+                "required_data_elements": [],
+                "condition_family_id": "invalid_loan_profile_json",
+                "source_module": "00",
+            }]}},
             "messages": [ToolMessage(f"SOFT-STOP: Invalid JSON: {e}", tool_call_id=tool_call_id)],
         })
 
@@ -459,12 +474,17 @@ def parse_submitted_documents(
         doc_list = json.loads(raw) if isinstance(raw, str) else raw
     except json.JSONDecodeError as e:
         return Command(update={
-            "flags": [{
-                "substep": "0.2b",
-                "title": "Invalid submitted documents JSON",
+            "module_outputs": {"00": {"conditions": [{
+                "category": "Document Completeness",
                 "severity": "SOFT-STOP",
-                "detail": f"JSON parse error: {e}",
-            }],
+                "priority": "P1",
+                "title": "Invalid Submitted Documents JSON",
+                "description": f"The submitted documents JSON could not be parsed: {e}. No documents will be available for analysis.",
+                "required_documents": ["Corrected submitted documents JSON"],
+                "required_data_elements": [],
+                "condition_family_id": "invalid_submitted_docs_json",
+                "source_module": "00",
+            }]}},
             "scenario_summary": {"_submitted_docs": []},
             "messages": [ToolMessage(f"SOFT-STOP: Invalid JSON: {e}", tool_call_id=tool_call_id)],
         })
@@ -511,6 +531,19 @@ def build_scenario_summary(
     profile: dict = ss.get("_loan_profile", {})
     supplemental: dict = ss.get("_xml_supplemental", {}) or profile.get("_xml_supplemental", {})
     submitted_docs: list[dict] = ss.get("_submitted_docs", [])
+
+    # Re-apply external overrides in case parse_loan_profile ran in parallel
+    # with parse_loan_file and the merge hasn't been applied yet.
+    raw_ext = s.get("loan_profile_json", "")
+    if raw_ext and profile:
+        try:
+            ext = json.loads(raw_ext) if isinstance(raw_ext, str) else raw_ext
+            ext_meta = ext.get("metadata", {})
+            if ext_meta:
+                profile = dict(profile)
+                profile["metadata"] = _deep_merge(profile.get("metadata", {}), ext_meta)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     meta = profile.get("metadata", {})
     loan_program = meta.get("loan_program", {})

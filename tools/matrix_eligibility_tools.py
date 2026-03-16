@@ -45,14 +45,15 @@ def check_matrix_eligibility(
     numbers = ss.get("numbers", {})
 
     program = ss.get("program") or "unknown"
+    credit = ss.get("credit", {})
 
-    fico_val = numbers.get("fico")
+    fico_val = credit.get("fico") or numbers.get("fico")
     fico = int(fico_val) if fico_val is not None else None
-    ltv_val = numbers.get("ltv")
+    ltv_val = numbers.get("LTV") or numbers.get("ltv")
     ltv = float(ltv_val) if ltv_val is not None else None
     loan_val = numbers.get("loan_amount")
     loan_amount = float(loan_val) if loan_val is not None else None
-    dti_val = numbers.get("dti")
+    dti_val = numbers.get("DTI") or numbers.get("dti")
     dti = float(dti_val) if dti_val is not None else None
 
     occupancy = ss.get("occupancy")

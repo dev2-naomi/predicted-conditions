@@ -29,6 +29,7 @@ def generate_compliance_conditions(
         conditions: List of condition dicts conforming to the standard schema.
     """
     for c in conditions:
+        c["category"] = "Compliance"
         c.setdefault("tags", [])
         if "compliance" not in c["tags"]:
             c["tags"].append("compliance")

@@ -59,6 +59,7 @@ def generate_income_conditions(
         conditions: List of condition dicts conforming to the standard schema.
     """
     for c in conditions:
+        c["category"] = "Income"
         c.setdefault("tags", [])
         if "income" not in c["tags"]:
             c["tags"].append("income")

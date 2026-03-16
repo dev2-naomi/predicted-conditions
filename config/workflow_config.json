@@ -131,7 +131,6 @@
   "general_tools": [
     "write_todo",
     "get_workflow_status",
-    "add_flag",
     "save_step_report"
   ],
   "middleware": {

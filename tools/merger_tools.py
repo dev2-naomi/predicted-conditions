@@ -32,25 +32,104 @@ _CATEGORY_RANK = {
     "Assets": 4,
     "Property": 5,
     "Appraisal": 6,
-    "property_appraisal": 5,
-    "title_closing": 7,
     "Title": 7,
     "Other": 8,
-    "income": 3,
-    "assets": 4,
-    "credit": 2,
-    "compliance": 1,
+}
+
+# ---------------------------------------------------------------------------
+# Normalization maps — coerce LLM-variant values to canonical forms
+# ---------------------------------------------------------------------------
+
+_PRIORITY_NORMALIZE: dict[str, str] = {
+    "P0": "P0", "P1": "P1", "P2": "P2", "P3": "P3",
+    "0": "P0", "1": "P1", "2": "P2", "3": "P3", "4": "P3", "5": "P3",
+    "6": "P3", "7": "P3", "8": "P3", "9": "P3",
+    "HIGH": "P1", "MEDIUM": "P2", "LOW": "P3",
+    "CRITICAL": "P0", "URGENT": "P0",
+}
+
+_SEVERITY_NORMALIZE: dict[str, str] = {
+    "HARD-STOP": "HARD-STOP", "HARD_STOP": "HARD-STOP", "HARDSTOP": "HARD-STOP",
+    "SOFT-STOP": "SOFT-STOP", "SOFT_STOP": "SOFT-STOP", "SOFTSTOP": "SOFT-STOP",
+    "INFO": "INFO", "INFORMATION": "INFO", "WARNING": "SOFT-STOP",
+}
+
+_CATEGORY_NORMALIZE: dict[str, str] = {
+    "document completeness": "Document Completeness",
+    "document_completeness": "Document Completeness",
+    "program eligibility": "Program Eligibility",
+    "program_eligibility": "Program Eligibility",
+    "compliance": "Compliance",
+    "compliance & legal": "Compliance",
+    "credit": "Credit",
+    "credit analysis": "Credit",
+    "income": "Income",
+    "income documentation": "Income",
+    "income verification": "Income",
+    "assets": "Assets",
+    "asset": "Assets",
+    "asset documentation": "Assets",
+    "asset verification": "Assets",
+    "property": "Property",
+    "property_appraisal": "Property",
+    "property/appraisal": "Property",
+    "appraisal": "Property",
+    "title": "Title",
+    "title_closing": "Title",
+    "title/closing": "Title",
+    "title & closing": "Title",
+    "other": "Other",
 }
 
 
+def _normalize_priority(raw: Any) -> str:
+    if isinstance(raw, int):
+        return _PRIORITY_NORMALIZE.get(str(raw), "P3")
+    s = str(raw).strip().upper()
+    return _PRIORITY_NORMALIZE.get(s, "P3")
+
+
+def _normalize_severity(raw: Any) -> str:
+    s = str(raw).strip().upper().replace(" ", "-")
+    return _SEVERITY_NORMALIZE.get(s, "SOFT-STOP")
+
+
+def _normalize_category(raw: Any) -> str:
+    s = str(raw).strip()
+    return _CATEGORY_NORMALIZE.get(s.lower(), s if s else "Other")
+
+
+_FIELD_ALIASES: dict[str, str] = {
+    "condition_name": "title",
+    "condition_text": "description",
+    "detail": "description",
+    "requirement": "description",
+    "family": "condition_family_id",
+    "id": "condition_id",
+}
+
+
+def _normalize_condition(c: dict) -> dict:
+    """Normalize priority, severity, category, and field names to canonical values."""
+    for alias, canonical in _FIELD_ALIASES.items():
+        if alias in c and c[alias]:
+            existing = c.get(canonical)
+            if not existing or existing == "Untitled condition":
+                c[canonical] = c.pop(alias)
+            else:
+                del c[alias]
+
+    c["priority"] = _normalize_priority(c.get("priority", "P3"))
+    c["severity"] = _normalize_severity(c.get("severity", "SOFT-STOP"))
+    c["category"] = _normalize_category(c.get("category", "Other"))
+    if not c.get("title") or c["title"] == "Untitled condition":
+        c["title"] = (c.get("description") or "Untitled condition")[:80]
+    return c
+
+
 def _sort_key(c: dict) -> tuple:
-    pri = c.get("priority", "P3")
-    if isinstance(pri, int):
-        pri_rank = pri
-    else:
-        pri_rank = _PRIORITY_RANK.get(pri, 3)
     return (
-        pri_rank,
+        _PRIORITY_RANK.get(c.get("priority", "P3"), 3),
         _SEVERITY_RANK.get(c.get("severity", "SOFT-STOP"), 1),
         _CATEGORY_RANK.get(c.get("category", "Other"), 8),
     )
@@ -231,10 +310,13 @@ def merge_conditions(
     all_conditions: list[dict] = []
     all_seen_conflicts: list[dict] = []
 
-    for module_key in ["00b", "01", "02", "03", "04", "05", "06", "07", "08"]:
+    for module_key in ["00", "00b", "01", "02", "03", "04", "05", "06", "07", "08"]:
         mod = module_outputs.get(module_key, {})
         all_conditions.extend(mod.get("conditions", []))
         all_seen_conflicts.extend(mod.get("seen_conflicts", []))
+
+    # Phase 0: Normalize all conditions to canonical priority/severity/category
+    all_conditions = [_normalize_condition(c) for c in all_conditions]
 
     # Phase 1: Filter out negative/speculative conditions
     filtered: list[dict] = []
@@ -386,7 +468,7 @@ def generate_final_output(
         by_priority[pri] = by_priority.get(pri, 0) + 1
 
     # Distilled conditions: only the fields an underwriter needs to act on
-    _KEEP_FIELDS = ("category", "severity", "title", "description", "required_documents", "required_data_elements")
+    _KEEP_FIELDS = ("category", "severity", "priority", "title", "description", "required_documents", "required_data_elements")
     distilled = []
     for c in conditions:
         distilled.append({k: c.get(k) for k in _KEEP_FIELDS})

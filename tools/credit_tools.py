@@ -29,6 +29,7 @@ def generate_credit_conditions(
         conditions: List of condition dicts conforming to the standard schema.
     """
     for c in conditions:
+        c["category"] = "Credit"
         c.setdefault("tags", [])
         if "credit" not in c["tags"]:
             c["tags"].append("credit")

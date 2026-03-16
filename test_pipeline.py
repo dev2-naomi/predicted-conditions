@@ -219,7 +219,7 @@ def main():
     state_vals = accumulated_state
     final_output = state_vals.get("final_output")
 
-    _KEEP_FIELDS = ("category", "severity", "title", "description", "required_documents", "required_data_elements")
+    _KEEP_FIELDS = ("category", "severity", "priority", "title", "description", "required_documents", "required_data_elements")
 
     def _distill(conds: list) -> list:
         return [{k: c.get(k) for k in _KEEP_FIELDS} for c in conds]
@@ -274,7 +274,6 @@ def main():
             "by_category": by_category,
             "by_priority": by_priority,
         },
-        "flags": state_vals.get("flags", []),
     }
 
     with open("test_output.json", "w") as f:
