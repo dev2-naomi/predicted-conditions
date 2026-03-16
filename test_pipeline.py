@@ -112,7 +112,20 @@ def main():
 
     doc_info = ""
     if submitted_docs:
-        doc_info = f"\n\nSubmitted documents:\n{json.dumps(submitted_docs, indent=2)}"
+        # Summarize for the prompt — full data is in submitted_documents_json state
+        substantive = [d for d in submitted_docs if d.get("doc_type", "other") != "other"]
+        doc_type_counts: dict[str, int] = {}
+        for d in submitted_docs:
+            dt = d.get("doc_type", "other")
+            doc_type_counts[dt] = doc_type_counts.get(dt, 0) + 1
+        summary_lines = [f"  {dt}: {ct}" for dt, ct in sorted(doc_type_counts.items()) if dt != "other"]
+        other_ct = doc_type_counts.get("other", 0)
+        if other_ct:
+            summary_lines.append(f"  other/admin: {other_ct}")
+        doc_info = (
+            f"\n\n{len(submitted_docs)} submitted documents ({len(substantive)} substantive):\n"
+            + "\n".join(summary_lines)
+        )
 
     initial_message = (
         "Execute the FULL predictive conditions workflow from STEP_00 through STEP_08.\n\n"
@@ -192,44 +205,103 @@ def main():
 
     state_vals = accumulated_state
     final_output = state_vals.get("final_output")
-    if final_output:
-        print(f"\n  Total conditions: {final_output.get('stats', {}).get('total_conditions', 0)}")
-        print(f"  Hard stops: {final_output.get('stats', {}).get('hard_stops', 0)}")
-        print(f"  By priority: {final_output.get('stats', {}).get('by_priority', {})}")
-        print(f"  By category: {final_output.get('stats', {}).get('by_category', {})}")
 
-        print("\n  Conditions:")
-        for c in final_output.get("conditions", []):
-            print(f"    [{c.get('severity')}/{c.get('priority')}] {c.get('title')}")
+    _KEEP_FIELDS = ("category", "severity", "title", "description", "required_documents", "required_data_elements")
 
-        with open("test_output.json", "w") as f:
-            json.dump(final_output, f, indent=2, default=str)
-        print(f"\n  Full output saved to test_output.json")
+    def _distill(conds: list) -> list:
+        return [{k: c.get(k) for k in _KEEP_FIELDS} for c in conds]
+
+    # Collect conditions: prefer final_output, fall back to module_outputs
+    conditions = []
+    conditions_full = []
+    if final_output and final_output.get("conditions"):
+        conditions = final_output["conditions"]
+        conditions_full = final_output.get("conditions_full", conditions)
     else:
-        print("\nNo final_output in state. Checking module_outputs...")
         mo = state_vals.get("module_outputs", {})
-        print(f"  Module output keys: {list(mo.keys())}")
-        for k, v in mo.items():
-            if isinstance(v, dict):
-                conditions = v.get("conditions", [])
-                if conditions:
-                    print(f"  {k}: {len(conditions)} conditions")
-                    for c in conditions[:5]:
-                        print(f"    - [{c.get('severity')}/{c.get('priority')}] {c.get('title')}")
+        ranked = mo.get("08_rank", {}).get("ranked_conditions", [])
+        merged = mo.get("08_merge", {}).get("merged_conditions", [])
+        conditions_full = ranked or merged
+        if not conditions_full:
+            for module_key in ["01", "02", "03", "04", "05", "06", "07"]:
+                mod = mo.get(module_key, {})
+                conditions_full.extend(mod.get("conditions", []))
+        conditions = _distill(conditions_full)
 
-        with open("test_output.json", "w") as f:
-            json.dump({
-                "module_outputs": {
-                    k: v for k, v in mo.items()
-                    if isinstance(v, dict) and v.get("conditions")
-                },
-                "scenario_summary": {
-                    k: v for k, v in state_vals.get("scenario_summary", {}).items()
-                    if not k.startswith("_")
-                },
-                "flags": state_vals.get("flags", []),
-            }, f, indent=2, default=str)
-        print(f"\n  Partial output saved to test_output.json")
+    scenario_summary = {
+        k: v for k, v in state_vals.get("scenario_summary", {}).items()
+        if not k.startswith("_")
+    }
+
+    hard_stops = sum(1 for c in conditions_full if c.get("severity") == "HARD-STOP")
+    by_category: dict[str, int] = {}
+    by_priority: dict[str, int] = {}
+    for c in conditions_full:
+        cat = c.get("category", "Other")
+        pri = c.get("priority", "P3")
+        by_category[cat] = by_category.get(cat, 0) + 1
+        by_priority[pri] = by_priority.get(pri, 0) + 1
+
+    print(f"\n  Total conditions: {len(conditions)}")
+    print(f"  Hard stops: {hard_stops}")
+    print(f"  By priority: {by_priority}")
+    print(f"  By category: {by_category}")
+
+    print("\n  Conditions (distilled):")
+    for c in conditions:
+        print(f"    [{c.get('severity')}/{c.get('category')}] {c.get('title')}")
+
+    output = {
+        "scenario_summary": scenario_summary,
+        "conditions": conditions,
+        "conditions_full": conditions_full,
+        "stats": {
+            "total_conditions": len(conditions),
+            "hard_stops": hard_stops,
+            "by_category": by_category,
+            "by_priority": by_priority,
+        },
+        "flags": state_vals.get("flags", []),
+    }
+
+    with open("test_output.json", "w") as f:
+        json.dump(output, f, indent=2, default=str)
+    print(f"\n  Full output saved to test_output.json")
+
+    # Save the full final state (excluding messages and bulky raw data)
+    def _serializable_state(sv: dict) -> dict:
+        out = {}
+        for k, v in sv.items():
+            if k == "messages":
+                out[k] = f"[{len(v)} messages]"
+                continue
+            if k == "loan_file_xml":
+                out[k] = f"[XML string, {len(v)} chars]"
+                continue
+            if k == "submitted_documents_json":
+                try:
+                    docs = json.loads(v) if isinstance(v, str) else v
+                    out[k] = f"[{len(docs)} documents]"
+                except Exception:
+                    out[k] = f"[string, {len(str(v))} chars]"
+                continue
+            if isinstance(v, dict):
+                cleaned = {}
+                for dk, dv in v.items():
+                    if dk == "raw_sections":
+                        cleaned[dk] = f"[{len(dv)} sections]"
+                    elif dk == "_parsed_xml":
+                        cleaned[dk] = "{...parsed xml dict...}"
+                    else:
+                        cleaned[dk] = dv
+                out[k] = cleaned
+            else:
+                out[k] = v
+        return out
+
+    with open("test_final_state.json", "w") as f:
+        json.dump(_serializable_state(state_vals), f, indent=2, default=str)
+    print(f"  Full final state saved to test_final_state.json")
 
 
 if __name__ == "__main__":

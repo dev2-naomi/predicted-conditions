@@ -384,10 +384,17 @@ def generate_final_output(
         by_category[cat] = by_category.get(cat, 0) + 1
         by_priority[pri] = by_priority.get(pri, 0) + 1
 
+    # Distilled conditions: only the fields an underwriter needs to act on
+    _KEEP_FIELDS = ("category", "severity", "title", "description", "required_documents", "required_data_elements")
+    distilled = []
+    for c in conditions:
+        distilled.append({k: c.get(k) for k in _KEEP_FIELDS})
+
     final: dict[str, Any] = {
         "scenario_summary": clean_summary,
         "seen_conflicts": seen_conflicts,
-        "conditions": conditions,
+        "conditions": distilled,
+        "conditions_full": conditions,
         "stats": {
             "total_conditions": len(conditions),
             "hard_stops": hard_stops,
