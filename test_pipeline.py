@@ -9,6 +9,10 @@ Usage:
     python test_pipeline.py                           # SelectITIN (default)
     python test_pipeline.py data/input/case_scenario/SelectITIN
     python test_pipeline.py /path/to/some.xml         # XML-only mode
+
+Submitted documents are loaded from a manifest JSON if available
+(MANIFEST_PATH env var or manifest.json in the case directory),
+otherwise falls back to individual JSON files in Pertinent Documents/.
 """
 
 import json
@@ -43,7 +47,20 @@ def _find_json(directory: Path, pattern: str = "sample_case") -> str:
 
 
 def _find_submitted_docs(directory: Path) -> list:
-    """Find submitted documents from Pertinent Documents folder."""
+    """
+    Find submitted documents for a case directory.
+    Checks for a manifest JSON first (via MANIFEST_PATH env var or
+    manifest.json in the directory), then falls back to reading
+    individual doc files from Pertinent Documents/.
+    """
+    from tools.shared.manifest_parser import parse_manifest
+
+    manifest_path = Path(os.environ.get("MANIFEST_PATH", "")) or (directory / "manifest.json")
+    if manifest_path.exists():
+        docs = parse_manifest(manifest_path)
+        print(f"  Loaded {len(docs)} documents from manifest: {manifest_path}")
+        return docs
+
     docs_dir = directory / "Pertinent Documents"
     if not docs_dir.exists():
         return []
