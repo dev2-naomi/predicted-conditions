@@ -209,18 +209,61 @@ def check_submission_completeness(
             seen_labels_sat.add(item["label"])
             deduped_satisfied.append(item)
 
+    # Build real conditions from missing documents so they flow into
+    # the merger/ranker (STEP_09) alongside all other conditions.
+    _base_labels = {lbl for lbl, _ in BASE_REQUIRED}
+    _purchase_labels = {lbl for lbl, _ in PURCHASE_REQUIRED}
+    _llc_labels = {lbl for lbl, _ in LLC_INVESTMENT_REQUIRED}
+    _income_labels: set[str] = set()
+    for reqs in INCOME_DOC_TYPE_REQUIRED.values():
+        for lbl, _ in reqs:
+            _income_labels.add(lbl)
+
+    conditions: list[dict[str, Any]] = []
+    for item in deduped_missing:
+        label = item["label"]
+        if label in _base_labels:
+            reason = "required for all transactions"
+        elif label in _purchase_labels:
+            reason = "required for Purchase transactions"
+        elif label in _llc_labels:
+            reason = "required for LLC/Entity investment borrowers"
+        elif label in _income_labels:
+            income_slug = primary_income or "unknown"
+            reason = f"required for {income_slug} income documentation"
+        else:
+            reason = "required for this transaction type"
+
+        conditions.append({
+            "category": "Document Completeness",
+            "severity": "HARD-STOP",
+            "priority": "P1",
+            "title": f"Missing: {label}",
+            "description": (
+                f"The submission package is missing '{label}', "
+                f"which is {reason}. Accepted document types: "
+                f"{', '.join(item['accepted_doc_types'])}."
+            ),
+            "required_documents": [label],
+            "required_data_elements": [],
+            "condition_family_id": f"doc_completeness_{label.lower().replace(' ', '_')}",
+            "source_module": "00b",
+            "guideline_ref": "submission_documents.md",
+        })
+
     module_output: dict[str, Any] = {
         "missing_documents": deduped_missing,
         "satisfied_documents": deduped_satisfied,
         "checklist_scope": checklist_scope,
         "total_submitted": len(submitted_docs),
         "doc_types_found": sorted(present - {"other"}),
+        "conditions": conditions,
     }
 
     missing_labels = [d["label"] for d in deduped_missing]
     msg = (
         f"Document completeness check: {len(deduped_satisfied)} satisfied, "
-        f"{len(deduped_missing)} missing. "
+        f"{len(deduped_missing)} missing → {len(conditions)} conditions generated. "
         f"Scope: {checklist_scope}."
     )
     if missing_labels:

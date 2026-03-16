@@ -236,7 +236,7 @@ def main():
         merged = mo.get("09_merge", {}).get("merged_conditions", [])
         conditions_full = ranked or merged
         if not conditions_full:
-            for module_key in ["01", "02", "03", "04", "05", "06", "07", "08"]:
+            for module_key in ["00b", "01", "02", "03", "04", "05", "06", "07", "08"]:
                 mod = mo.get(module_key, {})
                 conditions_full.extend(mod.get("conditions", []))
         conditions = _distill(conditions_full)

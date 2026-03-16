@@ -24,6 +24,7 @@ from typing_extensions import Annotated
 _SEVERITY_RANK = {"HARD-STOP": 0, "SOFT-STOP": 1, "INFO": 2}
 _PRIORITY_RANK = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
 _CATEGORY_RANK = {
+    "Document Completeness": 0,
     "Program Eligibility": 0,
     "Compliance": 1,
     "Credit": 2,
@@ -230,7 +231,7 @@ def merge_conditions(
     all_conditions: list[dict] = []
     all_seen_conflicts: list[dict] = []
 
-    for module_key in ["01", "02", "03", "04", "05", "06", "07", "08"]:
+    for module_key in ["00b", "01", "02", "03", "04", "05", "06", "07", "08"]:
         mod = module_outputs.get(module_key, {})
         all_conditions.extend(mod.get("conditions", []))
         all_seen_conflicts.extend(mod.get("seen_conflicts", []))
