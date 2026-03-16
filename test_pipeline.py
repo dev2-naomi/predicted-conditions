@@ -133,6 +133,8 @@ def main():
         "Do NOT output a summary between steps — just call the tools.\n\n"
         "Step sequence:\n"
         f"{step_sequence}\n"
+        "  STEP_00b: check_submission_completeness\n"
+        "  STEP_00c: load_program_matrix, then generate_matrix_conditions\n"
         "  STEP_01: check_overlay_conflicts, generate_crosscutting_conditions\n"
         "  STEP_02: load_guideline_sections (income sections), then generate_income_conditions\n"
         "  STEP_03: load_guideline_sections (asset sections), then generate_asset_conditions\n"
@@ -145,6 +147,17 @@ def main():
         "reason over the scenario_summary + guidelines to generate conditions.\n"
         f"{doc_info}"
     )
+
+    # Allow env-var overrides for program and FICO (for testing)
+    test_program = os.environ.get("TEST_PROGRAM", "")
+    test_fico = os.environ.get("TEST_FICO", "")
+    if (test_program or test_fico) and not case_json:
+        override: dict = {"metadata": {}}
+        if test_program:
+            override["metadata"]["loan_program"] = {"name": test_program}
+        if test_fico:
+            override["metadata"]["fico"] = int(test_fico)
+        case_json = json.dumps(override)
 
     initial_state: dict = {
         "loan_file_xml": xml_content,
@@ -223,7 +236,7 @@ def main():
         merged = mo.get("08_merge", {}).get("merged_conditions", [])
         conditions_full = ranked or merged
         if not conditions_full:
-            for module_key in ["01", "02", "03", "04", "05", "06", "07"]:
+            for module_key in ["00c", "01", "02", "03", "04", "05", "06", "07"]:
                 mod = mo.get(module_key, {})
                 conditions_full.extend(mod.get("conditions", []))
         conditions = _distill(conditions_full)

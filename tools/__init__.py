@@ -20,6 +20,8 @@ from tools.scenario_tools import (
     parse_submitted_documents,
     route_to_facets,
 )
+from tools.doc_completeness_tools import check_submission_completeness
+from tools.matrix_eligibility_tools import generate_matrix_conditions, load_program_matrix
 from tools.crosscutting_tools import (
     check_overlay_conflicts,
     generate_crosscutting_conditions,
@@ -49,6 +51,13 @@ STEP_TOOLS = {
         build_scenario_summary,
         detect_contradictions,
         route_to_facets,
+    ],
+    "STEP_00b": [
+        check_submission_completeness,
+    ],
+    "STEP_00c": [
+        load_program_matrix,
+        generate_matrix_conditions,
     ],
     "STEP_01": [
         check_overlay_conflicts,

@@ -65,6 +65,57 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 }
         ],
     },
+    "STEP_00b": {
+        "name": "Submission Document Completeness Check",
+        "description": "Deterministic check of whether required submission documents are present based on transaction type and income doc type.",
+        "plan_file": "step_00b_doc_completeness.md",
+        "tools": ["check_submission_completeness"],
+        "substeps": [
+                {
+                        "id": "0b.1",
+                        "name": "Check submission completeness",
+                        "tools": [
+                                "check_submission_completeness"
+                        ]
+                },
+                {
+                        "id": "0b.2",
+                        "name": "Save step report",
+                        "tools": [
+                                "save_step_report"
+                        ]
+                }
+        ],
+    },
+    "STEP_00c": {
+        "name": "Program Matrix Eligibility Check",
+        "description": "Load the program-specific matrix from program_matrices.md and verify the loan meets LTV/FICO grid, geographic, borrower, property, and DTI eligibility requirements.",
+        "plan_file": "step_00c_program_eligibility.md",
+        "tools": ["load_program_matrix", "generate_matrix_conditions"],
+        "substeps": [
+                {
+                        "id": "0c.1",
+                        "name": "Load program matrix",
+                        "tools": [
+                                "load_program_matrix"
+                        ]
+                },
+                {
+                        "id": "0c.2",
+                        "name": "Generate matrix eligibility conditions",
+                        "tools": [
+                                "generate_matrix_conditions"
+                        ]
+                },
+                {
+                        "id": "0c.3",
+                        "name": "Save step report",
+                        "tools": [
+                                "save_step_report"
+                        ]
+                }
+        ],
+    },
     "STEP_01": {
         "name": "Cross-Cutting Gatekeeper",
         "description": "Generate cross-cutting conditions: missing core variables, contradictions, overlay conflicts, universal compliance prerequisites.",
@@ -311,7 +362,7 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
 # Step ordering (derived from phases)
 # ---------------------------------------------------------------------------
 
-STEP_ORDER: list[str] = ["STEP_00", "STEP_01", "STEP_02", "STEP_03", "STEP_04", "STEP_05", "STEP_06", "STEP_07", "STEP_08"]
+STEP_ORDER: list[str] = ["STEP_00", "STEP_00b", "STEP_00c", "STEP_01", "STEP_02", "STEP_03", "STEP_04", "STEP_05", "STEP_06", "STEP_07", "STEP_08"]
 
 
 # ---------------------------------------------------------------------------

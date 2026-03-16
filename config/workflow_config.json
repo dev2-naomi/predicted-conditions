@@ -2,7 +2,7 @@
   "phases": {
     "SCENARIO": {
       "order": 1,
-      "steps": [0]
+      "steps": [0, "0b", "0c"]
     },
     "CONDITIONS": {
       "order": 2,
@@ -24,6 +24,25 @@
         { "id": "0.3", "name": "Build scenario summary and detect contradictions", "tools": ["build_scenario_summary", "detect_contradictions"] },
         { "id": "0.4", "name": "Route docs and overlays to facets", "tools": ["route_to_facets"] },
         { "id": "0.5", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_00b": {
+      "name": "Submission Document Completeness Check",
+      "description": "Deterministic check of whether required submission documents are present based on transaction type and income doc type.",
+      "plan_file": "step_00b_doc_completeness.md",
+      "substeps": [
+        { "id": "0b.1", "name": "Check submission completeness", "tools": ["check_submission_completeness"] },
+        { "id": "0b.2", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
+    },
+    "STEP_00c": {
+      "name": "Program Matrix Eligibility Check",
+      "description": "Load the program-specific matrix and verify LTV/FICO grid, geographic, borrower, property, and DTI eligibility.",
+      "plan_file": "step_00c_program_eligibility.md",
+      "substeps": [
+        { "id": "0c.1", "name": "Load program matrix", "tools": ["load_program_matrix"] },
+        { "id": "0c.2", "name": "Generate matrix eligibility conditions", "tools": ["generate_matrix_conditions"] },
+        { "id": "0c.3", "name": "Save step report", "tools": ["save_step_report"] }
       ]
     },
     "STEP_01": {

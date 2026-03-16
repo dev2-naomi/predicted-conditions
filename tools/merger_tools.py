@@ -230,7 +230,7 @@ def merge_conditions(
     all_conditions: list[dict] = []
     all_seen_conflicts: list[dict] = []
 
-    for module_key in ["01", "02", "03", "04", "05", "06", "07"]:
+    for module_key in ["00c", "01", "02", "03", "04", "05", "06", "07"]:
         mod = module_outputs.get(module_key, {})
         all_conditions.extend(mod.get("conditions", []))
         all_seen_conflicts.extend(mod.get("seen_conflicts", []))
