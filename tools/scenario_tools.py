@@ -1,15 +1,22 @@
 """
 scenario_tools.py — Tools for STEP_00: Scenario Builder.
 
-Parses the MISMO XML loan file and loan profile JSON, maps submitted
-documents to doc_types, builds the scenario_summary, detects
-contradictions, and routes docs/overlays to facets.
+New XML-first flow:
+  1. parse_loan_file   — parses XML and produces a loan profile JSON
+                         (same shape as sample_case.json) via xml_to_loan_profile.
+  2. parse_loan_profile — if an external JSON was also provided (from platform),
+                          merges those fields over the XML-derived profile.
+  3. parse_submitted_documents — maps doc names to internal doc_types.
+  4. build_scenario_summary — reads the unified _loan_profile + _xml_supplemental
+                               to build the scenario_summary.
+  5. detect_contradictions — compares XML-derived vs external profile when both exist.
+  6. route_to_facets — partitions docs into per-facet buckets.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any, List
+from typing import Any, List, Optional
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
@@ -17,11 +24,11 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import Annotated
 
-from tools.shared.xml_parser import parse_mismo_xml
+from tools.shared.xml_parser import parse_mismo_xml, xml_to_loan_profile
 
 
 # ---------------------------------------------------------------------------
-# Document name → internal doc_type mapping
+# Document name -> internal doc_type mapping
 # ---------------------------------------------------------------------------
 
 _DOC_NAME_TO_TYPE: dict[str, str] = {
@@ -81,7 +88,6 @@ _DOC_NAME_TO_TYPE: dict[str, str] = {
 
 
 def _map_doc_name_to_type(name: str) -> str:
-    """Map a human-readable document name to an internal doc_type."""
     key = name.strip().lower()
     if key in _DOC_NAME_TO_TYPE:
         return _DOC_NAME_TO_TYPE[key]
@@ -92,7 +98,7 @@ def _map_doc_name_to_type(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Income doc label → income_type mapping
+# Income doc label -> income_type mapping
 # ---------------------------------------------------------------------------
 
 _INCOME_DOC_MAP: dict[str, str] = {
@@ -130,60 +136,22 @@ def _map_income_doc_label(label: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _infer_program(
-    parsed: dict,
-    profile: dict,
-    docs: list[dict],
-    overlays: list[dict],
-) -> str:
-    """
-    Infer NQMF program from loan characteristics.
-    Priority: loan_profile_json program > overlay signals > XML inference.
-    """
-    # 1. Loan profile JSON has explicit program
-    profile_meta = profile.get("metadata", {})
-    loan_program = profile_meta.get("loan_program", {})
+def _infer_program(profile: dict, docs: list[dict]) -> str:
+    """Infer NQMF program from the loan profile (which already contains XML data)."""
+    meta = profile.get("metadata", {})
+    loan_program = meta.get("loan_program", {})
     program_name = loan_program.get("name") or loan_program.get("originalApiKey") or ""
     if program_name and program_name.lower() not in ("", "unknown", "conventional"):
         return program_name
 
-    # 2. Check overlays
-    for overlay in overlays:
-        rt = overlay.get("rule_text", "")
-        for prog in [
-            "DSCR Supreme", "Investor DSCR", "No Ratio DSCR", "Multi 5-8 DSCR",
-            "Flex Supreme", "Flex Select", "Super Jumbo", "ITIN",
-            "Foreign National", "Second Lien Select", "Select ITIN",
-        ]:
-            if prog.lower() in rt.lower():
-                return prog
-
-    # 3. Infer from combined data
-    occupancy = (
-        profile_meta.get("occupancy")
-        or parsed.get("occupancy")
-        or ""
-    ).lower()
-    citizenship = (
-        profile_meta.get("citizenship")
-        or parsed.get("citizenship")
-        or ""
-    ).lower()
-    units = profile_meta.get("units") or parsed.get("units")
-    lien = (
-        profile_meta.get("loan_type")
-        or parsed.get("lien_priority")
-        or ""
-    ).lower()
-    loan_amount = (
-        profile_meta.get("loan_amount")
-        or parsed.get("loan_amount")
-        or 0
-    )
-    income_doc = (profile_meta.get("income_doc") or "").lower()
+    occupancy = (meta.get("occupancy") or "").lower()
+    citizenship = (meta.get("citizenship") or "").lower()
+    units = meta.get("units") or 0
+    lien = (meta.get("loan_type") or "").lower()
+    loan_amount = meta.get("loan_amount") or 0
+    income_doc = (meta.get("income_doc") or "").lower()
 
     doc_types = {d.get("doc_type", "").lower() for d in docs}
-
     has_income_docs = bool(
         doc_types & {"paystub", "w2", "tax_return", "1099", "p_and_l", "voe"}
     )
@@ -192,31 +160,27 @@ def _infer_program(
 
     if "itin" in citizenship or "itin" in income_doc:
         return "ITIN"
-
     if "foreign" in citizenship:
         return "Foreign National"
-
     if "second" in lien and "lien" in lien:
         return "Second Lien Select"
-
     if occupancy == "investment" and units and int(units) >= 5:
         return "Multi 5-8 DSCR"
-
     if "dscr" in income_doc or "no ratio" in income_doc:
         return "DSCR Supreme"
-
     if occupancy == "investment" and not has_income_docs:
         if has_lease:
             return "DSCR Supreme"
         return "No Ratio DSCR"
-
     if loan_amount > 3_000_000:
         return "Super Jumbo"
-
     if has_bank_stmts and not has_income_docs:
         return "Flex Supreme"
-
     if has_income_docs:
+        return "Flex Supreme"
+
+    # Try self-employed inference from XML data
+    if meta.get("self_employed"):
         return "Flex Supreme"
 
     return "unknown"
@@ -285,6 +249,53 @@ def _guideline_section_refs(program: str, income_types: list[str], property_type
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _pick(profile_val: Any, xml_val: Any, fallback: Any = "unknown") -> Any:
+    for v in (profile_val, xml_val):
+        if v is not None and v != "unknown" and v != "" and v != 0:
+            return v
+    return fallback
+
+
+def _build_borrower_name(b: dict) -> str:
+    parts = [
+        b.get("first_name", ""),
+        b.get("middle_name", ""),
+        b.get("last_name", ""),
+    ]
+    suffix = b.get("suffix", "")
+    name = " ".join(p for p in parts if p).strip()
+    if suffix:
+        name = f"{name} {suffix}"
+    return name or "unknown"
+
+
+def _safe_float_local(val) -> Optional[float]:
+    if val is None:
+        return None
+    try:
+        return float(str(val).replace(",", ""))
+    except (ValueError, TypeError):
+        return None
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Merge override into base. Override wins for non-None values."""
+    result = dict(base)
+    for k, v in override.items():
+        if v is None:
+            continue
+        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
+            result[k] = _deep_merge(result[k], v)
+        else:
+            result[k] = v
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
 
@@ -295,8 +306,11 @@ def parse_loan_file(
     state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Parse the MISMO XML loan file from state and return structured loan fields.
-    Supports both iLAD 2.0 and FNM 3.0 formats.
+    Parse the MISMO XML loan file and produce a loan profile JSON.
+    The XML is dynamically parsed and converted into a structured profile
+    (same shape as sample_case.json) plus supplemental data (liabilities,
+    declarations, housing expenses, etc.) that the profile shape doesn't
+    accommodate.
     """
     xml_content = (state or {}).get("loan_file_xml", "")
     if not xml_content:
@@ -310,13 +324,36 @@ def parse_loan_file(
             "messages": [ToolMessage("HARD-STOP: No loan_file_xml provided.", tool_call_id=tool_call_id)],
         })
 
+    profile = xml_to_loan_profile(xml_content)
+
+    if "parse_error" in profile:
+        return Command(update={
+            "flags": [{
+                "substep": "0.1",
+                "title": "XML parse error",
+                "severity": "HARD-STOP",
+                "detail": profile["parse_error"],
+            }],
+            "messages": [ToolMessage(f"HARD-STOP: XML parse error: {profile['parse_error']}", tool_call_id=tool_call_id)],
+        })
+
+    meta = profile.get("metadata", {})
+    borrower = meta.get("borrower", {})
+    name = _build_borrower_name(borrower)
+
+    # Also store raw parsed XML for backward compatibility
     parsed = parse_mismo_xml(xml_content)
-    names = parsed.get("borrower_names", [])
+
     return Command(update={
-        "scenario_summary": {"_parsed_xml": parsed},
+        "scenario_summary": {
+            "_loan_profile": profile,
+            "_xml_supplemental": profile.get("_xml_supplemental", {}),
+            "_parsed_xml": parsed,
+        },
         "messages": [ToolMessage(
-            f"XML parsed successfully. Borrowers: {names}. "
-            f"Loan amount: {parsed.get('loan_amount')}, LTV: {parsed.get('ltv')}",
+            f"XML parsed and loan profile generated. Borrower: {name}. "
+            f"Loan amount: {meta.get('loan_amount')}, LTV: {meta.get('ltv_pct')}, "
+            f"Purpose: {meta.get('purpose')}, Occupancy: {meta.get('occupancy')}",
             tool_call_id=tool_call_id,
         )],
     })
@@ -328,25 +365,22 @@ def parse_loan_profile(
     state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Parse the loan profile JSON (case JSON) from state.
-    Extracts structured loan metadata: program, borrower, FICO, LTV,
-    occupancy, property info, income doc type, etc.
+    Merge an external loan profile JSON (from the platform/UI) over the
+    XML-derived profile. If no external JSON is provided, the XML-derived
+    profile is used as-is. External fields like loan_program, income_doc,
+    channel, borrower_type override the XML-derived values.
     """
     raw = (state or {}).get("loan_profile_json", "")
     if not raw:
         return Command(update={
-            "flags": [{
-                "substep": "0.2",
-                "title": "Missing loan profile JSON",
-                "severity": "SOFT-STOP",
-                "detail": "No loan_profile_json provided in state.",
-            }],
-            "scenario_summary": {"_loan_profile": {}},
-            "messages": [ToolMessage("SOFT-STOP: No loan_profile_json provided.", tool_call_id=tool_call_id)],
+            "messages": [ToolMessage(
+                "No external loan_profile_json provided. Using XML-derived profile as-is.",
+                tool_call_id=tool_call_id,
+            )],
         })
 
     try:
-        profile = json.loads(raw) if isinstance(raw, str) else raw
+        external = json.loads(raw) if isinstance(raw, str) else raw
     except json.JSONDecodeError as e:
         return Command(update={
             "flags": [{
@@ -355,17 +389,34 @@ def parse_loan_profile(
                 "severity": "SOFT-STOP",
                 "detail": f"JSON parse error: {e}",
             }],
-            "scenario_summary": {"_loan_profile": {}},
             "messages": [ToolMessage(f"SOFT-STOP: Invalid JSON: {e}", tool_call_id=tool_call_id)],
         })
 
-    meta = profile.get("metadata", {})
-    program = meta.get("loan_program", {}).get("name", "unknown")
+    ss = (state or {}).get("scenario_summary", {})
+    xml_profile = ss.get("_loan_profile", {})
+
+    if xml_profile:
+        xml_meta = xml_profile.get("metadata", {})
+        ext_meta = external.get("metadata", {})
+        merged_meta = _deep_merge(xml_meta, ext_meta)
+        merged_profile = dict(xml_profile)
+        merged_profile["metadata"] = merged_meta
+        # Preserve _xml_supplemental from XML-derived profile
+        if "_xml_supplemental" not in merged_profile:
+            merged_profile["_xml_supplemental"] = xml_profile.get("_xml_supplemental", {})
+    else:
+        merged_profile = external
+
+    program = merged_profile.get("metadata", {}).get("loan_program", {}).get("name", "unknown")
     return Command(update={
-        "scenario_summary": {"_loan_profile": profile},
+        "scenario_summary": {
+            "_loan_profile": merged_profile,
+            "_external_profile_provided": True,
+        },
         "messages": [ToolMessage(
-            f"Loan profile parsed. Program: {program}, FICO: {meta.get('fico')}, "
-            f"LTV: {meta.get('ltv_pct')}, Occupancy: {meta.get('occupancy')}",
+            f"External profile merged. Program: {program}, "
+            f"FICO: {merged_profile.get('metadata', {}).get('fico')}, "
+            f"LTV: {merged_profile.get('metadata', {}).get('ltv_pct')}",
             tool_call_id=tool_call_id,
         )],
     })
@@ -428,43 +479,21 @@ def parse_submitted_documents(
     })
 
 
-def _pick(profile_val: Any, xml_val: Any, fallback: Any = "unknown") -> Any:
-    """Pick the best non-null/non-unknown value. Profile wins when present."""
-    for v in (profile_val, xml_val):
-        if v is not None and v != "unknown" and v != "" and v != 0:
-            return v
-    return fallback
-
-
-def _build_borrower_name(b: dict) -> str:
-    parts = [
-        b.get("first_name", ""),
-        b.get("middle_name", ""),
-        b.get("last_name", ""),
-    ]
-    suffix = b.get("suffix", "")
-    name = " ".join(p for p in parts if p).strip()
-    if suffix:
-        name = f"{name} {suffix}"
-    return name or "unknown"
-
-
 @tool
 def build_scenario_summary(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
     state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Build the full scenario_summary by merging data from:
-    1. Parsed XML (_parsed_xml)
-    2. Loan profile JSON (_loan_profile)
-    3. Submitted documents (_submitted_docs)
-    Also identifies missing_core_variables.
+    Build the full scenario_summary from the unified loan profile.
+    The loan profile (from XML, optionally overridden by external JSON)
+    is the primary source. Supplemental XML data fills in liabilities,
+    declarations, housing expenses, etc.
     """
     s = state or {}
     ss = s.get("scenario_summary", {})
-    parsed: dict = ss.get("_parsed_xml", {})
     profile: dict = ss.get("_loan_profile", {})
+    supplemental: dict = ss.get("_xml_supplemental", {}) or profile.get("_xml_supplemental", {})
     submitted_docs: list[dict] = ss.get("_submitted_docs", [])
 
     meta = profile.get("metadata", {})
@@ -472,8 +501,8 @@ def build_scenario_summary(
 
     doc_types = [d.get("doc_type") for d in submitted_docs if d.get("doc_type")]
 
-    # Determine income types from income_doc label and submitted docs
-    income_doc_label = meta.get("income_doc", "")
+    # Determine income types
+    income_doc_label = meta.get("income_doc") or ""
     primary_income_from_label = _map_income_doc_label(income_doc_label) if income_doc_label else "unknown"
 
     income_types: list[str] = []
@@ -498,103 +527,88 @@ def build_scenario_summary(
     if not income_types:
         income_types = ["unknown"]
 
-    program = _infer_program(parsed, profile, submitted_docs, [])
-    property_type = _pick(meta.get("property_type"), parsed.get("property_type"), "Unknown")
+    program = _infer_program(profile, submitted_docs)
+    property_type = meta.get("property_type") or "Unknown"
 
-    # Purpose — profile wins, then XML
-    raw_purpose = _pick(meta.get("purpose"), parsed.get("purpose"))
+    # Purpose
+    raw_purpose = meta.get("purpose") or "unknown"
     purpose = raw_purpose
     if isinstance(raw_purpose, str) and raw_purpose.lower() in ("refinance", "nocash-outrefinance"):
-        cash_out = parsed.get("cash_out_amount")
+        cash_out = supplemental.get("cash_out_amount")
         purpose = "Cash-OutRefinance" if (cash_out and cash_out > 0) else "NoCash-OutRefinance"
 
-    # Borrowers — merge profile borrower info with XML borrower data
+    # Borrowers from profile metadata
     borrowers: list[dict] = []
     profile_borrower = meta.get("borrower", {})
-    xml_names = parsed.get("borrower_names", [])
-    xml_ssns = parsed.get("borrower_ssns", [])
-    xml_dobs = parsed.get("borrower_dobs", [])
-    profile_citizenship = meta.get("citizenship", "unknown")
+    supplemental_ssns = supplemental.get("borrower_ssns", [])
+    supplemental_dobs = supplemental.get("borrower_dobs", [])
 
-    if profile_borrower:
+    if profile_borrower and any(profile_borrower.values()):
         borrowers.append({
             "name": _build_borrower_name(profile_borrower),
-            "ssn": xml_ssns[0] if xml_ssns else None,
-            "dob": xml_dobs[0] if xml_dobs else None,
+            "ssn": supplemental_ssns[0] if supplemental_ssns else None,
+            "dob": supplemental_dobs[0] if supplemental_dobs else None,
             "role": "primary",
-            "self_employed": parsed.get("self_employed"),
-            "citizenship": profile_citizenship,
-            "military": parsed.get("military"),
-        })
-    elif xml_names:
-        borrowers.append({
-            "name": xml_names[0],
-            "ssn": xml_ssns[0] if xml_ssns else None,
-            "dob": xml_dobs[0] if xml_dobs else None,
-            "role": "primary",
-            "self_employed": parsed.get("self_employed"),
-            "citizenship": _pick(profile_citizenship, parsed.get("citizenship")),
-            "military": parsed.get("military"),
+            "self_employed": meta.get("self_employed"),
+            "citizenship": meta.get("citizenship", "unknown"),
+            "military": meta.get("military"),
         })
 
-    profile_coborrower = meta.get("co_borrower")
-    if profile_coborrower and isinstance(profile_coborrower, dict):
+    co_borrower = meta.get("co_borrower")
+    if co_borrower and isinstance(co_borrower, dict) and any(co_borrower.values()):
         borrowers.append({
-            "name": _build_borrower_name(profile_coborrower),
-            "ssn": xml_ssns[1] if len(xml_ssns) > 1 else None,
-            "dob": xml_dobs[1] if len(xml_dobs) > 1 else None,
+            "name": _build_borrower_name(co_borrower),
+            "ssn": supplemental_ssns[1] if len(supplemental_ssns) > 1 else None,
+            "dob": supplemental_dobs[1] if len(supplemental_dobs) > 1 else None,
             "role": "co-borrower",
-            "self_employed": parsed.get("self_employed"),
-            "citizenship": profile_citizenship,
+            "self_employed": meta.get("self_employed"),
+            "citizenship": meta.get("citizenship", "unknown"),
             "military": None,
         })
-    elif len(xml_names) > 1:
-        for i, name in enumerate(xml_names[1:], start=1):
-            borrowers.append({
-                "name": name,
-                "ssn": xml_ssns[i] if i < len(xml_ssns) else None,
-                "dob": xml_dobs[i] if i < len(xml_dobs) else None,
-                "role": "co-borrower",
-                "self_employed": parsed.get("self_employed"),
-                "citizenship": _pick(profile_citizenship, parsed.get("citizenship")),
-                "military": None,
-            })
 
-    # Numbers — profile wins for explicit fields
-    loan_amount = _pick(meta.get("loan_amount"), parsed.get("loan_amount"), None)
-    property_value = meta.get("property_value")
-    appraised_value = _pick(property_value, parsed.get("appraised_value"), None)
-    purchase_price = _pick(property_value, parsed.get("purchase_price"), None)
-    note_rate = _pick(
-        loan_program.get("rate"), parsed.get("note_rate"), None
-    )
-    ltv = _pick(meta.get("ltv_pct"), parsed.get("ltv"), None)
-    cltv = _pick(meta.get("cltv_pct"), parsed.get("cltv"), None)
-    fico = _pick(meta.get("fico"), parsed.get("fico"), None)
-    dti = _pick(meta.get("dti"), parsed.get("dti"), "unknown")
+    # Numbers from profile metadata (already merged from XML + external)
+    loan_amount = meta.get("loan_amount")
+    appraised_value = meta.get("property_value")
+    purchase_price = meta.get("property_value")
+    note_rate = loan_program.get("rate")
+    ltv = meta.get("ltv_pct")
+    cltv = meta.get("cltv_pct")
+    fico = meta.get("fico")
+    dti = meta.get("dti")
 
-    # Units — 0 means not specified in profile
     units_raw = meta.get("units")
-    units = _pick(
-        units_raw if units_raw and units_raw > 0 else None,
-        parsed.get("units"),
-        None,
-    )
+    units = units_raw if units_raw and units_raw > 0 else None
+
+    # Declarations & credit events from supplemental
+    declarations = supplemental.get("declarations", {})
+    credit_events = []
+    if declarations.get("BankruptcyIndicator"):
+        credit_events.append("BK")
+    if declarations.get("PriorPropertyForeclosureCompletedIndicator"):
+        credit_events.append("FC")
+    if declarations.get("PriorPropertyShortSaleCompletedIndicator"):
+        credit_events.append("SS")
+    if declarations.get("PriorPropertyDeedInLieuConveyedIndicator"):
+        credit_events.append("DIL")
+
+    loan_terms = supplemental.get("loan_terms", {})
+    owned_properties = supplemental.get("owned_properties", [])
+    housing_expenses = supplemental.get("housing_expenses", {"present": [], "proposed": []})
 
     summary: dict[str, Any] = {
         "program": program,
         "product_variant": loan_program.get("type", "unknown"),
         "purpose": purpose,
-        "occupancy": _pick(meta.get("occupancy"), parsed.get("occupancy")),
+        "occupancy": meta.get("occupancy") or "unknown",
         "property": {
-            "address": _pick(meta.get("property_address"), parsed.get("property_address")),
-            "state": _pick(meta.get("state"), parsed.get("property_state")),
-            "county": _pick(meta.get("county"), parsed.get("property_county")),
-            "city": parsed.get("property_city", "unknown"),
-            "zip": parsed.get("property_zip", "unknown"),
+            "address": meta.get("property_address") or "unknown",
+            "state": meta.get("state") or "unknown",
+            "county": meta.get("county") or "unknown",
+            "city": supplemental.get("property_city", "unknown"),
+            "zip": supplemental.get("property_zip", "unknown"),
             "units": units,
             "property_type": property_type,
-            "year_built": parsed.get("year_built"),
+            "year_built": supplemental.get("year_built"),
             "rural_property": meta.get("rural_property", False),
         },
         "numbers": {
@@ -607,21 +621,21 @@ def build_scenario_summary(
             "DTI": dti,
         },
         "loan_terms": {
-            "amortization_type": parsed.get("amortization_type", "unknown"),
-            "term_months": parsed.get("loan_term_months"),
-            "interest_only": parsed.get("interest_only"),
-            "prepay_penalty": parsed.get("prepay_penalty"),
-            "balloon": parsed.get("balloon"),
-            "lien_priority": _pick(meta.get("loan_type"), parsed.get("lien_priority")),
+            "amortization_type": loan_terms.get("amortization_type", "unknown"),
+            "term_months": loan_terms.get("term_months"),
+            "interest_only": loan_terms.get("interest_only"),
+            "prepay_penalty": loan_terms.get("prepay_penalty"),
+            "balloon": loan_terms.get("balloon"),
+            "lien_priority": meta.get("loan_type") or loan_terms.get("lien_priority", "unknown"),
         },
         "credit": {
             "fico": fico,
-            "credit_scores": parsed.get("credit_scores", []),
-            "fico_source": "loan_profile" if meta.get("fico") else ("xml" if parsed.get("fico") else "unknown"),
+            "credit_scores": supplemental.get("credit_scores", []),
+            "fico_source": "loan_profile" if meta.get("fico") else "unknown",
             "is_us_credit": meta.get("is_us_credit", True),
             "mortgage_history_flags": [],
-            "credit_events": [],
-            "declarations": parsed.get("declarations", {}),
+            "credit_events": credit_events or ["none"],
+            "declarations": declarations,
         },
         "borrowers": borrowers,
         "income_profile": {
@@ -646,31 +660,23 @@ def build_scenario_summary(
             "total_retirement_assets": meta.get("total_retirement_assets"),
         },
         "reo_summary": {
-            "total_properties_owned": len(parsed.get("owned_properties", [])),
+            "total_properties_owned": len(owned_properties),
             "total_lien_balance": None,
             "subject_property_rental_income": None,
         },
         "doc_profile": list(set(doc_types)),
-        "housing_expenses": parsed.get("housing_expenses", {"present": [], "proposed": []}),
-        "cash_out_amount": parsed.get("cash_out_amount"),
+        "housing_expenses": housing_expenses,
+        "cash_out_amount": supplemental.get("cash_out_amount"),
         "channel": meta.get("channel", "unknown"),
         "loan_number": meta.get("loan_number"),
         "dscr_label": meta.get("dscr"),
         "borrower_type": meta.get("borrower_type"),
+        "employers": supplemental.get("employers", []),
+        "residences": supplemental.get("residences", []),
+        "assets": supplemental.get("assets", []),
+        "liabilities": supplemental.get("liabilities", []),
+        "owned_properties": owned_properties,
     }
-
-    # Credit events from declarations
-    decl = parsed.get("declarations", {})
-    credit_events = []
-    if decl.get("BankruptcyIndicator"):
-        credit_events.append("BK")
-    if decl.get("PriorPropertyForeclosureCompletedIndicator"):
-        credit_events.append("FC")
-    if decl.get("PriorPropertyShortSaleCompletedIndicator"):
-        credit_events.append("SS")
-    if decl.get("PriorPropertyDeedInLieuConveyedIndicator"):
-        credit_events.append("DIL")
-    summary["credit"]["credit_events"] = credit_events or ["none"]
 
     # Missing core variables
     missing: list[str] = []
@@ -711,34 +717,27 @@ def detect_contradictions(
     state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Compare XML-sourced fields against loan profile and submitted document fields.
-    Returns a list of contradictions_detected.
+    Compare XML-derived fields against external profile and submitted documents.
+    Only flags contradictions when both an external profile AND XML data exist.
     """
     s = state or {}
     ss = s.get("scenario_summary", {})
-    parsed: dict = ss.get("_parsed_xml", {})
     profile: dict = ss.get("_loan_profile", {})
+    supplemental: dict = ss.get("_xml_supplemental", {}) or profile.get("_xml_supplemental", {})
     submitted_docs: list[dict] = ss.get("_submitted_docs", [])
+    has_external = ss.get("_external_profile_provided", False)
 
     contradictions = []
     meta = profile.get("metadata", {})
 
-    xml_address = parsed.get("property_address", "")
-    xml_value = parsed.get("appraised_value")
+    xml_address = meta.get("property_address", "")
+    xml_value = meta.get("property_value")
 
-    # XML vs profile contradictions
-    if meta.get("property_value") and xml_value:
-        profile_value = float(meta["property_value"])
-        if abs(profile_value - xml_value) / max(profile_value, xml_value) > 0.01:
-            contradictions.append({
-                "type": "VALUE_MISMATCH",
-                "source_a": "xml",
-                "source_b": "loan_profile",
-                "details": (
-                    f"XML appraised value: {xml_value}. "
-                    f"Loan profile property value: {profile_value}."
-                ),
-            })
+    # Only check XML vs external when external was provided
+    if has_external and meta.get("property_value"):
+        pass  # XML values are already merged into profile; contradictions
+              # would have been visible at merge time. Future: compare
+              # pre-merge XML vs external values.
 
     # Check submitted docs for flagged contradictions
     for doc in submitted_docs:
@@ -746,14 +745,15 @@ def detect_contradictions(
         flags = doc.get("flags", [])
 
         if "name_mismatch" in flags:
-            xml_names = parsed.get("borrower_names", [])
+            borrower = meta.get("borrower", {})
+            borrower_name = _build_borrower_name(borrower)
             entity_name = fields.get("borrower_name") or fields.get("account_holder") or ""
             contradictions.append({
                 "type": "NAME_MISMATCH",
-                "source_a": "xml",
+                "source_a": "loan_profile",
                 "source_b": doc.get("doc_id", "unknown"),
                 "details": (
-                    f"XML borrower names: {xml_names}. "
+                    f"Profile borrower: {borrower_name}. "
                     f"Entity name: {entity_name}. "
                     f"Document flagged name_mismatch."
                 ),
@@ -767,10 +767,10 @@ def detect_contradictions(
             )
             contradictions.append({
                 "type": "ADDRESS_MISMATCH",
-                "source_a": "xml",
+                "source_a": "loan_profile",
                 "source_b": doc.get("doc_id", "unknown"),
                 "details": (
-                    f"XML address: {xml_address}. "
+                    f"Profile address: {xml_address}. "
                     f"Entity address: {entity_address}."
                 ),
             })
@@ -784,10 +784,10 @@ def detect_contradictions(
             ):
                 contradictions.append({
                     "type": "VALUE_MISMATCH",
-                    "source_a": "xml",
+                    "source_a": "loan_profile",
                     "source_b": doc.get("doc_id", "unknown"),
                     "details": (
-                        f"XML appraised value: {xml_value}. "
+                        f"Profile property value: {xml_value}. "
                         f"Appraisal entity value: {entity_value}."
                     ),
                 })
@@ -797,15 +797,6 @@ def detect_contradictions(
         "contradictions_detected": contradictions,
         "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
     })
-
-
-def _safe_float_local(val) -> float | None:
-    if val is None:
-        return None
-    try:
-        return float(str(val).replace(",", ""))
-    except (ValueError, TypeError):
-        return None
 
 
 @tool

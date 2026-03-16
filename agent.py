@@ -74,11 +74,11 @@ def _last_value(old: Any, new: Any) -> Any:  # noqa: ARG001
 
 
 class PredictiveConditionsState(TypedDict, total=False):
-    # ---- Input fields (shown in LangGraph UI) ----
-    loan_file_xml: str
-    loan_profile_json: str
-    submitted_documents_json: str
-    env: str  # "Test" | "Prod"
+    # ---- Input fields ----
+    loan_file_xml: str                # MISMO XML — primary input, parsed into loan profile
+    loan_profile_json: str            # Optional external JSON override (from platform/UI)
+    submitted_documents_json: str     # Doc list (future: manifest-driven)
+    env: str                          # "Test" | "Prod"
 
     # ---- Message history ----
     messages: Annotated[list[BaseMessage], add_messages]
