@@ -1,13 +1,13 @@
 # Predicted Conditions
 
-An agentic underwriting conditions engine that generates predictive underwriting conditions for non-QM mortgage loans. Built on [LangGraph](https://langchain-ai.github.io/langgraph/) with a single ReAct agent loop, it reads loan data (MISMO XML + document manifest JSON), consults NQMF underwriting guidelines and program matrices, and produces a prioritized, de-duplicated list of actionable conditions.
+An agentic underwriting conditions engine that generates predictive underwriting conditions for non-QM mortgage loans. Built on [LangGraph](https://langchain-ai.github.io/langgraph/) with a single ReAct agent loop, it reads loan data (MISMO XML + document manifest + eligibility engine output), consults NQMF underwriting guidelines and program matrices, and produces a prioritized, de-duplicated list of actionable conditions.
 
 ## How It Works
 
-The system operates as a **10-step sequential pipeline** orchestrated by a single LLM agent. Each step has its own scoped tools and plan file, so the LLM only sees what's relevant to the current phase.
+The system operates as an **11-step sequential pipeline** orchestrated by a single LLM agent. Each step has its own scoped tools and plan file, so the LLM only sees what's relevant to the current phase.
 
 ```
-STEP_00   Scenario Builder          ─ Parse XML, merge external JSON, build scenario summary
+STEP_00   Scenario Builder          ─ Parse XML + manifest + eligibility, build scenario summary
 STEP_00b  Document Completeness     ─ Deterministic check: are required documents present?
 STEP_01   Cross-Cutting Gatekeeper  ─ Overlay conflict checks, missing core variable detection
 STEP_02   Income Conditions         ─ LLM reasons over income guidelines → conditions
@@ -48,15 +48,15 @@ An optional external JSON override (`loan_profile_json`) can inject fields not p
 
 ### Cloud API Call
 
-All three inputs are passed as raw JSON strings — no pre-processing needed:
+All three inputs are passed as raw JSON strings — no pre-processing needed. The agent auto-generates its own instruction prompt and defaults to `STEP_00`, so callers only need to send data.
 
 ```json
 {
+  "assistant_id": "predicted-conditions",
   "input": {
     "loan_file_xml": "<raw MISMO XML string>",
     "manifest_json": "<raw Tasktile manifest JSON string>",
-    "eligibility_json": "<raw eligibility engine output JSON string>",
-    "current_step": "STEP_00"
+    "eligibility_json": "<raw eligibility engine output JSON string>"
   }
 }
 ```
@@ -157,9 +157,9 @@ Conditions are sorted by: priority (P0 first) → severity (HARD-STOP first) →
 
 ### Sample Runs
 
-**Montes (Flex Supreme, FICO unknown)**: 48 conditions, 8 hard-stops. Missing FICO triggers P0 hard-stop. Missing W-2, self-employment proof, and P&L trigger document completeness hard-stops.
+**Melendez Niccum — without eligibility engine (FICO 755 via override)**: 50 conditions, 4 hard-stops. Program inferred as Flex Select. Matrix checks run against inferred program only.
 
-**Melendez Niccum (Flex Select, FICO 755)**: 50 conditions, 4 hard-stops. FICO is known so no P0 blocker. Program matrix correctly applies Flex Select rules (6-month reserves, 50% DTI cap). Bank statement income path triggers self-employment verification conditions.
+**Melendez Niccum — with eligibility engine (FICO 720, Flex Select eligible)**: 49 conditions, 10 hard-stops. Eligibility engine provides authoritative FICO (720), LTV (80%), DTI (35%), and reserves (12 months). STEP_08 scoped to Flex Select only (the one eligible program out of 10 evaluated). Deterministic matrix check correctly identifies 3-month PITIA reserves requirement.
 
 ## Project Structure
 
@@ -244,21 +244,24 @@ cp env.example .env
 ### Running
 
 ```bash
-# Run with a specific case directory
-python test_pipeline.py data/input/3-16
-
-# Run with a manifest and test overrides
-MANIFEST_PATH="data/input/3-16-2/jobId-69c755d6-manifest.json" \
-TEST_PROGRAM="Flex Select" \
-TEST_FICO=755 \
+# Run with a case directory (auto-detects XML, manifest, eligibility files)
 python test_pipeline.py data/input/3-16-2
+
+# Run with explicit eligibility file path
+ELIGIBILITY_PATH="/path/to/eligibility_output.json" \
+python test_pipeline.py data/input/3-16-2
+
+# Run with manual overrides (when no eligibility engine output is available)
+TEST_PROGRAM="Flex Select" TEST_FICO=755 \
+python test_pipeline.py data/input/3-16
 ```
 
-The test runner will:
-1. Load the XML and manifest from the specified directory
-2. Execute all 11 steps sequentially via the LLM agent (~80-90 tool calls)
-3. Print each tool call as it executes
-4. Save the final output to `test_output.json` and full state to `test_final_state.json`
+The test runner auto-detects files in the input directory:
+- `*.xml` → `loan_file_xml`
+- `*manifest*.json` → `manifest_json`
+- `*eligibility*` or `*sample_output*.json` → `eligibility_json`
+
+It then executes all 11 steps sequentially via the LLM agent (~90-110 tool calls), prints each tool call as it executes, and saves the final output to `test_output.json` and full state to `test_final_state.json`.
 
 Typical runtime is 8-11 minutes with `claude-opus-4-5`.
 
@@ -270,6 +273,9 @@ The agent uses a `PredictiveConditionsState` TypedDict with custom reducers:
 
 | Field | Reducer | Description |
 |-------|---------|-------------|
+| `loan_file_xml` | — | Raw MISMO XML string (input) |
+| `manifest_json` | — | Raw manifest JSON string (input) |
+| `eligibility_json` | — | Raw eligibility engine output JSON (input) |
 | `messages` | `add_messages` | Append-only message history |
 | `scenario_summary` | `_merge_dicts` | Deep-merged dict across tool calls |
 | `module_outputs` | `_merge_dicts` | Per-module condition storage (keyed `"00b"`, `"02"`, `"08"`, `"09_merge"`, etc.) |

@@ -238,7 +238,7 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
 
     # Build message list with summarization
     messages: list[BaseMessage] = list(state.get("messages", []))
-    current_step = state.get("current_step")
+    current_step = state.get("current_step") or "STEP_00"
     step_reports = state.get("step_reports", {})
 
     # Auto-inject initial instructions if caller sent no HumanMessage
