@@ -587,6 +587,40 @@ _ELIGIBILITY_FIELD_MAP: dict[str, str] = {
 }
 
 
+def _mine_fico_from_passed_programs(
+    program_results: dict[str, Any],
+    eligible_programs: list[str],
+) -> int | None:
+    """Extract FICO from passed requirement checks in eligible programs.
+
+    Scans the ``passed`` array of each eligible program for FICO-related
+    requirement entries and returns the minimum ``actual`` score found.
+    Returns None if no FICO data can be extracted.
+    """
+    import re as _re
+    fico_vals: list[int] = []
+    eligible_set = {p.lower() for p in eligible_programs}
+
+    for _prog_key, prog_data in program_results.items():
+        prog_name = (prog_data.get("program") or _prog_key).lower()
+        if prog_name not in eligible_set and prog_data.get("overall_status") != "PASS":
+            continue
+        for check in prog_data.get("passed", []):
+            req = (check.get("requirement") or "").lower()
+            if "fico" not in req:
+                continue
+            actual = check.get("actual")
+            if isinstance(actual, (int, float)) and actual > 0:
+                fico_vals.append(int(actual))
+            elif isinstance(actual, str):
+                nums = _re.findall(r"\d{3}", actual)
+                for n in nums:
+                    v = int(n)
+                    if 300 <= v <= 850:
+                        fico_vals.append(v)
+    return min(fico_vals) if fico_vals else None
+
+
 @tool
 def parse_eligibility_output(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -643,6 +677,14 @@ def parse_eligibility_output(
         val = app_data.get(elig_key)
         if val is not None:
             meta_overlay[meta_key] = val
+
+    # Fallback: if FICO is missing from application_data, mine it from
+    # passed requirement checks in eligible programs only.
+    if meta_overlay.get("fico") is None and app_data.get("FicoScore") is None:
+        _mined = _mine_fico_from_passed_programs(program_results, eligible)
+        if _mined is not None:
+            meta_overlay["fico"] = _mined
+            app_data["FicoScore"] = _mined
 
     # Extra fields that don't map 1:1 into metadata but are useful
     extra_fields: dict[str, Any] = {}
