@@ -20,7 +20,9 @@
       "plan_file": "step_00_scenario_builder.md",
       "substeps": [
         { "id": "0.1", "name": "Parse MISMO XML loan file", "tools": ["parse_loan_file"] },
-        { "id": "0.2", "name": "Parse extracted entities JSON", "tools": ["parse_extracted_entities"] },
+        { "id": "0.2", "name": "Parse loan profile JSON", "tools": ["parse_loan_profile"] },
+        { "id": "0.2b", "name": "Parse submitted documents", "tools": ["parse_submitted_documents"] },
+        { "id": "0.2c", "name": "Parse eligibility engine output", "tools": ["parse_eligibility_output"] },
         { "id": "0.3", "name": "Build scenario summary and detect contradictions", "tools": ["build_scenario_summary", "detect_contradictions"] },
         { "id": "0.4", "name": "Route docs and overlays to facets", "tools": ["route_to_facets"] },
         { "id": "0.5", "name": "Save step report", "tools": ["save_step_report"] }

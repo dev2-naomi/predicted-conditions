@@ -1,144 +1,222 @@
 # Predicted Conditions
 
-An agentic underwriting conditions engine that generates predictive underwriting conditions for non-QM mortgage loans. Built on [LangGraph](https://langchain-ai.github.io/langgraph/) with a single ReAct agent loop, it reads loan data (XML + JSON), consults NQMF underwriting guidelines, and produces a prioritized, de-duplicated list of actionable conditions.
+An agentic underwriting conditions engine that generates predictive underwriting conditions for non-QM mortgage loans. Built on [LangGraph](https://langchain-ai.github.io/langgraph/) with a single ReAct agent loop, it reads loan data (MISMO XML + document manifest JSON), consults NQMF underwriting guidelines and program matrices, and produces a prioritized, de-duplicated list of actionable conditions.
 
 ## How It Works
 
-The system operates as a **9-step sequential pipeline** orchestrated by a single LLM agent. Each step has its own scoped tools and plan file, so the LLM only sees what's relevant to the current phase.
+The system operates as a **10-step sequential pipeline** orchestrated by a single LLM agent. Each step has its own scoped tools and plan file, so the LLM only sees what's relevant to the current phase.
 
 ```
-STEP_00  Scenario Builder     ─ Parse XML/JSON inputs, build unified scenario summary
-STEP_01  Cross-Cutting        ─ Programmatic overlay conflict checks, structural gating
-STEP_02  Income               ─ LLM reasons over income guidelines → conditions
-STEP_03  Assets & Reserves    ─ LLM reasons over asset guidelines → conditions
-STEP_04  Credit               ─ LLM reasons over credit guidelines → conditions
-STEP_05  Property & Appraisal ─ LLM reasons over property guidelines → conditions
-STEP_06  Title & Closing      ─ LLM reasons over title guidelines → conditions
-STEP_07  Compliance           ─ LLM reasons over compliance guidelines → conditions
-STEP_08  Merger & Ranker      ─ Merge, de-duplicate, filter, rank, produce final output
+STEP_00   Scenario Builder          ─ Parse XML, merge external JSON, build scenario summary
+STEP_00b  Document Completeness     ─ Deterministic check: are required documents present?
+STEP_01   Cross-Cutting Gatekeeper  ─ Overlay conflict checks, missing core variable detection
+STEP_02   Income Conditions         ─ LLM reasons over income guidelines → conditions
+STEP_03   Assets & Reserves         ─ LLM reasons over asset guidelines → conditions
+STEP_04   Credit                    ─ LLM reasons over credit guidelines → conditions
+STEP_05   Property & Appraisal      ─ LLM reasons over property guidelines → conditions
+STEP_06   Title & Closing           ─ LLM reasons over title guidelines → conditions
+STEP_07   Compliance                ─ LLM reasons over compliance guidelines → conditions
+STEP_08   Program Matrix Eligibility─ Hybrid: deterministic grid checks + LLM qualitative rules
+STEP_09   Merger & Ranker           ─ Normalize, merge, de-duplicate, rank, produce final output
 ```
 
 ### Key Design Decisions
 
-- **Agentic, not programmatic**: Steps 02–07 use the LLM to reason over the guidelines rather than hard-coded `if/else` trees. The LLM reads the relevant guideline sections, examines the scenario, and determines which conditions to generate. This makes the system adaptable to guideline changes without code modifications.
+- **Agentic, not programmatic**: Steps 02-07 use the LLM to reason over guidelines rather than hard-coded `if/else` trees. The LLM reads relevant guideline sections, examines the scenario, and determines which conditions apply. This makes the system adaptable to guideline changes without code modifications.
 
-- **Dynamic tool scoping**: Before each LLM invocation, only the tools for the current step are bound. This reduces token cost by 60–75% and prevents the LLM from calling out-of-scope tools.
+- **Hybrid where it matters**: STEP_08 (Program Matrix) and STEP_00b (Document Completeness) use deterministic checks for numeric/structural rules (LTV/FICO grids, reserve schedules, required document lists) and only send qualitative rules to the LLM. This improves speed and accuracy for exact comparisons.
 
-- **Dynamic plan injection**: Each step has a plan file (`plans/step_XX_*.md`) injected as a transient system message. Plans define the step's role, condition families, deterministic checks, and quality rules.
+- **Dynamic tool scoping**: Before each LLM invocation, only the tools for the current step are bound. This reduces token cost by 60-75% and prevents the LLM from calling out-of-scope tools.
 
-- **Guideline-first**: All conditions must trace back to a specific section in `data/guidelines.md`. The `load_guideline_sections` tool dynamically retrieves only the relevant guideline sections for the current step.
+- **Dynamic plan injection**: Each step has a plan file (`plans/step_XX_*.md`) injected as a transient system message. Plans define the step's role, condition families, and quality rules.
 
-- **Post-merge quality filters**: The merger applies cross-module de-duplication (normalizing family IDs across modules), removes "not applicable" negative conditions, and filters speculative conditions.
+- **Message summarization**: Completed steps are compressed into a compact summary before each LLM call, keeping only the current step's messages in full detail. This prevents the context window from growing unboundedly across steps.
+
+- **Condition normalization**: All conditions pass through a normalization layer in the merger that enforces canonical priority (`P0`-`P3`), severity (`HARD-STOP`/`SOFT-STOP`/`INFO`), category names, and field aliases regardless of how the LLM formatted them.
 
 ## Inputs
 
-The agent requires three inputs:
+The agent accepts three primary inputs:
 
 | Input | Format | Description |
 |-------|--------|-------------|
-| `loan_file_xml` | MISMO XML (iLAD 2.0 or FNM 3.0) | Loan application data — borrowers, property, financials |
-| `loan_profile_json` | JSON | General loan parameters — program, FICO, LTV, occupancy, etc. |
-| `submitted_documents_json` | JSON array | List of `{doc_id, name}` objects identifying which document types were submitted |
+| MISMO XML | iLAD/DU Export XML | Loan application data — borrowers, property, financials, declarations |
+| Manifest JSON | JSON | Classified document inventory from the submission package |
+| Eligibility JSON | JSON | Eligibility engine output — authoritative application data + eligible/ineligible programs |
 
-Example input structure:
+An optional external JSON override (`loan_profile_json`) can inject fields not present in the XML or eligibility output.
 
-```
-data/input/case_scenario/SelectITIN/
-├── sample_case.json                    # loan_profile_json
-├── Amezcua_Corona_impac - 05152024 3.xml  # loan_file_xml
-└── Pertinent Documents/                # submitted_documents_json (derived from these)
-    ├── 117.json   (Credit Report)
-    ├── 200.json   (Purchase Contract)
-    ├── 349.json   (Lease Agreement)
-    └── ...
-```
+### Cloud API Call
 
-## Output
-
-A single JSON object containing:
+All three inputs are passed as raw JSON strings — no pre-processing needed:
 
 ```json
 {
-  "scenario_summary": { ... },
-  "seen_conflicts": [ ... ],
-  "conditions": [
-    {
-      "condition_id": "COMP-003",
-      "condition_family_id": "ENTITY_VESTING_RESTRICTION",
-      "category": "compliance",
-      "title": "CRITICAL: Verify Vesting Complies with ITIN Program Restrictions",
-      "description": "...",
-      "required_documents": ["Title Commitment showing vesting"],
-      "required_data_elements": ["Intended vesting type"],
-      "owner": "underwriter",
-      "severity": "HARD-STOP",
-      "priority": 1,
-      "confidence": 0.98,
-      "triggers": ["Program is Select ITIN", "LLC documentation present"],
-      "evidence_found": ["Articles of Organization present"],
-      "guideline_trace": "ITIN - ELIGIBILITY: Not permitted to vest as LLC...",
-      "overlay_trace": null,
-      "resolution_criteria": "Clarify purpose of LLC documentation...",
-      "dependencies": [],
-      "tags": ["compliance", "ITIN", "entity_vesting"]
-    }
-  ],
-  "stats": {
-    "total_conditions": 39,
-    "hard_stops": 36,
-    "by_category": { "compliance": 9, "credit": 4, "income": 7, ... },
-    "by_priority": { "1": 13, "2": 21, "3": 5 }
+  "input": {
+    "loan_file_xml": "<raw MISMO XML string>",
+    "manifest_json": "<raw Tasktile manifest JSON string>",
+    "eligibility_json": "<raw eligibility engine output JSON string>",
+    "current_step": "STEP_00"
   }
 }
 ```
 
-Conditions are ranked by priority (P1 > P2 > P3), then severity (HARD-STOP > SOFT-STOP), then category.
+### What Gets Extracted
+
+**From the XML** (parsed by `tools/shared/xml_parser.py`):
+- Borrower names, SSN, DOB, citizenship, self-employment status
+- Loan amount, LTV, CLTV, interest rate, term, amortization type
+- Property address, type, occupancy, units
+- Liabilities, declarations, housing expenses, credit events
+
+**From the manifest** (parsed by `tools/shared/manifest_parser.py`):
+- Each document is classified by category (e.g., `credit_report`, `bank_statement`, `appraisal`)
+- De-duplicated by `(category_id, group_name)`, keeping the latest indexing task
+- Extracted fields from document processing (entity metadata, parsed values)
+
+**From the eligibility output** (parsed by `parse_eligibility_output` in STEP_00):
+- `application_data`: authoritative FICO, LTV, CLTV, DTI, reserves, property type, occupancy, income doc type, channel, borrower type, citizenship — these override XML-derived values
+- `eligible_programs`: list of programs that passed eligibility (e.g., `["Flex Select"]`)
+- `program_results`: per-program pass/fail details with specific rule violations
+- Extra fields: `ReservesMonths`, `FirstTimeHomeBuyer`, `DecliningMarket`, `CreditEventSeasoning`, `SSRScore`, `HPMLStatus`, etc.
+
+### How the Agent Uses the Data
+
+1. **STEP_00** parses all three inputs and builds a unified `scenario_summary`. The eligibility engine's `application_data` takes priority over XML-derived values for numeric fields (FICO, LTV, DTI, etc.) since it comes from a validated upstream system.
+
+2. **STEP_00b** checks the submitted documents against a required checklist based on transaction type (purchase vs. refi), occupancy (investment LLC needs articles of organization), and income documentation type (W2 needs paystubs, bank statement needs 12-24 months of statements).
+
+3. **Steps 02-07** each load relevant guideline sections from `data/guidelines.md`, then the LLM cross-references the guidelines against the `scenario_summary` to determine which conditions apply.
+
+4. **STEP_08** checks the loan against program-specific matrices from `data/program_matrices.md`. When `eligible_programs` is provided from the eligibility engine, matrix checks are **scoped only to those programs** — skipping ineligible programs entirely. Deterministic checks handle LTV/FICO grids, DTI caps, reserve requirements, and loan amount limits. The LLM handles qualitative rules like declining market restrictions and credit event seasoning.
+
+## Output
+
+The final output is a JSON object with two views of the conditions:
+
+### Distilled View (`conditions`)
+
+The primary output — only the fields an underwriter needs to act on:
+
+```json
+{
+  "scenario_summary": {
+    "program": "Flex Select",
+    "purpose": "Purchase",
+    "occupancy": "PrimaryResidence",
+    "property": { "property_type": "SFR", "state": "CA", "city": "San Diego" },
+    "numbers": { "loan_amount": 753750, "LTV": 73.897, "note_rate": 6.624 },
+    "credit": { "fico": 755 },
+    "borrowers": [{ "name": "Marlene A Melendez Niccum" }]
+  },
+  "conditions": [
+    {
+      "category": "Document Completeness",
+      "severity": "HARD-STOP",
+      "priority": "P1",
+      "title": "Missing: Proof of 2 years Self-Employment",
+      "description": "The submission package is missing 'Proof of 2 years Self-Employment', which is required for bank_statement income documentation.",
+      "required_documents": ["Proof of 2 years Self-Employment"],
+      "required_data_elements": []
+    },
+    {
+      "category": "Program Eligibility",
+      "severity": "SOFT-STOP",
+      "priority": "P2",
+      "title": "Flex Select Requires 6 Months PITIA Reserves",
+      "description": "Flex Select requires 6 months PITIA reserves for Alt Doc loans. Verify borrower has sufficient reserves documented.",
+      "required_documents": [],
+      "required_data_elements": ["months_reserves", "monthly_pitia"]
+    }
+  ],
+  "conditions_full": [ /* full condition objects with all LLM-generated fields */ ],
+  "stats": {
+    "total_conditions": 50,
+    "hard_stops": 4,
+    "by_category": { "Document Completeness": 2, "Income": 6, "Program Eligibility": 11, "Property": 6, "Compliance": 8, "Credit": 5, "Assets": 7, "Title": 5 },
+    "by_priority": { "P1": 8, "P2": 7, "P3": 35 }
+  }
+}
+```
+
+### Condition Fields
+
+| Field | Values | Description |
+|-------|--------|-------------|
+| `category` | `Document Completeness`, `Program Eligibility`, `Compliance`, `Credit`, `Income`, `Assets`, `Property`, `Title` | Which underwriting facet this condition belongs to |
+| `severity` | `HARD-STOP`, `SOFT-STOP`, `INFO` | `HARD-STOP` = cannot proceed, `SOFT-STOP` = needs resolution, `INFO` = advisory |
+| `priority` | `P0`, `P1`, `P2`, `P3` | `P0` = critical/blocking, `P1` = high, `P2` = medium, `P3` = standard |
+| `title` | string | Short actionable title |
+| `description` | string | Full explanation with specific details from the loan scenario |
+| `required_documents` | string[] | Documents needed to clear this condition |
+| `required_data_elements` | string[] | Data fields needed to clear this condition |
+
+### Sorting Order
+
+Conditions are sorted by: priority (P0 first) → severity (HARD-STOP first) → category (Document Completeness/Program Eligibility first, then Compliance, Credit, Income, Assets, Property, Title).
+
+### Sample Runs
+
+**Montes (Flex Supreme, FICO unknown)**: 48 conditions, 8 hard-stops. Missing FICO triggers P0 hard-stop. Missing W-2, self-employment proof, and P&L trigger document completeness hard-stops.
+
+**Melendez Niccum (Flex Select, FICO 755)**: 50 conditions, 4 hard-stops. FICO is known so no P0 blocker. Program matrix correctly applies Flex Select rules (6-month reserves, 50% DTI cap). Bank statement income path triggers self-employment verification conditions.
 
 ## Project Structure
 
 ```
 predicted-conditions/
-├── agent.py                  # LangGraph StateGraph, orchestrator node, routing
-├── registry.py               # Auto-generated step→tool mappings
+├── agent.py                  # LangGraph StateGraph, orchestrator node, message summarization
+├── registry.py               # Auto-generated step→tool mappings from workflow_config.json
 ├── step_loader.py            # Dynamic tool/plan resolution per step
 ├── test_pipeline.py          # End-to-end test runner
 │
 ├── plans/                    # Step plan files (injected as system messages)
-│   ├── system_prompt.md      # Global system prompt with quality rules
+│   ├── system_prompt.md
 │   ├── step_00_scenario_builder.md
+│   ├── step_00b_doc_completeness.md
 │   ├── step_01_cross_cutting.md
 │   ├── step_02_income.md
-│   ├── ...
-│   └── step_08_merger_ranker.md
+│   ├── step_03_assets.md
+│   ├── step_04_credit.md
+│   ├── step_05_property_appraisal.md
+│   ├── step_06_title_closing.md
+│   ├── step_07_compliance.md
+│   ├── step_08_program_eligibility.md
+│   └── step_09_merger_ranker.md
 │
-├── tools/                    # LangGraph tool implementations
-│   ├── __init__.py           # Exports ALL_TOOLS
-│   ├── scenario_tools.py     # STEP_00: XML/JSON parsing, scenario building
-│   ├── crosscutting_tools.py # STEP_01: overlay conflicts, structural checks
-│   ├── income_tools.py       # STEP_02: income condition storage
-│   ├── assets_tools.py       # STEP_03: asset condition storage
-│   ├── credit_tools.py       # STEP_04: credit condition storage
-│   ├── property_tools.py     # STEP_05: property condition storage
-│   ├── title_tools.py        # STEP_06: title condition storage
-│   ├── compliance_tools.py   # STEP_07: compliance condition storage
-│   ├── merger_tools.py       # STEP_08: merge, de-dup, rank, final output
-│   ├── general.py            # Cross-step tools (todos, flags, reports)
-│   ├── guideline_reader.py   # load_guideline_sections tool
+├── tools/
+│   ├── __init__.py               # Exports ALL_TOOLS and per-step tool lists
+│   ├── general.py                # Cross-step: write_todo, save_step_report, get_workflow_status
+│   ├── scenario_tools.py         # STEP_00: XML/JSON parsing, scenario building
+│   ├── doc_completeness_tools.py # STEP_00b: deterministic document checklist
+│   ├── crosscutting_tools.py     # STEP_01: overlay conflicts, structural checks
+│   ├── income_tools.py           # STEP_02: guideline loading + income condition storage
+│   ├── assets_tools.py           # STEP_03: asset condition storage
+│   ├── credit_tools.py           # STEP_04: credit condition storage
+│   ├── property_tools.py         # STEP_05: property condition storage
+│   ├── title_tools.py            # STEP_06: title condition storage
+│   ├── compliance_tools.py       # STEP_07: compliance condition storage
+│   ├── matrix_eligibility_tools.py # STEP_08: deterministic + LLM matrix checks
+│   ├── merger_tools.py           # STEP_09: normalize, merge, de-dup, rank, final output
 │   └── shared/
-│       ├── guidelines.py     # GuidelinesDocument parser for guidelines.md
-│       └── xml_parser.py     # MISMO XML extraction (iLAD 2.0 / FNM 3.0)
+│       ├── guidelines.py         # GuidelinesDocument parser for guidelines.md
+│       ├── xml_parser.py         # Dynamic MISMO XML extraction (3-layer architecture)
+│       ├── manifest_parser.py    # Document manifest parser with de-duplication
+│       └── matrix_parser.py      # Program matrix parser with deterministic grid/reserve extraction
 │
 ├── data/
-│   ├── guidelines.md         # NQMF Underwriting Guidelines (source of truth)
-│   └── input/                # Sample case data
+│   ├── guidelines.md             # NQMF Underwriting Guidelines (source of truth)
+│   ├── program_matrices.md       # Program-specific LTV/FICO grids, reserves, eligibility
+│   ├── submission_documents.md   # Required document checklists by transaction type
+│   └── input/                    # Test case data (XML + manifest JSON)
 │
 ├── config/
-│   ├── workflow_config.json  # Step definitions and tool assignments
-│   └── generate.py           # Generates registry.py from config
+│   ├── workflow_config.json      # Step definitions, tool assignments, middleware config
+│   └── generate.py               # Generates registry.py from workflow_config.json
 │
 ├── requirements.txt
 ├── env.example
-└── langgraph.json            # LangGraph deployment descriptor
+└── langgraph.json                # LangGraph deployment descriptor
 ```
 
 ## Setup
@@ -151,19 +229,14 @@ predicted-conditions/
 ### Installation
 
 ```bash
-# Clone the repository
 git clone <repo-url>
 cd predicted-conditions
 
-# Create a virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
-pip install python-dotenv  # for test runner
 
-# Configure environment
 cp env.example .env
 # Edit .env and add your ANTHROPIC_API_KEY
 ```
@@ -171,45 +244,81 @@ cp env.example .env
 ### Running
 
 ```bash
-# Run the full pipeline with the sample case
-python test_pipeline.py
+# Run with a specific case directory
+python test_pipeline.py data/input/3-16
+
+# Run with a manifest and test overrides
+MANIFEST_PATH="data/input/3-16-2/jobId-69c755d6-manifest.json" \
+TEST_PROGRAM="Flex Select" \
+TEST_FICO=755 \
+python test_pipeline.py data/input/3-16-2
 ```
 
-This will:
-1. Load the SelectITIN sample case (XML + JSON + submitted documents)
-2. Execute all 9 steps sequentially via the LLM agent
+The test runner will:
+1. Load the XML and manifest from the specified directory
+2. Execute all 11 steps sequentially via the LLM agent (~80-90 tool calls)
 3. Print each tool call as it executes
-4. Save the final output to `test_output.json`
+4. Save the final output to `test_output.json` and full state to `test_final_state.json`
 
-Typical runtime is 5–8 minutes with `claude-opus-4-5`.
+Typical runtime is 8-11 minutes with `claude-opus-4-5`.
 
 ## Architecture Details
 
 ### State Management
 
 The agent uses a `PredictiveConditionsState` TypedDict with custom reducers:
-- `messages` — append-only message history (LangGraph's `add_messages`)
-- `scenario_summary` — deep-merged dict across tool calls
-- `module_outputs` — deep-merged dict keyed by step number (e.g., `"02"`, `"08_merge"`)
-- `flags` — de-duplicated list of underwriter flags
-- `current_step` — last-value reducer, auto-advanced by `save_step_report`
+
+| Field | Reducer | Description |
+|-------|---------|-------------|
+| `messages` | `add_messages` | Append-only message history |
+| `scenario_summary` | `_merge_dicts` | Deep-merged dict across tool calls |
+| `module_outputs` | `_merge_dicts` | Per-module condition storage (keyed `"00b"`, `"02"`, `"08"`, `"09_merge"`, etc.) |
+| `current_step` | `_last_value` | Auto-advanced by `save_step_report` |
+| `step_reports` | `_merge_dicts` | Per-step summaries for the summarization middleware |
+| `final_output` | `_last_value` | The assembled output JSON |
 
 ### Tool Architecture
 
-Tools that modify state return `Command(update={...})` objects with a `ToolMessage` for LangGraph's message history consistency. State is injected via `Annotated[dict, InjectedState]`, so the LLM never needs to pass state as an argument.
+Tools that modify state return `Command(update={...})` objects with a `ToolMessage`. State is injected via `Annotated[dict, InjectedState]`, so the LLM never passes state as an argument.
 
-Domain-specific tools (Steps 02–07) are thin wrappers — the LLM does the reasoning over guidelines and passes its generated conditions as a JSON list. The tool stores them in the correct `module_outputs` slot.
+**Condition generation tools** (Steps 02-07) are thin storage wrappers. The LLM does the reasoning over guidelines and passes its conditions as a JSON list. Each tool:
+1. Enforces the canonical `category` for its domain (e.g., `generate_credit_conditions` always sets `category = "Credit"`)
+2. Adds domain tags
+3. Stores conditions in the correct `module_outputs` slot
 
-### Merger & De-Duplication
+### Condition Normalization (STEP_09)
 
-The merger (Step 08) applies three phases:
-1. **Negative/speculative filter** — removes conditions whose titles indicate "not applicable", "exempt", or "if applicable"
-2. **Cross-module de-dup** — normalizes `condition_family_id` values by stripping module prefixes and resolving synonyms (e.g., `PATRIOT_ACT_OFAC_VERIFICATION` and `FRAUD_ALERT_OFAC_VERIFICATION` both map to `OFAC_SCREENING`)
-3. **Strictest-wins merge** — when duplicates exist, keeps the stricter severity/priority and unions all required documents, traces, and criteria
+Before merging, all conditions pass through `_normalize_condition` which:
+
+1. **Maps field aliases**: LLM-variant field names are coerced to canonical names (`condition_name` → `title`, `condition_text` → `description`, `detail` → `description`)
+2. **Normalizes priority**: `HIGH`/`high`/`CRITICAL`/`1`/`2` → `P0`-`P3`
+3. **Normalizes severity**: `HARD_STOP`/`HARDSTOP`/`WARNING` → `HARD-STOP`/`SOFT-STOP`/`INFO`
+4. **Normalizes category**: `property_appraisal`/`Property/Appraisal`/`title_closing` → canonical names
+5. **Fills missing titles**: Falls back to truncated description if title is missing
+
+### Merger & De-Duplication (STEP_09)
+
+The merger applies four phases:
+
+1. **Normalization** — canonical priority, severity, category, and field names
+2. **Negative/speculative filter** — removes conditions whose titles indicate "not applicable", "exempt", or "if applicable"
+3. **Cross-module de-dup** — normalizes `condition_family_id` values by stripping module prefixes and resolving synonyms (e.g., `PATRIOT_ACT_OFAC_VERIFICATION` and `FRAUD_ALERT_OFAC_VERIFICATION` both map to `OFAC_SCREENING`)
+4. **Strictest-wins merge** — when duplicates exist, keeps the stricter severity/priority and unions all required documents, traces, and criteria
+
+### Message Summarization
+
+To prevent the context window from growing across 11 steps, completed steps are compressed into a compact summary before each LLM invocation. Only the current step's messages are kept in full detail. This is implemented in `agent.py`'s `_summarize_completed_steps` function and reduces cumulative context by ~80%.
+
+### Program Matrix (STEP_08)
+
+The hybrid approach splits program eligibility into:
+
+- **Deterministic** (`check_matrix_eligibility`): Parses LTV/FICO grids, reserve schedules, DTI caps, loan amount ranges, and borrower eligibility directly from `program_matrices.md`. Produces instant, exact conditions. When `eligible_programs` is available from the eligibility engine, checks run only for those programs.
+- **Qualitative** (`load_program_matrix` + `generate_matrix_conditions`): Sends only the textual/interpretive rules (declining markets, credit event seasoning, product type restrictions) to the LLM. Input is trimmed ~76% compared to the full matrix text. Also scoped to eligible programs when available.
 
 ### Guidelines Integration
 
-`data/guidelines.md` is the single source of truth for underwriting rules. The `GuidelinesDocument` class parses it into searchable sections by heading. During Steps 02–07, the LLM calls `load_guideline_sections` with relevant section names, receives the guideline text, and reasons over it to determine which conditions apply to the current scenario.
+`data/guidelines.md` is the single source of truth for underwriting rules. The `GuidelinesDocument` class parses it into searchable sections by heading. During Steps 02-07, the LLM calls `load_guideline_sections` with relevant section names, receives the guideline text, and reasons over it to determine which conditions apply to the current scenario.
 
 ## Environment Variables
 
@@ -217,6 +326,10 @@ The merger (Step 08) applies three phases:
 |----------|----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | Yes | — | Anthropic API key |
 | `ANTHROPIC_MODEL` | No | `claude-opus-4-5` | Model to use |
+| `MANIFEST_PATH` | No | — | Path to document manifest JSON |
+| `ELIGIBILITY_PATH` | No | — | Path to eligibility engine output JSON |
+| `TEST_PROGRAM` | No | — | Override loan program for testing (e.g., `Flex Select`) |
+| `TEST_FICO` | No | — | Override FICO score for testing (e.g., `755`) |
 | `LANGCHAIN_TRACING_V2` | No | `false` | Enable LangSmith tracing |
 | `LANGCHAIN_API_KEY` | No | — | LangSmith API key |
 | `LANGCHAIN_PROJECT` | No | `predicted-conditions` | LangSmith project name |

@@ -17,10 +17,11 @@ You do NOT generate underwriting conditions except:
 ## Tool Call Order
 1. `parse_loan_file` — parses XML and produces a loan profile JSON + supplemental data
 2. `parse_loan_profile` — merges external JSON override (if provided) over XML-derived profile
-3. `parse_submitted_documents` — maps document names to internal types
-4. `build_scenario_summary` — builds the unified scenario summary
-5. `detect_contradictions` — flags inconsistencies
-6. `route_to_facets` — partitions docs into per-facet buckets
+3. `parse_submitted_documents` — maps document names to internal types (from manifest or legacy JSON)
+4. `parse_eligibility_output` — extracts application data, eligible programs, and program results from the eligibility engine output (if provided). Enriches the loan profile with authoritative FICO, LTV, CLTV, DTI, reserves, and other fields.
+5. `build_scenario_summary` — builds the unified scenario summary
+6. `detect_contradictions` — flags inconsistencies
+7. `route_to_facets` — partitions docs into per-facet buckets
 
 ## Inputs
 The primary input is the MISMO XML loan file. An optional external JSON profile

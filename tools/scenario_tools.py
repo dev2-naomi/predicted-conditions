@@ -24,6 +24,7 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import Annotated
 
+from tools.shared.manifest_parser import parse_manifest_from_string
 from tools.shared.xml_parser import parse_mismo_xml, xml_to_loan_profile
 
 
@@ -459,19 +460,64 @@ def parse_submitted_documents(
     state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Parse the submitted documents JSON from state.
-    Each entry has an id and name (e.g. {"doc_id": "117", "name": "Credit Report"}).
-    Maps each document name to an internal doc_type for facet routing.
+    Parse submitted documents from state.
+
+    Checks inputs in order of preference:
+      1. manifest_json  — raw Tasktile manifest (cloud callers)
+      2. submitted_documents_json — pre-parsed doc list (legacy / test_pipeline)
+
+    The manifest is parsed in-process via manifest_parser, so cloud callers
+    only need to pass the raw JSON string.
     """
-    raw = (state or {}).get("submitted_documents_json", "")
-    if not raw:
+    s = state or {}
+    manifest_raw = s.get("manifest_json", "")
+    legacy_raw = s.get("submitted_documents_json", "")
+
+    # --- Try manifest_json first ---
+    if manifest_raw:
+        try:
+            doc_list = parse_manifest_from_string(
+                manifest_raw if isinstance(manifest_raw, str) else json.dumps(manifest_raw)
+            )
+            doc_summary = ", ".join(f"{d['name']} ({d['doc_type']})" for d in doc_list[:20])
+            if len(doc_list) > 20:
+                doc_summary += f" ... and {len(doc_list) - 20} more"
+            return Command(update={
+                "scenario_summary": {"_submitted_docs": doc_list},
+                "messages": [ToolMessage(
+                    f"Parsed manifest_json → {len(doc_list)} submitted documents: {doc_summary}",
+                    tool_call_id=tool_call_id,
+                )],
+            })
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            return Command(update={
+                "module_outputs": {"00": {"conditions": [{
+                    "category": "Document Completeness",
+                    "severity": "SOFT-STOP",
+                    "priority": "P1",
+                    "title": "Invalid Manifest JSON",
+                    "description": f"The manifest JSON could not be parsed: {e}. Falling back to submitted_documents_json if available.",
+                    "required_documents": ["Corrected manifest JSON"],
+                    "required_data_elements": [],
+                    "condition_family_id": "invalid_manifest_json",
+                    "source_module": "00",
+                }]}},
+                "scenario_summary": {"_submitted_docs": []},
+                "messages": [ToolMessage(
+                    f"SOFT-STOP: Invalid manifest JSON: {e}. Will try submitted_documents_json.",
+                    tool_call_id=tool_call_id,
+                )],
+            })
+
+    # --- Fall back to legacy submitted_documents_json ---
+    if not legacy_raw:
         return Command(update={
             "scenario_summary": {"_submitted_docs": []},
-            "messages": [ToolMessage("No submitted documents provided.", tool_call_id=tool_call_id)],
+            "messages": [ToolMessage("No submitted documents provided (no manifest_json or submitted_documents_json).", tool_call_id=tool_call_id)],
         })
 
     try:
-        doc_list = json.loads(raw) if isinstance(raw, str) else raw
+        doc_list = json.loads(legacy_raw) if isinstance(legacy_raw, str) else legacy_raw
     except json.JSONDecodeError as e:
         return Command(update={
             "module_outputs": {"00": {"conditions": [{
@@ -505,13 +551,152 @@ def parse_submitted_documents(
             "flags": doc.get("flags", []),
         })
 
-    doc_summary = ", ".join(f"{d['name']} ({d['doc_type']})" for d in mapped)
+    doc_summary = ", ".join(f"{d['name']} ({d['doc_type']})" for d in mapped[:20])
+    if len(mapped) > 20:
+        doc_summary += f" ... and {len(mapped) - 20} more"
     return Command(update={
         "scenario_summary": {"_submitted_docs": mapped},
         "messages": [ToolMessage(
             f"Parsed {len(mapped)} submitted documents: {doc_summary}",
             tool_call_id=tool_call_id,
         )],
+    })
+
+
+# ---------------------------------------------------------------------------
+# Eligibility engine field mapping
+# ---------------------------------------------------------------------------
+
+_ELIGIBILITY_FIELD_MAP: dict[str, str] = {
+    "FicoScore": "fico",
+    "LTV": "ltv_pct",
+    "CLTV": "cltv_pct",
+    "DTI": "dti",
+    "LoanAmount": "loan_amount",
+    "PropertyValue": "property_value",
+    "PropertyType": "property_type",
+    "Occupancy": "occupancy",
+    "LoanPurpose": "purpose",
+    "IncomeDocType": "income_doc",
+    "Channel": "channel",
+    "BorrowerType": "borrower_type",
+    "Citizenship": "citizenship",
+    "State": "state",
+    "County": "county",
+    "LoanType": "loan_type",
+}
+
+
+@tool
+def parse_eligibility_output(
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
+) -> Command:
+    """
+    Parse the eligibility engine output JSON and enrich the loan profile.
+
+    Extracts:
+      - application_data: authoritative loan fields (FICO, LTV, CLTV, DTI,
+        reserves, property type, etc.) that override XML-derived values.
+      - eligible_programs: list of programs that passed eligibility.
+      - program_results: per-program pass/fail details.
+
+    If no eligibility_json is provided, returns gracefully with no changes.
+    """
+    s = state or {}
+    raw = s.get("eligibility_json", "")
+    if not raw:
+        return Command(update={
+            "messages": [ToolMessage(
+                "No eligibility_json provided. Skipping eligibility enrichment.",
+                tool_call_id=tool_call_id,
+            )],
+        })
+
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, TypeError) as e:
+        return Command(update={
+            "module_outputs": {"00": {"conditions": [{
+                "category": "Program Eligibility",
+                "severity": "SOFT-STOP",
+                "priority": "P1",
+                "title": "Invalid Eligibility JSON",
+                "description": f"The eligibility engine JSON could not be parsed: {e}.",
+                "required_documents": [],
+                "required_data_elements": ["Corrected eligibility engine output"],
+                "condition_family_id": "invalid_eligibility_json",
+                "source_module": "00",
+            }]}},
+            "messages": [ToolMessage(f"SOFT-STOP: Invalid eligibility JSON: {e}", tool_call_id=tool_call_id)],
+        })
+
+    detailed = data.get("detailed_results", {})
+    app_data = detailed.get("application_data", {})
+    eligible = detailed.get("eligible_programs", [])
+    ineligible = detailed.get("ineligible_programs", [])
+    program_results = detailed.get("program_results", {})
+
+    # Map application_data fields to profile metadata shape
+    meta_overlay: dict[str, Any] = {}
+    for elig_key, meta_key in _ELIGIBILITY_FIELD_MAP.items():
+        val = app_data.get(elig_key)
+        if val is not None:
+            meta_overlay[meta_key] = val
+
+    # Extra fields that don't map 1:1 into metadata but are useful
+    extra_fields: dict[str, Any] = {}
+    for key in ("ReservesMonths", "FirstTimeHomeBuyer", "HousingHistory30DayLates12Months",
+                "HousingHistory12DayLates24Months", "CreditEventSeasoning",
+                "AssetSeasoningDays", "BorrowerContribution", "IPCs",
+                "DecliningMarket", "CashOutAmount", "SeasoningMonths",
+                "SSRScore", "Acres", "HPMLStatus", "InterestOnly", "Buydown"):
+        val = app_data.get(key)
+        if val is not None:
+            extra_fields[key] = val
+
+    # Build compact program results for downstream use
+    program_detail: dict[str, dict] = {}
+    for prog_key, prog_data in program_results.items():
+        prog_name = prog_data.get("program", prog_key)
+        program_detail[prog_name] = {
+            "status": prog_data.get("overall_status", "UNKNOWN"),
+            "passed_count": len(prog_data.get("passed", [])),
+            "failed_count": len(prog_data.get("failed", [])),
+            "failed_rules": [
+                {"requirement": f.get("requirement", "?"), "message": f.get("message", "")}
+                for f in prog_data.get("failed", [])
+            ],
+        }
+
+    # Determine the program to use: first eligible, or infer from results
+    primary_program = eligible[0] if eligible else None
+
+    # If the eligibility engine identified a program, set it as loan_program
+    if primary_program:
+        meta_overlay["loan_program"] = {"name": primary_program}
+
+    summary_msg = (
+        f"Eligibility engine output parsed. "
+        f"Eligible programs: {eligible or 'none'}. "
+        f"Ineligible: {ineligible or 'none'}. "
+        f"Application data fields: {list(app_data.keys())[:10]}..."
+    )
+    if extra_fields:
+        summary_msg += f" Extra fields: {list(extra_fields.keys())}"
+
+    return Command(update={
+        "scenario_summary": {
+            "_eligibility_data": {
+                "application_data": app_data,
+                "extra_fields": extra_fields,
+                "eligible_programs": eligible,
+                "ineligible_programs": ineligible,
+                "program_detail": program_detail,
+            },
+            "_loan_profile": {"metadata": meta_overlay} if meta_overlay else {},
+        },
+        "messages": [ToolMessage(summary_msg, tool_call_id=tool_call_id)],
     })
 
 
@@ -544,6 +729,23 @@ def build_scenario_summary(
                 profile["metadata"] = _deep_merge(profile.get("metadata", {}), ext_meta)
         except (json.JSONDecodeError, TypeError):
             pass
+
+    # Re-apply eligibility engine data (highest priority for numeric fields)
+    eligibility_data = ss.get("_eligibility_data", {})
+    elig_app = eligibility_data.get("application_data", {})
+    if elig_app:
+        elig_meta: dict[str, Any] = {}
+        for elig_key, meta_key in _ELIGIBILITY_FIELD_MAP.items():
+            val = elig_app.get(elig_key)
+            if val is not None:
+                elig_meta[meta_key] = val
+        # Set loan_program from eligible programs
+        elig_programs = eligibility_data.get("eligible_programs", [])
+        if elig_programs:
+            elig_meta["loan_program"] = {"name": elig_programs[0]}
+        if elig_meta:
+            profile = dict(profile)
+            profile["metadata"] = _deep_merge(profile.get("metadata", {}), elig_meta)
 
     meta = profile.get("metadata", {})
     loan_program = meta.get("loan_program", {})
@@ -726,6 +928,24 @@ def build_scenario_summary(
         "liabilities": supplemental.get("liabilities", []),
         "owned_properties": owned_properties,
     }
+
+    # Enrich with eligibility engine data if available
+    if eligibility_data:
+        summary["eligible_programs"] = eligibility_data.get("eligible_programs", [])
+        summary["ineligible_programs"] = eligibility_data.get("ineligible_programs", [])
+        summary["program_eligibility_detail"] = eligibility_data.get("program_detail", {})
+        extra = eligibility_data.get("extra_fields", {})
+        if extra:
+            summary["eligibility_extra"] = extra
+            if extra.get("ReservesMonths") is not None:
+                summary["asset_profile"]["months_reserves"] = extra["ReservesMonths"]
+                summary["asset_profile"]["has_reserves_indicators"] = True
+            if extra.get("FirstTimeHomeBuyer") is not None:
+                summary["is_fthb"] = extra["FirstTimeHomeBuyer"]
+            if extra.get("DecliningMarket") is not None:
+                summary["is_declining_market"] = extra["DecliningMarket"]
+            if extra.get("CashOutAmount") is not None and summary.get("cash_out_amount") is None:
+                summary["cash_out_amount"] = extra["CashOutAmount"]
 
     # Missing core variables
     missing: list[str] = []

@@ -14,6 +14,7 @@ from tools.general import (
 from tools.scenario_tools import (
     build_scenario_summary,
     detect_contradictions,
+    parse_eligibility_output,
     parse_loan_file,
     parse_loan_profile,
     parse_submitted_documents,
@@ -46,6 +47,7 @@ STEP_TOOLS = {
         parse_loan_file,
         parse_loan_profile,
         parse_submitted_documents,
+        parse_eligibility_output,
         build_scenario_summary,
         detect_contradictions,
         route_to_facets,

@@ -44,7 +44,6 @@ def check_matrix_eligibility(
     ss = s.get("scenario_summary", {})
     numbers = ss.get("numbers", {})
 
-    program = ss.get("program") or "unknown"
     credit = ss.get("credit", {})
 
     fico_val = credit.get("fico") or numbers.get("fico")
@@ -61,33 +60,47 @@ def check_matrix_eligibility(
     borrower_type = ss.get("borrower_type")
     is_fthb = bool(ss.get("is_fthb", False))
 
-    pm = get_program_matrix()
-    conditions = pm.run_deterministic_checks(
-        program,
-        fico=fico,
-        ltv=ltv,
-        loan_amount=loan_amount,
-        dti=dti,
-        occupancy=occupancy,
-        purpose=purpose,
-        borrower_type=borrower_type,
-        is_fthb=is_fthb,
-    )
+    # Determine which programs to check: eligible > inferred single program
+    eligible_programs = ss.get("eligible_programs", [])
+    inferred_program = ss.get("program") or "unknown"
+    programs_to_check = eligible_programs if eligible_programs else [inferred_program]
 
-    titles = [c.get("title", "?") for c in conditions]
-    hard_stops = sum(1 for c in conditions if c.get("severity") == "HARD-STOP")
+    pm = get_program_matrix()
+    all_conditions: list[dict] = []
+
+    for program in programs_to_check:
+        conditions = pm.run_deterministic_checks(
+            program,
+            fico=fico,
+            ltv=ltv,
+            loan_amount=loan_amount,
+            dti=dti,
+            occupancy=occupancy,
+            purpose=purpose,
+            borrower_type=borrower_type,
+            is_fthb=is_fthb,
+        )
+        for c in conditions:
+            c["program"] = program
+        all_conditions.extend(conditions)
+
+    titles = [c.get("title", "?") for c in all_conditions]
+    hard_stops = sum(1 for c in all_conditions if c.get("severity") == "HARD-STOP")
+    programs_label = ", ".join(programs_to_check)
 
     summary = (
-        f"Deterministic matrix check for '{program}': "
-        f"{len(conditions)} condition(s) found ({hard_stops} HARD-STOP). "
+        f"Deterministic matrix check for [{programs_label}]: "
+        f"{len(all_conditions)} condition(s) found ({hard_stops} HARD-STOP). "
         f"Inputs: FICO={fico}, LTV={ltv}, Loan={loan_amount}, "
         f"DTI={dti}, Occ={occupancy}, Purpose={purpose}."
     )
+    if eligible_programs:
+        summary += f" Scoped to eligible programs from eligibility engine."
     if titles:
         summary += f" Conditions: {titles}"
 
     return Command(update={
-        "module_outputs": {"08": {"conditions": conditions}},
+        "module_outputs": {"08": {"conditions": all_conditions}},
         "current_step": "STEP_08",
         "messages": [ToolMessage(summary, tool_call_id=tool_call_id)],
     })
@@ -112,31 +125,43 @@ def load_program_matrix(
     """
     s = state or {}
     ss = s.get("scenario_summary", {})
-    program = ss.get("program") or "unknown"
+
+    # Scope to eligible programs if available, else use inferred program
+    eligible_programs = ss.get("eligible_programs", [])
+    inferred_program = ss.get("program") or "unknown"
+    programs_to_load = eligible_programs if eligible_programs else [inferred_program]
 
     pm = get_program_matrix()
-    canonical = pm.resolve_program_name(program)
+    parts: list[str] = []
 
-    if not canonical:
-        available = pm.program_names
-        return (
-            f"Could not find program matrix for '{program}'. "
-            f"Available programs: {available}. "
-            f"Please verify the program name from the loan file."
+    for program in programs_to_load:
+        canonical = pm.resolve_program_name(program)
+        if not canonical:
+            available = pm.program_names
+            parts.append(
+                f"Could not find program matrix for '{program}'. "
+                f"Available programs: {available}."
+            )
+            continue
+
+        trimmed = pm.get_trimmed_text(program)
+        if not trimmed.strip():
+            parts.append(f"No additional qualitative rules found for '{canonical}'.")
+            continue
+
+        parts.append(
+            f"## {canonical} — Qualitative Rules (for LLM review)\n\n"
+            f"NOTE: LTV/FICO grid, DTI cap, reserves, loan amount range, "
+            f"borrower eligibility, and FTHB limits have already been checked "
+            f"deterministically by check_matrix_eligibility. Only review the "
+            f"rules below for items that require interpretation.\n\n"
+            f"{trimmed}"
         )
 
-    trimmed = pm.get_trimmed_text(program)
-    if not trimmed.strip():
-        return f"No additional qualitative rules found for '{canonical}'."
+    if not parts:
+        return "No program matrix data available."
 
-    return (
-        f"## {canonical} — Qualitative Rules (for LLM review)\n\n"
-        f"NOTE: LTV/FICO grid, DTI cap, reserves, loan amount range, "
-        f"borrower eligibility, and FTHB limits have already been checked "
-        f"deterministically by check_matrix_eligibility. Only review the "
-        f"rules below for items that require interpretation.\n\n"
-        f"{trimmed}"
-    )
+    return "\n\n---\n\n".join(parts)
 
 
 @tool

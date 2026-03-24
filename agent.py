@@ -74,7 +74,9 @@ class PredictiveConditionsState(TypedDict, total=False):
     # ---- Input fields ----
     loan_file_xml: str                # MISMO XML — primary input, parsed into loan profile
     loan_profile_json: str            # Optional external JSON override (from platform/UI)
-    submitted_documents_json: str     # Doc list (future: manifest-driven)
+    submitted_documents_json: str     # Doc list (legacy: pre-parsed doc array)
+    manifest_json: str                # Raw Tasktile manifest JSON (preferred over submitted_documents_json)
+    eligibility_json: str             # Raw eligibility engine output JSON (application_data + eligible_programs)
     env: str                          # "Test" | "Prod"
 
     # ---- Message history ----
@@ -106,6 +108,33 @@ _llm = ChatAnthropic(
     model=_MODEL,
     temperature=0,
     max_tokens=8192,
+)
+
+
+# ---------------------------------------------------------------------------
+# Default initial prompt (used when caller sends only data, no messages)
+# ---------------------------------------------------------------------------
+
+_DEFAULT_INITIAL_PROMPT = (
+    "Execute the FULL predictive conditions workflow from STEP_00 through STEP_09.\n\n"
+    "You MUST complete ALL steps in sequence. Do NOT stop after a single step.\n"
+    "Do NOT output a summary between steps — just call the tools.\n\n"
+    "Step sequence:\n"
+    "  STEP_00: parse_loan_file, parse_loan_profile, parse_submitted_documents, "
+    "parse_eligibility_output, build_scenario_summary, detect_contradictions, route_to_facets\n"
+    "  STEP_00b: check_submission_completeness\n"
+    "  STEP_01: check_overlay_conflicts, generate_crosscutting_conditions\n"
+    "  STEP_02: load_guideline_sections (income sections), then generate_income_conditions\n"
+    "  STEP_03: load_guideline_sections (asset sections), then generate_asset_conditions\n"
+    "  STEP_04: load_guideline_sections (credit sections), then generate_credit_conditions\n"
+    "  STEP_05: load_guideline_sections (property sections), then generate_property_conditions\n"
+    "  STEP_06: load_guideline_sections (title sections), then generate_title_conditions\n"
+    "  STEP_07: load_guideline_sections (compliance sections), then generate_compliance_conditions\n"
+    "  STEP_08: check_matrix_eligibility (deterministic), load_program_matrix (trimmed), "
+    "generate_matrix_conditions\n"
+    "  STEP_09: merge_conditions, rank_conditions, generate_final_output\n\n"
+    "For STEP_02 through STEP_07: first load the relevant guideline sections, then "
+    "reason over the scenario_summary + guidelines to generate conditions."
 )
 
 
@@ -211,6 +240,11 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
     messages: list[BaseMessage] = list(state.get("messages", []))
     current_step = state.get("current_step")
     step_reports = state.get("step_reports", {})
+
+    # Auto-inject initial instructions if caller sent no HumanMessage
+    has_human = any(isinstance(m, HumanMessage) for m in messages)
+    if not has_human:
+        messages = [HumanMessage(content=_DEFAULT_INITIAL_PROMPT)] + messages
 
     # Compress completed steps into a summary
     messages = _summarize_completed_steps(messages, current_step, step_reports)

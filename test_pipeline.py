@@ -15,6 +15,8 @@ Submitted documents are loaded from a manifest JSON if available
 otherwise falls back to individual JSON files in Pertinent Documents/.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import sys
@@ -46,21 +48,53 @@ def _find_json(directory: Path, pattern: str = "sample_case") -> str:
     return ""
 
 
-def _find_submitted_docs(directory: Path) -> list:
+def _find_manifest_raw(directory: Path) -> str | None:
     """
-    Find submitted documents for a case directory.
-    Checks for a manifest JSON first (via MANIFEST_PATH env var or
-    manifest.json in the directory), then falls back to reading
-    individual doc files from Pertinent Documents/.
+    Find a manifest JSON file and return its raw string content.
+    Checks MANIFEST_PATH env var first, then any *manifest*.json in the directory.
+    Returns None if no manifest is found.
     """
-    from tools.shared.manifest_parser import parse_manifest
+    env_path = os.environ.get("MANIFEST_PATH", "")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            print(f"  Found manifest via MANIFEST_PATH: {p}")
+            return p.read_text(encoding="utf-8")
 
-    manifest_path = Path(os.environ.get("MANIFEST_PATH", "")) or (directory / "manifest.json")
-    if manifest_path.exists():
-        docs = parse_manifest(manifest_path)
-        print(f"  Loaded {len(docs)} documents from manifest: {manifest_path}")
-        return docs
+    for f in sorted(directory.iterdir()):
+        if f.suffix == ".json" and "manifest" in f.name.lower():
+            print(f"  Found manifest in directory: {f}")
+            return f.read_text(encoding="utf-8")
 
+    return None
+
+
+def _find_eligibility_raw(directory: Path) -> str | None:
+    """
+    Find an eligibility engine output JSON and return its raw string content.
+    Checks ELIGIBILITY_PATH env var first, then any *eligibility* or *sample_output*
+    JSON in the directory.
+    """
+    env_path = os.environ.get("ELIGIBILITY_PATH", "")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            print(f"  Found eligibility output via ELIGIBILITY_PATH: {p}")
+            return p.read_text(encoding="utf-8")
+
+    for f in sorted(directory.iterdir()):
+        if f.suffix == ".json" and ("eligibility" in f.name.lower() or "sample_output" in f.name.lower()):
+            print(f"  Found eligibility output in directory: {f}")
+            return f.read_text(encoding="utf-8")
+
+    return None
+
+
+def _find_submitted_docs_legacy(directory: Path) -> list:
+    """
+    Legacy fallback: read individual doc JSON files from Pertinent Documents/.
+    Only used when no manifest is available.
+    """
     docs_dir = directory / "Pertinent Documents"
     if not docs_dir.exists():
         return []
@@ -82,7 +116,9 @@ def main():
 
     xml_content = ""
     case_json = ""
-    submitted_docs = []
+    manifest_raw: str | None = None
+    eligibility_raw: str | None = None
+    submitted_docs_legacy: list = []
     source_label = ""
 
     if arg_path.is_file() and arg_path.suffix.lower() == ".xml":
@@ -91,7 +127,10 @@ def main():
     elif arg_path.is_dir():
         xml_content = _find_xml(arg_path)
         case_json = _find_json(arg_path)
-        submitted_docs = _find_submitted_docs(arg_path)
+        manifest_raw = _find_manifest_raw(arg_path)
+        eligibility_raw = _find_eligibility_raw(arg_path)
+        if not manifest_raw:
+            submitted_docs_legacy = _find_submitted_docs_legacy(arg_path)
         source_label = arg_path.name
     else:
         print(f"Error: {arg} is not a valid file or directory.")
@@ -100,53 +139,6 @@ def main():
     if not xml_content:
         print(f"Error: No XML file found in {arg}")
         sys.exit(1)
-
-    step_sequence = (
-        "  STEP_00: parse_loan_file"
-    )
-    if case_json:
-        step_sequence += ", parse_loan_profile"
-    if submitted_docs:
-        step_sequence += ", parse_submitted_documents"
-    step_sequence += ", build_scenario_summary, detect_contradictions, route_to_facets"
-
-    doc_info = ""
-    if submitted_docs:
-        # Summarize for the prompt — full data is in submitted_documents_json state
-        substantive = [d for d in submitted_docs if d.get("doc_type", "other") != "other"]
-        doc_type_counts: dict[str, int] = {}
-        for d in submitted_docs:
-            dt = d.get("doc_type", "other")
-            doc_type_counts[dt] = doc_type_counts.get(dt, 0) + 1
-        summary_lines = [f"  {dt}: {ct}" for dt, ct in sorted(doc_type_counts.items()) if dt != "other"]
-        other_ct = doc_type_counts.get("other", 0)
-        if other_ct:
-            summary_lines.append(f"  other/admin: {other_ct}")
-        doc_info = (
-            f"\n\n{len(submitted_docs)} submitted documents ({len(substantive)} substantive):\n"
-            + "\n".join(summary_lines)
-        )
-
-    initial_message = (
-        "Execute the FULL predictive conditions workflow from STEP_00 through STEP_09.\n\n"
-        "You MUST complete ALL steps in sequence. Do NOT stop after a single step.\n"
-        "Do NOT output a summary between steps — just call the tools.\n\n"
-        "Step sequence:\n"
-        f"{step_sequence}\n"
-        "  STEP_00b: check_submission_completeness\n"
-        "  STEP_01: check_overlay_conflicts, generate_crosscutting_conditions\n"
-        "  STEP_02: load_guideline_sections (income sections), then generate_income_conditions\n"
-        "  STEP_03: load_guideline_sections (asset sections), then generate_asset_conditions\n"
-        "  STEP_04: load_guideline_sections (credit sections), then generate_credit_conditions\n"
-        "  STEP_05: load_guideline_sections (property sections), then generate_property_conditions\n"
-        "  STEP_06: load_guideline_sections (title sections), then generate_title_conditions\n"
-        "  STEP_07: load_guideline_sections (compliance sections), then generate_compliance_conditions\n"
-        "  STEP_08: check_matrix_eligibility (deterministic), load_program_matrix (trimmed), generate_matrix_conditions\n"
-        "  STEP_09: merge_conditions, rank_conditions, generate_final_output\n\n"
-        "For STEP_02 through STEP_07: first load the relevant guideline sections, then "
-        "reason over the scenario_summary + guidelines to generate conditions.\n"
-        f"{doc_info}"
-    )
 
     # Allow env-var overrides for program and FICO (for testing)
     test_program = os.environ.get("TEST_PROGRAM", "")
@@ -159,19 +151,25 @@ def main():
             override["metadata"]["fico"] = int(test_fico)
         case_json = json.dumps(override)
 
+    # Build initial state — mirrors what a cloud caller would send
     initial_state: dict = {
         "loan_file_xml": xml_content,
         "env": "Test",
         "current_step": "STEP_00",
-        "messages": [HumanMessage(content=initial_message)],
     }
 
     if case_json:
         initial_state["loan_profile_json"] = case_json
 
-    if submitted_docs:
-        initial_state["submitted_documents_json"] = json.dumps(submitted_docs)
+    if manifest_raw:
+        initial_state["manifest_json"] = manifest_raw
+    elif submitted_docs_legacy:
+        initial_state["submitted_documents_json"] = json.dumps(submitted_docs_legacy)
 
+    if eligibility_raw:
+        initial_state["eligibility_json"] = eligibility_raw
+
+    doc_count_label = "manifest" if manifest_raw else f"{len(submitted_docs_legacy)} legacy docs"
     model_name = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-5")
     print("=" * 70)
     print("  Starting Full Pipeline Run (with LLM)")
@@ -179,7 +177,8 @@ def main():
     print(f"  Model: {model_name}")
     print(f"  Source: {source_label}")
     print(f"  External JSON: {'yes' if case_json else 'no (XML-derived profile)'}")
-    print(f"  Submitted Documents: {len(submitted_docs)}")
+    print(f"  Documents: {doc_count_label}")
+    print(f"  Eligibility: {'yes' if eligibility_raw else 'no'}")
     print("=" * 70)
     sys.stdout.flush()
 
@@ -289,6 +288,12 @@ def main():
                 continue
             if k == "loan_file_xml":
                 out[k] = f"[XML string, {len(v)} chars]"
+                continue
+            if k == "eligibility_json":
+                out[k] = f"[eligibility JSON, {len(v)} chars]"
+                continue
+            if k == "manifest_json":
+                out[k] = f"[manifest JSON, {len(v)} chars]"
                 continue
             if k == "submitted_documents_json":
                 try:

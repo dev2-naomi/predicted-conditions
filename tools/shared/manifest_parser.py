@@ -389,8 +389,27 @@ def _merge_paystubs(
 
 def parse_manifest(manifest_path: Union[str, Path]) -> list[dict]:
     """
-    Parse a Tasktile manifest JSON and return a submitted_documents list
+    Parse a Tasktile manifest JSON file and return a submitted_documents list
     compatible with the pipeline's parse_submitted_documents tool.
+    """
+    manifest_path = Path(manifest_path)
+    with open(manifest_path, encoding="utf-8") as f:
+        manifest = json.load(f)
+    return _parse_manifest_dict(manifest)
+
+
+def parse_manifest_from_string(raw_json: str) -> list[dict]:
+    """
+    Parse a raw manifest JSON string (for cloud callers that pass the
+    manifest as a state field instead of a file path).
+    """
+    manifest = json.loads(raw_json)
+    return _parse_manifest_dict(manifest)
+
+
+def _parse_manifest_dict(manifest: dict) -> list[dict]:
+    """
+    Core manifest parsing logic. Accepts an already-parsed dict.
 
     Each entry in the returned list:
         {
@@ -406,9 +425,6 @@ def parse_manifest(manifest_path: Union[str, Path]) -> list[dict]:
     the same category represent separate physical documents (e.g., two
     different paystubs) and are both included.
     """
-    manifest_path = Path(manifest_path)
-    with open(manifest_path, encoding="utf-8") as f:
-        manifest = json.load(f)
 
     tasks: list[dict] = manifest.get("job", {}).get("tasks", [])
     documents: list[dict] = manifest.get("documents", [])
