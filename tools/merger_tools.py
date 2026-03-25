@@ -109,8 +109,12 @@ _FIELD_ALIASES: dict[str, str] = {
 }
 
 
-def _normalize_condition(c: dict) -> dict:
+def _normalize_condition(c: dict | str) -> dict:
     """Normalize priority, severity, category, and field names to canonical values."""
+    if isinstance(c, str):
+        c = {"title": c, "description": c}
+    if not isinstance(c, dict):
+        c = {"title": str(c), "description": str(c)}
     for alias, canonical in _FIELD_ALIASES.items():
         if alias in c and c[alias]:
             existing = c.get(canonical)
@@ -172,10 +176,14 @@ def _choose_strictest(a: dict, b: dict) -> dict:
     return merged
 
 
-def _union(a: list | dict, b: list | dict) -> list:
+def _union(a: list | dict | str, b: list | dict | str) -> list:
     if isinstance(a, dict):
         a = [a]
+    elif isinstance(a, str):
+        a = [a]
     if isinstance(b, dict):
+        b = [b]
+    elif isinstance(b, str):
         b = [b]
     seen: set = set()
     result = []
@@ -187,10 +195,20 @@ def _union(a: list | dict, b: list | dict) -> list:
     return result
 
 
-def _union_by_key(a: list[dict], b: list[dict], key: str) -> list[dict]:
+def _union_by_key(a: list | dict | str, b: list | dict | str, key: str) -> list[dict]:
+    if isinstance(a, dict):
+        a = [a]
+    elif isinstance(a, str):
+        a = [{"value": a}]
+    if isinstance(b, dict):
+        b = [b]
+    elif isinstance(b, str):
+        b = [{"value": b}]
     seen: set = set()
     result = []
     for item in a + b:
+        if isinstance(item, str):
+            item = {"value": item}
         k = item.get(key, str(item))
         if k not in seen:
             seen.add(k)
