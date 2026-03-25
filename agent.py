@@ -311,4 +311,4 @@ _builder.add_conditional_edges(
 )
 _builder.add_edge("tools", "orchestrator")
 
-agent = _builder.compile()
+agent = _builder.compile().with_config({"recursion_limit": 150})
