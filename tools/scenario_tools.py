@@ -621,6 +621,37 @@ def _mine_fico_from_passed_programs(
     return min(fico_vals) if fico_vals else None
 
 
+def _extract_required_doc_categories(
+    program_results: dict[str, Any],
+    eligible_programs: list[str],
+) -> list[str]:
+    """Collect document category names from passed programs' doc requirements.
+
+    Scans ``passed``, ``failed``, and ``missing_fields`` of each eligible
+    program for requirement entries whose name contains
+    "minimum required documents" or "income documentation".  Returns the
+    union of all ``expected`` dict keys found (the document category names
+    the eligibility engine requires).
+    """
+    categories: set[str] = set()
+    eligible_set = {p.lower() for p in eligible_programs}
+
+    for _prog_key, prog_data in program_results.items():
+        prog_name = (prog_data.get("program") or _prog_key).lower()
+        if prog_name not in eligible_set and prog_data.get("overall_status") != "PASS":
+            continue
+        for array_key in ("passed", "failed", "missing_fields"):
+            for check in prog_data.get(array_key, []):
+                req = (check.get("requirement") or "").lower()
+                if "minimum required documents" not in req and "income documentation" not in req:
+                    continue
+                expected = check.get("expected")
+                if isinstance(expected, dict):
+                    categories.update(expected.keys())
+
+    return sorted(categories)
+
+
 @tool
 def parse_eligibility_output(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -713,6 +744,9 @@ def parse_eligibility_output(
             ],
         }
 
+    # Extract required document categories from passed programs
+    required_doc_categories = _extract_required_doc_categories(program_results, eligible)
+
     # Determine the program to use: first eligible, or infer from results
     primary_program = eligible[0] if eligible else None
 
@@ -737,6 +771,7 @@ def parse_eligibility_output(
                 "eligible_programs": eligible,
                 "ineligible_programs": ineligible,
                 "program_detail": program_detail,
+                "required_doc_categories": required_doc_categories,
             },
             "_loan_profile": {"metadata": meta_overlay} if meta_overlay else {},
         },
@@ -776,6 +811,29 @@ def build_scenario_summary(
 
     # Re-apply eligibility engine data (highest priority for numeric fields)
     eligibility_data = ss.get("_eligibility_data", {})
+
+    # Filter submitted docs to only those required by passed programs
+    required_doc_categories = eligibility_data.get("required_doc_categories", [])
+    if required_doc_categories and submitted_docs:
+        required_doc_types: set[str] = set()
+        required_names_lower: set[str] = set()
+        for cat in required_doc_categories:
+            dtype = _map_doc_name_to_type(cat)
+            if dtype != "other":
+                required_doc_types.add(dtype)
+            required_names_lower.add(cat.strip().lower())
+
+        def _doc_matches(doc: dict) -> bool:
+            if doc.get("doc_type") in required_doc_types:
+                return True
+            name_lower = doc.get("name", "").strip().lower()
+            for cat in required_names_lower:
+                if cat in name_lower or name_lower in cat:
+                    return True
+            return False
+
+        submitted_docs = [doc for doc in submitted_docs if _doc_matches(doc)]
+
     elig_app = eligibility_data.get("application_data", {})
     if elig_app:
         elig_meta: dict[str, Any] = {}
