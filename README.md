@@ -46,23 +46,15 @@ The agent accepts three primary inputs:
 
 An optional external JSON override (`loan_profile_json`) can inject fields not present in the XML or eligibility output.
 
-### Frontend Integration
+### Cloud API
 
-#### Deployment
+**Base URL**: `https://sbiq-predicted-conditions-189178cdda215830aeb0df97e0fab56b.us.langgraph.app`
 
-The agent is deployed to **LangGraph Cloud** and accessed via the [LangGraph SDK](https://langchain-ai.github.io/langgraph/cloud/reference/sdk/python_sdk_ref/).
-
-| Property | Value |
-|----------|-------|
-| Deployment URL | `https://sbiq-predicted-conditions-189178cdda215830aeb0df97e0fab56b.us.langgraph.app` |
-| Assistant ID | `predicted-conditions` |
-| Auth | `x-api-key` header with LangSmith API key |
-
-#### Request Format
-
-All three inputs are passed as raw JSON strings — no pre-processing needed. The agent auto-generates its own instruction prompt and defaults to `STEP_00`, so callers only need to send data.
+All three inputs are passed as raw strings — no pre-processing needed. The agent auto-generates its own instruction prompt and defaults to `STEP_00`, so callers only need to send data.
 
 ```json
+POST /threads/{thread_id}/runs
+
 {
   "assistant_id": "predicted-conditions",
   "input": {
@@ -73,218 +65,7 @@ All three inputs are passed as raw JSON strings — no pre-processing needed. Th
 }
 ```
 
-| Input Key | Required | Format | Description |
-|-----------|----------|--------|-------------|
-| `loan_file_xml` | Yes | String (XML) | MISMO iLAD/DU Export XML — the primary loan application data |
-| `manifest_json` | Yes | String (JSON) | Tasktile document manifest — classified inventory of submitted documents |
-| `eligibility_json` | Yes | String (JSON) | Eligibility engine output — `application_data`, `eligible_programs`, `program_results` |
-| `loan_profile_json` | No | String (JSON) | Optional override — injects fields not present in the XML or eligibility output |
-
-| `current_step` | No | String | Defaults to `STEP_00` if omitted. Can be used to resume from a specific step. |
-
-`env` is accepted but currently unused — kept as a future config hook.
-
-#### Calling the API (JavaScript/TypeScript)
-
-```typescript
-import { Client } from "@langchain/langgraph-sdk";
-
-const client = new Client({
-  apiUrl: "https://sbiq-predicted-conditions-189178cdda215830aeb0df97e0fab56b.us.langgraph.app",
-  apiKey: LANGSMITH_API_KEY,
-});
-
-// 1. Create a thread
-const thread = await client.threads.create();
-
-// 2. Start a streaming run
-const stream = client.runs.stream(thread.thread_id, "predicted-conditions", {
-  input: {
-    loan_file_xml: rawXmlString,
-    manifest_json: rawManifestJsonString,
-    eligibility_json: rawEligibilityJsonString,
-  },
-  streamMode: "updates",
-});
-
-// 3. Listen for updates (optional — for progress tracking)
-for await (const event of stream) {
-  if (event.event === "updates") {
-    // event.data contains per-node state updates
-    // Check for current_step changes to track pipeline progress
-  }
-}
-
-// 4. Get the final state
-const state = await client.threads.getState(thread.thread_id);
-const finalOutput = state.values.final_output;
-```
-
-#### Calling the API (Python)
-
-```python
-from langgraph_sdk import get_client
-
-client = get_client(url=DEPLOYMENT_URL, api_key=LANGSMITH_API_KEY)
-thread = await client.threads.create()
-
-async for event in client.runs.stream(
-    thread_id=thread["thread_id"],
-    assistant_id="predicted-conditions",
-    input={
-        "loan_file_xml": raw_xml_string,
-        "manifest_json": raw_manifest_json_string,
-        "eligibility_json": raw_eligibility_json_string,
-    },
-    stream_mode="updates",
-):
-    pass  # or handle streaming updates
-
-state = await client.threads.get_state(thread_id=thread["thread_id"])
-final_output = state["values"]["final_output"]
-```
-
-#### Response: `final_output`
-
-After the run completes, `state.values.final_output` contains:
-
-| Key | Type | Description |
-|-----|------|-------------|
-| `scenario_summary` | object | Loan profile used for condition generation (see below) |
-| `conditions` | array | **Distilled conditions** — only the fields an underwriter needs to act on |
-| `conditions_full` | array | **Full conditions** — includes LLM-generated traces, evidence, and resolution criteria |
-| `stats` | object | Aggregate counts by category, priority, and severity |
-| `seen_conflicts` | array | Any overlay conflicts detected between steps |
-
-#### Response: `conditions` (distilled)
-
-Each entry in the `conditions` array contains only actionable fields:
-
-```json
-{
-  "category": "Income",
-  "severity": "HARD-STOP",
-  "priority": "P1",
-  "title": "Income Documentation Type Clarification Required",
-  "description": "The submitted documents include a bank statement but no W2s, paystubs, or tax returns. Clarification is needed to confirm whether the borrower is qualifying under Full Documentation (W2/wage earner) or Alternative Documentation (Bank Statement income for self-employed).",
-  "required_documents": ["Income Type Declaration Letter", "Employment Status Confirmation"],
-  "required_data_elements": ["employment_type", "self_employment_status"]
-}
-```
-
-#### Response: `conditions_full`
-
-Each entry in `conditions_full` extends the distilled view with LLM-generated reasoning:
-
-```json
-{
-  "condition_id": "INC-001",
-  "condition_family_id": "INCOME_DOC_TYPE_CLARIFICATION",
-  "category": "Income",
-  "severity": "HARD-STOP",
-  "priority": "P1",
-  "title": "Income Documentation Type Clarification Required",
-  "description": "...",
-  "required_documents": ["Income Type Declaration Letter"],
-  "required_data_elements": ["employment_type", "self_employment_status"],
-  "owner": "PROCESSOR",
-  "confidence": 0.9,
-  "triggers": ["Bank statement present without W2/paystubs"],
-  "evidence_found": ["Bank Statement submitted", "No W2 or paystubs in document package"],
-  "guideline_trace": "NQMF FULL DOCUMENTATION: Income must be verified with 30 days paystubs...",
-  "overlay_trace": null,
-  "resolution_criteria": "Borrower or LO confirms income qualification method...",
-  "dependencies": [],
-  "tags": ["income", "documentation_type"],
-  "source_module": "02",
-  "guideline_ref": "guidelines.md"
-}
-```
-
-| Extra Field | Description |
-|-------------|-------------|
-| `condition_id` | Short ID assigned by the generating step (e.g., `INC-001`, `ASSET-003`) |
-| `condition_family_id` | De-duplication key — conditions with the same family ID are merged |
-| `source_module` | Which pipeline step generated it (`00b`, `02`-`08`) |
-| `owner` | Suggested responsible party (`PROCESSOR`, `UNDERWRITER`, `BORROWER`) |
-| `confidence` | LLM's confidence score (0-1) |
-| `triggers` | What loan data triggered this condition |
-| `evidence_found` | Specific evidence from the loan file |
-| `guideline_trace` | Relevant guideline text the LLM cited |
-| `resolution_criteria` | How to clear this condition |
-| `tags` | Categorization tags |
-
-#### Response: `scenario_summary`
-
-The `scenario_summary` inside `final_output` is a structured view of the loan profile:
-
-```json
-{
-  "program": "Flex Select",
-  "purpose": "Purchase",
-  "occupancy": "OO",
-  "property": { "property_type": "SFR", "state": "CA", "county": "Kern", "city": "San Diego" },
-  "numbers": { "loan_amount": 328800, "LTV": 80, "CLTV": 80, "DTI": 12, "note_rate": 6.874 },
-  "credit": { "fico": 760, "fico_source": "loan_profile", "credit_events": ["none"] },
-  "borrowers": [{ "name": "Veronica Marie Montes", "self_employed": true, "citizenship": "US Citizen" }],
-  "income_profile": { "income_types": ["W2", "bank_statement"], "primary_income_type": "W2" },
-  "eligible_programs": ["Flex Select", "Flex Supreme"],
-  "ineligible_programs": ["DSCR Multi (5-8 Units)", "Foreign National", "Investor DSCR", "..."]
-}
-```
-
-#### Response: `stats`
-
-```json
-{
-  "total_conditions": 48,
-  "hard_stops": 18,
-  "by_category": {
-    "Document Completeness": 7, "Income": 7, "Compliance": 7, "Title": 6,
-    "Program Eligibility": 7, "Assets": 5, "Property": 6, "Credit": 3
-  },
-  "by_priority": { "P1": 15, "P2": 9, "P3": 24 }
-}
-```
-
-#### Checking Completion
-
-A completed run has `current_step: "STEP_09"` and `final_output` present in state. To verify:
-
-```typescript
-const state = await client.threads.getState(thread.thread_id);
-const isComplete = state.values.current_step === "STEP_09" && state.values.final_output != null;
-```
-
-If the pipeline hasn't finished, `state.values.current_step` indicates which step it's currently on, and `state.values.step_reports` contains results from completed steps.
-
-#### Tracking Progress via Streaming
-
-When using `streamMode: "updates"`, each event contains state updates from the orchestrator node. Look for `current_step` changes to track which pipeline phase is active:
-
-```
-STEP_00  → Parsing inputs, building scenario
-STEP_00b → Checking document completeness
-STEP_01  → Cross-cutting checks
-STEP_02  → Income conditions
-STEP_03  → Asset conditions
-STEP_04  → Credit conditions
-STEP_05  → Property conditions
-STEP_06  → Title & closing conditions
-STEP_07  → Compliance conditions
-STEP_08  → Program matrix eligibility
-STEP_09  → Merging, ranking, final output
-```
-
-Typical runtime is **8-12 minutes** end-to-end.
-
-#### Error Handling
-
-| Scenario | How to detect |
-|----------|---------------|
-| Run completed successfully | `current_step === "STEP_09"` and `final_output` is present |
-| Run still in progress | `final_output` is null; check `current_step` for progress |
-| Run errored | Stream emits an `error` event; check LangSmith traces for details |
+Typical runtime is 8-11 minutes. The final output is available in the thread state under `final_output`.
 
 ### What Gets Extracted
 
@@ -328,39 +109,38 @@ The primary output — only the fields an underwriter needs to act on:
   "scenario_summary": {
     "program": "Flex Select",
     "purpose": "Purchase",
-    "occupancy": "OO",
-    "property": { "property_type": "SFR", "state": "CA", "county": "Kern" },
-    "numbers": { "loan_amount": 328800, "LTV": 80, "CLTV": 80, "DTI": 12 },
-    "credit": { "fico": 760 },
-    "borrowers": [{ "name": "Veronica Marie Montes" }],
-    "eligible_programs": ["Flex Select", "Flex Supreme"]
+    "occupancy": "PrimaryResidence",
+    "property": { "property_type": "SFR", "state": "CA", "city": "San Diego" },
+    "numbers": { "loan_amount": 753750, "LTV": 73.897, "note_rate": 6.624 },
+    "credit": { "fico": 755 },
+    "borrowers": [{ "name": "Marlene A Melendez Niccum" }]
   },
   "conditions": [
     {
       "category": "Document Completeness",
       "severity": "HARD-STOP",
       "priority": "P1",
-      "title": "Missing: Credit Report (dated within 90 days)",
-      "description": "The submission package is missing 'Credit Report (dated within 90 days)', which is required for all transactions.",
-      "required_documents": ["Credit Report (dated within 90 days)"],
+      "title": "Missing: Proof of 2 years Self-Employment",
+      "description": "The submission package is missing 'Proof of 2 years Self-Employment', which is required for bank_statement income documentation.",
+      "required_documents": ["Proof of 2 years Self-Employment"],
       "required_data_elements": []
     },
     {
-      "category": "Income",
-      "severity": "HARD-STOP",
-      "priority": "P1",
-      "title": "Income Documentation Type Clarification Required",
-      "description": "Clarification is needed to confirm whether the borrower is qualifying under Full Documentation (W2/wage earner) or Alternative Documentation (Bank Statement income for self-employed).",
-      "required_documents": ["Income Type Declaration Letter"],
-      "required_data_elements": ["employment_type", "self_employment_status"]
+      "category": "Program Eligibility",
+      "severity": "SOFT-STOP",
+      "priority": "P2",
+      "title": "Flex Select Requires 6 Months PITIA Reserves",
+      "description": "Flex Select requires 6 months PITIA reserves for Alt Doc loans. Verify borrower has sufficient reserves documented.",
+      "required_documents": [],
+      "required_data_elements": ["months_reserves", "monthly_pitia"]
     }
   ],
   "conditions_full": [ /* full condition objects with all LLM-generated fields */ ],
   "stats": {
-    "total_conditions": 48,
-    "hard_stops": 18,
-    "by_category": { "Document Completeness": 7, "Income": 7, "Compliance": 7, "Title": 6, "Program Eligibility": 7, "Assets": 5, "Property": 6, "Credit": 3 },
-    "by_priority": { "P1": 15, "P2": 9, "P3": 24 }
+    "total_conditions": 50,
+    "hard_stops": 4,
+    "by_category": { "Document Completeness": 2, "Income": 6, "Program Eligibility": 11, "Property": 6, "Compliance": 8, "Credit": 5, "Assets": 7, "Title": 5 },
+    "by_priority": { "P1": 8, "P2": 7, "P3": 35 }
   }
 }
 ```
@@ -383,9 +163,9 @@ Conditions are sorted by: priority (P0 first) → severity (HARD-STOP first) →
 
 ### Sample Runs
 
-**Montes — with eligibility engine (FICO 760, Flex Select + Flex Supreme eligible)**: 48 conditions, 18 hard-stops. Eligibility engine provides authoritative FICO (760), LTV (80%), DTI (12%), and reserves (12 months). STEP_08 scoped to eligible programs only. 102 tool calls, completed in ~9 minutes.
-
 **Melendez Niccum — without eligibility engine (FICO 755 via override)**: 50 conditions, 4 hard-stops. Program inferred as Flex Select. Matrix checks run against inferred program only.
+
+**Melendez Niccum — with eligibility engine (FICO 720, Flex Select eligible)**: 49 conditions, 10 hard-stops. Eligibility engine provides authoritative FICO (720), LTV (80%), DTI (35%), and reserves (12 months). STEP_08 scoped to Flex Select only (the one eligible program out of 10 evaluated). Deterministic matrix check correctly identifies 3-month PITIA reserves requirement.
 
 ## Project Structure
 
@@ -444,52 +224,6 @@ predicted-conditions/
 ├── env.example
 └── langgraph.json                # LangGraph deployment descriptor
 ```
-
-## Setup
-
-### Prerequisites
-
-- Python 3.9+
-- An Anthropic API key
-
-### Installation
-
-```bash
-git clone <repo-url>
-cd predicted-conditions
-
-python3 -m venv .venv
-source .venv/bin/activate
-
-pip install -r requirements.txt
-
-cp env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
-```
-
-### Running
-
-```bash
-# Run with a case directory (auto-detects XML, manifest, eligibility files)
-python test_pipeline.py data/input/3-16-2
-
-# Run with explicit eligibility file path
-ELIGIBILITY_PATH="/path/to/eligibility_output.json" \
-python test_pipeline.py data/input/3-16-2
-
-# Run with manual overrides (when no eligibility engine output is available)
-TEST_PROGRAM="Flex Select" TEST_FICO=755 \
-python test_pipeline.py data/input/3-16
-```
-
-The test runner auto-detects files in the input directory:
-- `*.xml` → `loan_file_xml`
-- `*manifest*.json` → `manifest_json`
-- `*eligibility*` or `*sample_output*.json` → `eligibility_json`
-
-It then executes all 11 steps sequentially via the LLM agent (~90-110 tool calls), prints each tool call as it executes, and saves the final output to `test_output.json` and full state to `test_final_state.json`.
-
-Typical runtime is 8-12 minutes with `claude-opus-4-5` (~90-110 tool calls).
 
 ## Architecture Details
 
@@ -551,20 +285,6 @@ The hybrid approach splits program eligibility into:
 ### Guidelines Integration
 
 `data/guidelines.md` is the single source of truth for underwriting rules. The `GuidelinesDocument` class parses it into searchable sections by heading. During Steps 02-07, the LLM calls `load_guideline_sections` with relevant section names, receives the guideline text, and reasons over it to determine which conditions apply to the current scenario.
-
-## Environment Variables
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | — | Anthropic API key |
-| `ANTHROPIC_MODEL` | No | `claude-opus-4-5` | Model to use |
-| `MANIFEST_PATH` | No | — | Path to document manifest JSON |
-| `ELIGIBILITY_PATH` | No | — | Path to eligibility engine output JSON |
-| `TEST_PROGRAM` | No | — | Override loan program for testing (e.g., `Flex Select`) |
-| `TEST_FICO` | No | — | Override FICO score for testing (e.g., `755`) |
-| `LANGCHAIN_TRACING_V2` | No | `false` | Enable LangSmith tracing |
-| `LANGCHAIN_API_KEY` | No | — | LangSmith API key |
-| `LANGCHAIN_PROJECT` | No | `predicted-conditions` | LangSmith project name |
 
 ## License
 

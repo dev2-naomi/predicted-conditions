@@ -128,6 +128,13 @@ def _normalize_condition(c: dict | str) -> dict:
     c["category"] = _normalize_category(c.get("category", "Other"))
     if not c.get("title") or c["title"] == "Untitled condition":
         c["title"] = (c.get("description") or "Untitled condition")[:80]
+
+    for list_field in ("overlay_trace", "guideline_trace", "required_documents",
+                       "required_data_elements", "triggers", "evidence_found",
+                       "resolution_criteria", "dependencies", "tags"):
+        val = c.get(list_field)
+        if isinstance(val, str):
+            c[list_field] = [val] if val else []
     return c
 
 
@@ -374,10 +381,15 @@ def merge_conditions(
     resolved: list[dict] = []
     for cond in merged:
         overlay_trace = cond.get("overlay_trace", [])
+        if isinstance(overlay_trace, str):
+            overlay_trace = [{"overlay_id": overlay_trace}]
+            cond["overlay_trace"] = overlay_trace
         if not overlay_trace:
             resolved.append(cond)
             continue
         for ot in overlay_trace:
+            if isinstance(ot, str):
+                ot = {"overlay_id": ot}
             oid = ot.get("overlay_id", "")
             exceptions = (s.get("module_outputs", {})
                           .get("01_overlay_conflicts", {})
