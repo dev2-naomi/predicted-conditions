@@ -172,7 +172,11 @@ def _choose_strictest(a: dict, b: dict) -> dict:
     return merged
 
 
-def _union(a: list, b: list) -> list:
+def _union(a: list | dict, b: list | dict) -> list:
+    if isinstance(a, dict):
+        a = [a]
+    if isinstance(b, dict):
+        b = [b]
     seen: set = set()
     result = []
     for item in a + b:
