@@ -696,9 +696,27 @@ def parse_eligibility_output(
             "messages": [ToolMessage(f"SOFT-STOP: Invalid eligibility JSON: {e}", tool_call_id=tool_call_id)],
         })
 
-    # Support both flat layout (top-level keys) and nested layout
-    # (under "detailed_results") depending on eligibility engine version.
-    detailed = data.get("detailed_results", data)
+    # Support multiple layout formats:
+    #   1. Flat: top-level program_results, application_data, etc.
+    #   2. Nested under "detailed_results"
+    #   3. Wrapped in entity.metadata.eligibility_response.complete_results.evaluation_results
+    def _find_elig_root(d: dict) -> dict:
+        if "program_results" in d:
+            return d
+        if "detailed_results" in d:
+            return d["detailed_results"]
+        ent = d.get("entity", {})
+        meta = ent.get("metadata", {}) if isinstance(ent, dict) else {}
+        er = (
+            meta.get("eligibility_response", {})
+            .get("complete_results", {})
+            .get("evaluation_results", {})
+        )
+        if er:
+            return er.get("detailed_results", er)
+        return d
+
+    detailed = _find_elig_root(data)
     app_data = detailed.get("application_data", {})
     eligible = detailed.get("eligible_programs", [])
     ineligible = detailed.get("ineligible_programs", [])
