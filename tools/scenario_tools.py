@@ -665,7 +665,9 @@ def parse_eligibility_output(
             "messages": [ToolMessage(f"SOFT-STOP: Invalid eligibility JSON: {e}", tool_call_id=tool_call_id)],
         })
 
-    detailed = data.get("detailed_results", {})
+    # Support both flat layout (top-level keys) and nested layout
+    # (under "detailed_results") depending on eligibility engine version.
+    detailed = data.get("detailed_results", data)
     app_data = detailed.get("application_data", {})
     eligible = detailed.get("eligible_programs", [])
     ineligible = detailed.get("ineligible_programs", [])
