@@ -624,18 +624,33 @@ def _mine_fico_from_passed_programs(
 def _extract_required_doc_categories(
     program_results: dict[str, Any],
     eligible_programs: list[str],
+    entity_missing_fields: list[dict] | None = None,
 ) -> list[str]:
-    """Collect document category names from passed programs' doc requirements.
+    """Collect document category names from the eligibility engine's doc requirements.
 
-    Scans ``passed``, ``failed``, and ``missing_fields`` of each eligible
-    program for requirement entries whose name contains
-    "minimum required documents" or "income documentation".  Returns the
-    union of all ``expected`` dict keys found (the document category names
-    the eligibility engine requires).
+    Sources (checked in order, results unioned):
+      1. ``entity.metadata.loan_program.missing_fields`` — the entity-level
+         list supplied directly by the eligibility JSON wrapper.
+      2. ``program_results[prog].{passed,failed,missing_fields}`` — the
+         per-program evaluation arrays.
+
+    In both cases we look for requirement entries whose name contains
+    "minimum required documents" or "income documentation" and collect
+    the keys of their ``expected`` dicts.
     """
     categories: set[str] = set()
-    eligible_set = {p.lower() for p in eligible_programs}
 
+    # 1. Entity-level missing_fields (authoritative for the selected program)
+    for entry in (entity_missing_fields or []):
+        req = (entry.get("requirement") or "").lower()
+        if "minimum required documents" not in req and "income documentation" not in req:
+            continue
+        expected = entry.get("expected")
+        if isinstance(expected, dict):
+            categories.update(expected.keys())
+
+    # 2. Evaluation-level program_results
+    eligible_set = {p.lower() for p in eligible_programs}
     for _prog_key, prog_data in program_results.items():
         prog_name = (prog_data.get("program") or _prog_key).lower()
         if prog_name not in eligible_set and prog_data.get("overall_status") != "PASS":
@@ -716,6 +731,16 @@ def parse_eligibility_output(
             return er.get("detailed_results", er)
         return d
 
+    # Extract entity-level metadata (authoritative for program & income_doc)
+    entity_meta: dict[str, Any] = {}
+    entity_loan_program: dict[str, Any] = {}
+    entity_missing_fields: list[dict] = []
+    ent = data.get("entity", {})
+    if isinstance(ent, dict):
+        entity_meta = ent.get("metadata", {}) or {}
+        entity_loan_program = entity_meta.get("loan_program", {}) or {}
+        entity_missing_fields = entity_loan_program.get("missing_fields", []) or []
+
     detailed = _find_elig_root(data)
     app_data = detailed.get("application_data", {})
     eligible = detailed.get("eligible_programs", [])
@@ -728,6 +753,21 @@ def parse_eligibility_output(
         val = app_data.get(elig_key)
         if val is not None:
             meta_overlay[meta_key] = val
+
+    # Entity-level fields override / fill gaps in application_data
+    if entity_meta.get("fico") is not None and meta_overlay.get("fico") is None:
+        meta_overlay["fico"] = entity_meta["fico"]
+    if entity_meta.get("ltv_pct") is not None and meta_overlay.get("ltv_pct") is None:
+        meta_overlay["ltv_pct"] = entity_meta["ltv_pct"]
+    if entity_meta.get("cltv_pct") is not None and meta_overlay.get("cltv_pct") is None:
+        meta_overlay["cltv_pct"] = entity_meta["cltv_pct"]
+    if entity_meta.get("dti") is not None and meta_overlay.get("dti") is None:
+        meta_overlay["dti"] = entity_meta["dti"]
+
+    # Authoritative income_doc from entity metadata
+    entity_income_doc = entity_meta.get("income_doc")
+    if entity_income_doc:
+        meta_overlay["income_doc"] = entity_income_doc
 
     # Fallback: if FICO is missing from application_data, mine it from
     # passed requirement checks in eligible programs only.
@@ -762,20 +802,27 @@ def parse_eligibility_output(
             ],
         }
 
-    # Extract required document categories from passed programs
-    required_doc_categories = _extract_required_doc_categories(program_results, eligible)
+    # Extract required document categories from both entity-level and
+    # evaluation-level sources
+    required_doc_categories = _extract_required_doc_categories(
+        program_results, eligible, entity_missing_fields,
+    )
 
-    # Determine the program to use: first eligible, or infer from results
-    primary_program = eligible[0] if eligible else None
+    # Determine the program: entity-level loan_program is authoritative,
+    # fall back to the first eligible program from evaluation results.
+    entity_program_name = entity_loan_program.get("name") if entity_loan_program else None
+    primary_program = entity_program_name or (eligible[0] if eligible else None)
 
-    # If the eligibility engine identified a program, set it as loan_program
     if primary_program:
         meta_overlay["loan_program"] = {"name": primary_program}
 
     summary_msg = (
         f"Eligibility engine output parsed. "
+        f"Program: {primary_program or 'unknown'}. "
+        f"Income doc: {entity_income_doc or app_data.get('IncomeDocType', 'unknown')}. "
         f"Eligible programs: {eligible or 'none'}. "
         f"Ineligible: {ineligible or 'none'}. "
+        f"Required doc categories: {required_doc_categories}. "
         f"Application data fields: {list(app_data.keys())[:10]}..."
     )
     if extra_fields:
@@ -830,25 +877,20 @@ def build_scenario_summary(
     # Re-apply eligibility engine data (highest priority for numeric fields)
     eligibility_data = ss.get("_eligibility_data", {})
 
-    # Filter submitted docs to only those required by passed programs
+    # Filter submitted docs to only those required by the eligibility engine.
+    # Uses the same fuzzy matching as doc_completeness_tools.
     required_doc_categories = eligibility_data.get("required_doc_categories", [])
     if required_doc_categories and submitted_docs:
-        required_doc_types: set[str] = set()
-        required_names_lower: set[str] = set()
-        for cat in required_doc_categories:
-            dtype = _map_doc_name_to_type(cat)
-            if dtype != "other":
-                required_doc_types.add(dtype)
-            required_names_lower.add(cat.strip().lower())
+        from tools.doc_completeness_tools import _matches_manifest_name
 
         def _doc_matches(doc: dict) -> bool:
-            if doc.get("doc_type") in required_doc_types:
-                return True
-            name_lower = doc.get("name", "").strip().lower()
-            for cat in required_names_lower:
-                if cat in name_lower or name_lower in cat:
-                    return True
-            return False
+            doc_name = doc.get("name", "")
+            if not doc_name:
+                return False
+            return any(
+                _matches_manifest_name(cat, doc_name)
+                for cat in required_doc_categories
+            )
 
         submitted_docs = [doc for doc in submitted_docs if _doc_matches(doc)]
 
@@ -859,10 +901,6 @@ def build_scenario_summary(
             val = elig_app.get(elig_key)
             if val is not None:
                 elig_meta[meta_key] = val
-        # Set loan_program from eligible programs
-        elig_programs = eligibility_data.get("eligible_programs", [])
-        if elig_programs:
-            elig_meta["loan_program"] = {"name": elig_programs[0]}
         if elig_meta:
             profile = dict(profile)
             profile["metadata"] = _deep_merge(profile.get("metadata", {}), elig_meta)
@@ -872,7 +910,9 @@ def build_scenario_summary(
 
     doc_types = [d.get("doc_type") for d in submitted_docs if d.get("doc_type")]
 
-    # Determine income types
+    # Determine income types.
+    # When the eligibility engine provides an authoritative income_doc,
+    # use ONLY that -- do not infer additional types from document presence.
     income_doc_label = meta.get("income_doc") or ""
     primary_income_from_label = _map_income_doc_label(income_doc_label) if income_doc_label else "unknown"
 
@@ -880,20 +920,23 @@ def build_scenario_summary(
     if primary_income_from_label != "unknown":
         income_types.append(primary_income_from_label)
 
-    for dt in doc_types:
-        if dt in ("paystub", "W2", "VOE"):
-            if "W2" not in income_types:
-                income_types.append("W2")
-        elif dt == "bank_statement" and "bank_statement" not in income_types:
-            income_types.append("bank_statement")
-        elif dt == "tax_return" and "self_employed" not in income_types:
-            income_types.append("self_employed")
-        elif dt == "1099" and "1099" not in income_types:
-            income_types.append("1099")
-        elif dt == "P_and_L" and "P_and_L" not in income_types:
-            income_types.append("P_and_L")
-        elif dt == "lease" and "DSCR" not in income_types:
-            income_types.append("DSCR")
+    has_authoritative_income = bool(eligibility_data and income_doc_label)
+
+    if not has_authoritative_income:
+        for dt in doc_types:
+            if dt in ("paystub", "W2", "VOE"):
+                if "W2" not in income_types:
+                    income_types.append("W2")
+            elif dt == "bank_statement" and "bank_statement" not in income_types:
+                income_types.append("bank_statement")
+            elif dt == "tax_return" and "self_employed" not in income_types:
+                income_types.append("self_employed")
+            elif dt == "1099" and "1099" not in income_types:
+                income_types.append("1099")
+            elif dt == "P_and_L" and "P_and_L" not in income_types:
+                income_types.append("P_and_L")
+            elif dt == "lease" and "DSCR" not in income_types:
+                income_types.append("DSCR")
 
     if not income_types:
         income_types = ["unknown"]

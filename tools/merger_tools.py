@@ -480,10 +480,28 @@ def generate_final_output(
     mo = s.get("module_outputs", {})
 
     scenario_summary = s.get("scenario_summary", {})
-    clean_summary = {
-        k: v for k, v in scenario_summary.items()
-        if not k.startswith("_")
-    }
+
+    _SUMMARY_KEYS = (
+        "program", "purpose", "occupancy",
+        "property", "numbers", "loan_terms", "credit",
+        "borrowers", "income_profile",
+        "eligible_programs", "ineligible_programs",
+    )
+    clean_summary: dict[str, Any] = {}
+    for k in _SUMMARY_KEYS:
+        if k in scenario_summary:
+            val = scenario_summary[k]
+            if k == "property" and isinstance(val, dict):
+                val = {pk: pv for pk, pv in val.items()
+                       if pk in ("address", "state", "county", "city", "zip",
+                                 "units", "property_type")}
+            if k == "credit" and isinstance(val, dict):
+                val = {ck: cv for ck, cv in val.items()
+                       if ck in ("fico", "fico_source")}
+            if k == "borrowers" and isinstance(val, list):
+                val = [{"name": b.get("name"), "self_employed": b.get("self_employed"),
+                         "citizenship": b.get("citizenship")} for b in val if isinstance(b, dict)]
+            clean_summary[k] = val
 
     seen_conflicts = mo.get("09_merge", {}).get("seen_conflicts", [])
     conditions: list[dict] = mo.get("09_rank", {}).get("ranked_conditions", [])
@@ -501,15 +519,21 @@ def generate_final_output(
         by_category[cat] = by_category.get(cat, 0) + 1
         by_priority[pri] = by_priority.get(pri, 0) + 1
 
-    # Distilled conditions: only the fields an underwriter needs to act on
-    _KEEP_FIELDS = ("category", "severity", "priority", "title", "description", "required_documents", "required_data_elements")
+    _KEEP_FIELDS = ("category", "severity", "priority", "title", "description",
+                     "required_documents", "required_data_elements")
     distilled = []
     for c in conditions:
-        distilled.append({k: c.get(k) for k in _KEEP_FIELDS})
+        d = {}
+        for k in _KEEP_FIELDS:
+            val = c.get(k)
+            if k in ("required_documents", "required_data_elements"):
+                d[k] = val if isinstance(val, list) else []
+            else:
+                d[k] = val
+        distilled.append(d)
 
     final: dict[str, Any] = {
         "scenario_summary": clean_summary,
-        "seen_conflicts": seen_conflicts,
         "conditions": distilled,
         "conditions_full": conditions,
         "stats": {

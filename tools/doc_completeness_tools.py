@@ -2,15 +2,15 @@
 doc_completeness_tools.py — Tools for STEP_00b: Submission Document Completeness Check.
 
 Deterministic check (no LLM) that compares the documents submitted in
-the manifest/JSON against the required checklist defined in
-data/submission_documents.md.
+the manifest against the required document list.
 
-Two layers:
-  1. Base required documents — always required for every transaction.
-     If occupancy is Investment and entity type is LLC, the LLC docs
-     (Articles of Organization, Operating Agreement, etc.) are added.
-  2. Income-doc-type required documents — appended based on the
-     income documentation type derived from the scenario summary.
+When eligibility engine data is available, the required document list
+comes exclusively from the eligibility JSON's ``expected`` dicts
+(keys = document category names like "EMD Check", "URLA 1003", etc.).
+These are fuzzy-matched against the manifest's ``category_name`` values.
+
+When no eligibility data is available, falls back to the hardcoded
+checklists derived from submission_documents.md.
 """
 
 from __future__ import annotations
@@ -25,12 +25,59 @@ from typing_extensions import Annotated
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# Required document definitions (derived from submission_documents.md)
+# Explicit alias map: eligibility expected name → manifest category_name
+# Used when substring matching alone would be ambiguous or miss.
 # ─────────────────────────────────────────────────────────────────────────
 
-# Each entry: (label, list of doc_types that satisfy it)
-# The doc_types correspond to the pipeline's canonical doc_type values
-# from manifest_parser.py / scenario_tools.py.
+_ELIG_TO_MANIFEST_ALIASES: dict[str, list[str]] = {
+    "emd check": ["emd docs", "emd"],
+    "loan pricing": ["lock confirmation", "smartfees", "loan estimate"],
+    "title invoice": ["appraisal invoice", "title invoice"],
+    "borrower certifications and disclosure": [
+        "borrower certifications", "disclosure notices",
+        "borrower certification", "compliance report",
+    ],
+    "anti steering disclosure": [
+        "anti steering", "anti-steering",
+    ],
+    "consolidated 1099": ["1099"],
+    "verification of income": [
+        "income calculations worksheet", "award letter",
+        "verification of income",
+    ],
+    "asset": ["bank statement", "investment statement"],
+    "paystub": ["paystub"],
+    "w2": ["w2", "w-2"],
+}
+
+
+def _matches_manifest_name(elig_name: str, manifest_name: str) -> bool:
+    """Check if an eligibility expected doc name matches a manifest category_name.
+
+    Strategy:
+      1. Exact case-insensitive match
+      2. Either string is a substring of the other
+      3. Explicit alias map lookup
+    """
+    e_lower = elig_name.strip().lower()
+    m_lower = manifest_name.strip().lower()
+
+    if e_lower == m_lower:
+        return True
+    if e_lower in m_lower or m_lower in e_lower:
+        return True
+
+    aliases = _ELIG_TO_MANIFEST_ALIASES.get(e_lower, [])
+    for alias in aliases:
+        if alias in m_lower or m_lower in alias:
+            return True
+
+    return False
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Fallback: hardcoded required document definitions (submission_documents.md)
+# ─────────────────────────────────────────────────────────────────────────
 
 BASE_REQUIRED: list[tuple[str, list[str]]] = [
     ("Initial 1003 (Loan Application)", ["loan_application"]),
@@ -50,11 +97,6 @@ LLC_INVESTMENT_REQUIRED: list[tuple[str, list[str]]] = [
     ("Federal Tax ID", ["federal_tax_id"]),
     ("Certificate of Good Standing", ["certificate_of_good_standing"]),
 ]
-
-# ─────────────────────────────────────────────────────────────────────────
-# Income-doc-type specific requirements
-# Key = income_documentation_type slug from scenario_summary
-# ─────────────────────────────────────────────────────────────────────────
 
 INCOME_DOC_TYPE_REQUIRED: dict[str, list[tuple[str, list[str]]]] = {
     "W2": [
@@ -102,6 +144,16 @@ def _doc_types_present(submitted_docs: list[dict]) -> set[str]:
     return {d.get("doc_type", "other") for d in submitted_docs if d.get("doc_type")}
 
 
+def _doc_names_present(submitted_docs: list[dict]) -> set[str]:
+    """Collect all document category_name values present (lowercased)."""
+    names: set[str] = set()
+    for d in submitted_docs:
+        name = d.get("name", "")
+        if name:
+            names.add(name.strip().lower())
+    return names
+
+
 def _check_requirements(
     requirements: list[tuple[str, list[str]]],
     present: set[str],
@@ -122,6 +174,37 @@ def _check_requirements(
     return missing, satisfied
 
 
+def _check_eligibility_docs(
+    required_categories: list[str],
+    submitted_docs: list[dict],
+) -> tuple[list[dict], list[dict]]:
+    """Check required doc categories from the eligibility engine against
+    the submitted manifest documents by fuzzy name matching.
+
+    Returns (missing, satisfied) where each entry is:
+        {"label": str, "matched_manifest_name": str | None}
+    """
+    manifest_names = _doc_names_present(submitted_docs)
+
+    missing: list[dict] = []
+    satisfied: list[dict] = []
+
+    for elig_name in required_categories:
+        found_match: str | None = None
+        for m_name in manifest_names:
+            if _matches_manifest_name(elig_name, m_name):
+                found_match = m_name
+                break
+
+        entry = {"label": elig_name, "matched_manifest_name": found_match}
+        if found_match is not None:
+            satisfied.append(entry)
+        else:
+            missing.append(entry)
+
+    return missing, satisfied
+
+
 @tool
 def check_submission_completeness(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -129,134 +212,159 @@ def check_submission_completeness(
 ) -> Command:
     """
     Deterministic check of whether the required submission documents are
-    present, based on the transaction type and income documentation type.
+    present.
 
-    Reads from scenario_summary (occupancy, purpose, income_profile,
-    doc_profile, _submitted_docs) to build the required checklist,
-    then compares against the submitted documents.
+    When the eligibility engine provides a required_doc_categories list,
+    those document names are the sole checklist — each is fuzzy-matched
+    against the manifest's category_name values.
 
-    Stores results in module_outputs["00b"] with:
-      - missing_documents: list of docs required but not found
-      - satisfied_documents: list of docs that were found
-      - checklist_scope: which requirement sets were applied
+    When no eligibility data is available, falls back to the hardcoded
+    checklists from submission_documents.md.
     """
     s = state or {}
     ss = s.get("scenario_summary", {})
     submitted_docs = ss.get("_submitted_docs", [])
-    present = _doc_types_present(submitted_docs)
+    eligibility_data = ss.get("_eligibility_data", {})
+    required_doc_categories = eligibility_data.get("required_doc_categories", [])
 
-    occupancy = (ss.get("occupancy") or "").lower()
-    purpose = (ss.get("purpose") or "").lower()
-    income_profile = ss.get("income_profile", {})
-    primary_income = income_profile.get("primary_income_type", "unknown")
-    borrower_type = (ss.get("borrower_type") or "").lower()
+    conditions: list[dict[str, Any]] = []
 
-    all_missing: list[dict] = []
-    all_satisfied: list[dict] = []
-    checklist_scope: list[str] = ["base"]
+    # ── Eligibility-driven path ──────────────────────────────────────
+    if required_doc_categories:
+        checklist_scope = ["eligibility_engine"]
+        elig_missing, elig_satisfied = _check_eligibility_docs(
+            required_doc_categories, submitted_docs,
+        )
 
-    # 1. Base required documents
-    m, sat = _check_requirements(BASE_REQUIRED, present)
-    all_missing.extend(m)
-    all_satisfied.extend(sat)
+        deduped_missing = elig_missing
+        deduped_satisfied = elig_satisfied
 
-    # 1b. Purchase-specific
-    if "purchase" in purpose:
-        checklist_scope.append("purchase")
-        m, sat = _check_requirements(PURCHASE_REQUIRED, present)
+        for item in deduped_missing:
+            label = item["label"]
+            conditions.append({
+                "category": "Document Completeness",
+                "severity": "HARD-STOP",
+                "priority": "P1",
+                "title": f"Missing: {label}",
+                "description": (
+                    f"The submission package is missing '{label}', "
+                    f"which is required by the eligibility engine."
+                ),
+                "required_documents": [label],
+                "required_data_elements": [],
+                "condition_family_id": f"doc_completeness_{label.lower().replace(' ', '_')}",
+                "source_module": "00b",
+                "guideline_ref": "eligibility_engine",
+            })
+
+    # ── Fallback: hardcoded checklist path ───────────────────────────
+    else:
+        present = _doc_types_present(submitted_docs)
+        occupancy = (ss.get("occupancy") or "").lower()
+        purpose = (ss.get("purpose") or "").lower()
+        income_profile = ss.get("income_profile", {})
+        primary_income = income_profile.get("primary_income_type", "unknown")
+        borrower_type = (ss.get("borrower_type") or "").lower()
+
+        all_missing: list[dict] = []
+        all_satisfied: list[dict] = []
+        checklist_scope: list[str] = ["base"]
+
+        m, sat = _check_requirements(BASE_REQUIRED, present)
         all_missing.extend(m)
         all_satisfied.extend(sat)
 
-    # 1c. Investment LLC docs
-    is_investment = occupancy in ("investment", "investor", "non-owner occupied")
-    is_llc = "llc" in borrower_type or "entity" in borrower_type
-    if is_investment and is_llc:
-        checklist_scope.append("investment_llc")
-        m, sat = _check_requirements(LLC_INVESTMENT_REQUIRED, present)
-        all_missing.extend(m)
-        all_satisfied.extend(sat)
-
-    # 2. Income doc type requirements
-    income_reqs = INCOME_DOC_TYPE_REQUIRED.get(primary_income)
-    if income_reqs:
-        checklist_scope.append(f"income_{primary_income}")
-        m, sat = _check_requirements(income_reqs, present)
-        all_missing.extend(m)
-        all_satisfied.extend(sat)
-
-    # For mixed income, also check secondary
-    income_types = income_profile.get("income_types", [])
-    for itype in income_types:
-        if itype != primary_income and itype in INCOME_DOC_TYPE_REQUIRED:
-            checklist_scope.append(f"income_{itype}")
-            secondary_reqs = INCOME_DOC_TYPE_REQUIRED[itype]
-            m, sat = _check_requirements(secondary_reqs, present)
+        if "purchase" in purpose:
+            checklist_scope.append("purchase")
+            m, sat = _check_requirements(PURCHASE_REQUIRED, present)
             all_missing.extend(m)
             all_satisfied.extend(sat)
 
-    # De-duplicate by label
-    seen_labels: set[str] = set()
-    deduped_missing: list[dict] = []
-    for item in all_missing:
-        if item["label"] not in seen_labels:
-            seen_labels.add(item["label"])
-            deduped_missing.append(item)
+        is_investment = occupancy in ("investment", "investor", "non-owner occupied")
+        is_llc = "llc" in borrower_type or "entity" in borrower_type
+        if is_investment and is_llc:
+            checklist_scope.append("investment_llc")
+            m, sat = _check_requirements(LLC_INVESTMENT_REQUIRED, present)
+            all_missing.extend(m)
+            all_satisfied.extend(sat)
 
-    seen_labels_sat: set[str] = set()
-    deduped_satisfied: list[dict] = []
-    for item in all_satisfied:
-        if item["label"] not in seen_labels_sat:
-            seen_labels_sat.add(item["label"])
-            deduped_satisfied.append(item)
+        income_reqs = INCOME_DOC_TYPE_REQUIRED.get(primary_income)
+        if income_reqs:
+            checklist_scope.append(f"income_{primary_income}")
+            m, sat = _check_requirements(income_reqs, present)
+            all_missing.extend(m)
+            all_satisfied.extend(sat)
 
-    # Build real conditions from missing documents so they flow into
-    # the merger/ranker (STEP_09) alongside all other conditions.
-    _base_labels = {lbl for lbl, _ in BASE_REQUIRED}
-    _purchase_labels = {lbl for lbl, _ in PURCHASE_REQUIRED}
-    _llc_labels = {lbl for lbl, _ in LLC_INVESTMENT_REQUIRED}
-    _income_labels: set[str] = set()
-    for reqs in INCOME_DOC_TYPE_REQUIRED.values():
-        for lbl, _ in reqs:
-            _income_labels.add(lbl)
+        income_types = income_profile.get("income_types", [])
+        for itype in income_types:
+            if itype != primary_income and itype in INCOME_DOC_TYPE_REQUIRED:
+                checklist_scope.append(f"income_{itype}")
+                secondary_reqs = INCOME_DOC_TYPE_REQUIRED[itype]
+                m, sat = _check_requirements(secondary_reqs, present)
+                all_missing.extend(m)
+                all_satisfied.extend(sat)
 
-    conditions: list[dict[str, Any]] = []
-    for item in deduped_missing:
-        label = item["label"]
-        if label in _base_labels:
-            reason = "required for all transactions"
-        elif label in _purchase_labels:
-            reason = "required for Purchase transactions"
-        elif label in _llc_labels:
-            reason = "required for LLC/Entity investment borrowers"
-        elif label in _income_labels:
-            income_slug = primary_income or "unknown"
-            reason = f"required for {income_slug} income documentation"
-        else:
-            reason = "required for this transaction type"
+        seen_labels: set[str] = set()
+        deduped_missing_list: list[dict] = []
+        for item in all_missing:
+            if item["label"] not in seen_labels:
+                seen_labels.add(item["label"])
+                deduped_missing_list.append(item)
 
-        conditions.append({
-            "category": "Document Completeness",
-            "severity": "HARD-STOP",
-            "priority": "P1",
-            "title": f"Missing: {label}",
-            "description": (
-                f"The submission package is missing '{label}', "
-                f"which is {reason}. Accepted document types: "
-                f"{', '.join(item['accepted_doc_types'])}."
-            ),
-            "required_documents": [label],
-            "required_data_elements": [],
-            "condition_family_id": f"doc_completeness_{label.lower().replace(' ', '_')}",
-            "source_module": "00b",
-            "guideline_ref": "submission_documents.md",
-        })
+        seen_labels_sat: set[str] = set()
+        deduped_satisfied_list: list[dict] = []
+        for item in all_satisfied:
+            if item["label"] not in seen_labels_sat:
+                seen_labels_sat.add(item["label"])
+                deduped_satisfied_list.append(item)
+
+        deduped_missing = deduped_missing_list
+        deduped_satisfied = deduped_satisfied_list
+
+        _base_labels = {lbl for lbl, _ in BASE_REQUIRED}
+        _purchase_labels = {lbl for lbl, _ in PURCHASE_REQUIRED}
+        _llc_labels = {lbl for lbl, _ in LLC_INVESTMENT_REQUIRED}
+        _income_labels: set[str] = set()
+        for reqs in INCOME_DOC_TYPE_REQUIRED.values():
+            for lbl, _ in reqs:
+                _income_labels.add(lbl)
+
+        for item in deduped_missing:
+            label = item["label"]
+            if label in _base_labels:
+                reason = "required for all transactions"
+            elif label in _purchase_labels:
+                reason = "required for Purchase transactions"
+            elif label in _llc_labels:
+                reason = "required for LLC/Entity investment borrowers"
+            elif label in _income_labels:
+                income_slug = primary_income or "unknown"
+                reason = f"required for {income_slug} income documentation"
+            else:
+                reason = "required for this transaction type"
+
+            conditions.append({
+                "category": "Document Completeness",
+                "severity": "HARD-STOP",
+                "priority": "P1",
+                "title": f"Missing: {label}",
+                "description": (
+                    f"The submission package is missing '{label}', "
+                    f"which is {reason}. Accepted document types: "
+                    f"{', '.join(item['accepted_doc_types'])}."
+                ),
+                "required_documents": [label],
+                "required_data_elements": [],
+                "condition_family_id": f"doc_completeness_{label.lower().replace(' ', '_')}",
+                "source_module": "00b",
+                "guideline_ref": "submission_documents.md",
+            })
 
     module_output: dict[str, Any] = {
         "missing_documents": deduped_missing,
         "satisfied_documents": deduped_satisfied,
         "checklist_scope": checklist_scope,
         "total_submitted": len(submitted_docs),
-        "doc_types_found": sorted(present - {"other"}),
         "conditions": conditions,
     }
 
