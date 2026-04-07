@@ -106,8 +106,11 @@ _SYSTEM_PROMPT = load_system_prompt()
 
 _llm = ChatAnthropic(
     model=_MODEL,
-    temperature=0,
-    max_tokens=8192,
+    max_tokens=16384,
+    thinking={
+        "type": "enabled",
+        "budget_tokens": 8192,
+    },
 )
 
 
