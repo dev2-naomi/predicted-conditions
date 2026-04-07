@@ -40,15 +40,33 @@ _ELIG_TO_MANIFEST_ALIASES: dict[str, list[str]] = {
     "anti steering disclosure": [
         "anti steering", "anti-steering",
     ],
-    "consolidated 1099": ["1099"],
+    "consolidated 1099": ["1099", "1099-nec", "form 1099"],
+    "1099 forms": ["consolidated 1099", "form 1099-nec", "1099"],
+    "1099": ["consolidated 1099", "form 1099-nec", "1099-nec"],
     "verification of income": [
         "income calculations worksheet", "award letter",
         "verification of income",
     ],
     "asset": ["bank statement", "investment statement"],
-    "paystub": ["paystub"],
+    "bank statements": ["bank statement"],
+    "bank statement": ["bank statements"],
+    "paystub": ["paystub", "paystubs", "pay stub"],
+    "paystubs": ["paystub"],
     "w2": ["w2", "w-2"],
+    "purchase contract": ["purchase agreement", "sales contract"],
+    "urla 1003": ["loan application", "1003"],
+    "appraisal": ["appraisal report"],
+    "credit report": ["tri-merge credit report", "tri-merge credit"],
 }
+
+
+def _normalize_doc_name(raw: str) -> str:
+    """Strip parenthetical qualifiers, trailing noise, and collapse whitespace."""
+    import re
+    s = raw.strip().lower()
+    s = re.sub(r"\(.*?\)", "", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
 
 
 def _matches_manifest_name(elig_name: str, manifest_name: str) -> bool:
@@ -57,7 +75,8 @@ def _matches_manifest_name(elig_name: str, manifest_name: str) -> bool:
     Strategy:
       1. Exact case-insensitive match
       2. Either string is a substring of the other
-      3. Explicit alias map lookup
+      3. Normalized (parenthetical-stripped) substring match
+      4. Explicit alias map lookup (both directions)
     """
     e_lower = elig_name.strip().lower()
     m_lower = manifest_name.strip().lower()
@@ -67,10 +86,22 @@ def _matches_manifest_name(elig_name: str, manifest_name: str) -> bool:
     if e_lower in m_lower or m_lower in e_lower:
         return True
 
-    aliases = _ELIG_TO_MANIFEST_ALIASES.get(e_lower, [])
-    for alias in aliases:
-        if alias in m_lower or m_lower in alias:
-            return True
+    e_norm = _normalize_doc_name(elig_name)
+    m_norm = _normalize_doc_name(manifest_name)
+    if e_norm and m_norm and (e_norm in m_norm or m_norm in e_norm):
+        return True
+
+    for key in (e_lower, e_norm):
+        aliases = _ELIG_TO_MANIFEST_ALIASES.get(key, [])
+        for alias in aliases:
+            if alias in m_lower or m_lower in alias:
+                return True
+
+    for key in (m_lower, m_norm):
+        aliases = _ELIG_TO_MANIFEST_ALIASES.get(key, [])
+        for alias in aliases:
+            if alias in e_lower or e_lower in alias:
+                return True
 
     return False
 

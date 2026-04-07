@@ -16,6 +16,8 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import Annotated
 
+from tools.doc_completeness_tools import _matches_manifest_name
+
 
 # ---------------------------------------------------------------------------
 # Priority ranking helpers
@@ -360,6 +362,51 @@ def merge_conditions(
             continue
         filtered.append(cond)
 
+    # Phase 1b: Strip already-submitted docs from each condition's
+    # required_documents.  If the list becomes empty after stripping,
+    # remove the condition entirely (all its requirements are met).
+    step00b = module_outputs.get("00b", {})
+    satisfied_docs = step00b.get("satisfied_documents", [])
+    satisfied_labels: set[str] = {
+        d["label"].strip().lower()
+        for d in satisfied_docs
+        if isinstance(d, dict) and d.get("label")
+    }
+    submitted_names: set[str] = set()
+    for d in satisfied_docs:
+        if isinstance(d, dict) and d.get("matched_manifest_name"):
+            submitted_names.add(d["matched_manifest_name"].strip().lower())
+
+    all_known: set[str] = satisfied_labels | submitted_names
+    removed_doc_satisfied = 0
+    if all_known:
+        after_doc_filter: list[dict] = []
+        for cond in filtered:
+            if cond.get("category") == "Document Completeness":
+                after_doc_filter.append(cond)
+                continue
+
+            req_docs = cond.get("required_documents", [])
+            if not isinstance(req_docs, list) or not req_docs:
+                after_doc_filter.append(cond)
+                continue
+
+            remaining = [
+                doc for doc in req_docs
+                if not any(
+                    _matches_manifest_name(str(doc), label)
+                    for label in all_known
+                )
+            ]
+
+            if not remaining:
+                removed_doc_satisfied += 1
+                continue
+
+            cond["required_documents"] = remaining
+            after_doc_filter.append(cond)
+        filtered = after_doc_filter
+
     # Phase 2: Group by canonical family_id (cross-module aware)
     families: dict[str, dict] = {}
     orphans: list[dict] = []
@@ -423,7 +470,8 @@ def merge_conditions(
     msg = (
         f"Merged {len(all_conditions)} raw conditions → {len(resolved)} final "
         f"(removed {removed_negative} negative, {removed_speculative} speculative, "
-        f"de-duped {len(all_conditions) - removed_negative - removed_speculative - len(resolved)} cross-module). "
+        f"{removed_doc_satisfied} doc-satisfied, "
+        f"de-duped {len(all_conditions) - removed_negative - removed_speculative - removed_doc_satisfied - len(resolved)} cross-module). "
         f"{len(unique_conflicts)} conflict(s)."
     )
     return Command(update={
