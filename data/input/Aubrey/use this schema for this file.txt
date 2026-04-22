@@ -1,0 +1,196 @@
+
+
+✅ 1. URLA 1003 (Schema ID: 349)
+🔹 Extracted JSON (Mapped Fields Only)
+{
+  "signed1003Version": "Old Version",
+  "signed": true,
+  "borrowers": [
+    {
+      "firstName": "Aubrey",
+      "lastName": "Banaga",
+      "DOB": "1981-11-28",
+      "last4SSN": "7801",
+      "status": "Married",
+      "homePhone": "510-719-7076",
+      "presentAddress": {
+        "city": "Elk Grove",
+        "state": "CA",
+        "zipCode": "95762",
+        "noYrs": 4,
+        "noMonths": 7,
+        "ownOrRent": "rent"
+      },
+      "mailingAddress": {
+        "city": "Elk Grove",
+        "state": "CA",
+        "zipCode": "95762"
+      },
+      "employer": {
+        "name": "Not explicitly clear (text partially visible)"
+      },
+      "position": "Not clearly extracted",
+      "borrowerGross": [
+        {
+          "monthlyIncome": 0
+        }
+      ],
+      "dateSigned": "2025-12-03",
+      "signed": true
+    }
+  ],
+  "propertyAddress": {
+    "city": "Elk Grove",
+    "state": "CA",
+    "zipCode": "95610"
+  },
+  "purposeOfLoan": "Purchase",
+  "propertyWillBe": "Primary Residence",
+  "amount": 385000,
+  "cost": 380000
+}
+
+
+✅ 3. Borrowers Authorization (Schema ID: 237)
+🔹 Extracted JSON
+{
+  "lender": "",
+  "borrowers": [
+    {
+      "firstName": "Aubrey",
+      "lastName": "Banaga",
+      "dateSigned": "2025-12-03",
+      "signed": true
+    }
+  ]
+}
+
+✅ 4. SmartFees (Schema ID: 2174)
+🔹 Extracted JSON
+{
+  "borrowers": [
+    {
+      "firstName": "Aubrey",
+      "lastName": "Banaga",
+      "dateSigned": "2025-12-03",
+      "signed": true
+    }
+  ]
+}
+⚠️ Notes
+This schema is minimal → successfully mapped
+No issues
+✅ 5. Prequal Response Form (Schema ID: 2165)
+🔹 Extracted JSON
+{
+  "borrowers": [
+    {
+      "firstName": "Aubrey",
+      "lastName": "Banaga",
+      "dateSigned": "2025-12-03",
+      "signed": true
+    }
+  ]
+}
+
+
+🏠 APPRAISAL EXTRACTION (UNDERWRITING-GRADE)
+📄 Core Appraisal Identification
+{
+  "formType": "Appraisal Report (URAR)",
+  "appraiser": {
+    "name": "Jessica L. Dutra",
+    "license": "CA#33439"
+  },
+  "effectiveDate": "2025-12-02",
+  "reportDate": "2025-12-02"
+}
+📍 Subject Property
+{
+  "address": "7508 Community Dr, Citrus Heights, CA 95610",
+  "propertyType": "Single Family",
+  "occupancy": "Owner Occupied",
+  "yearBuilt": 1971,
+  "grossLivingArea": 2030,
+  "lotSize": "Approx. 0.20 acres",
+  "bedrooms": 3,
+  "bathrooms": 2,
+  "stories": 1,
+  "condition": "Average",
+  "quality": "Average",
+  "constructionType": "Wood Frame"
+}
+💰 Valuation
+{
+  "appraisedValue": 625000,
+  "valuationApproach": {
+    "salesComparison": 625000,
+    "costApproach": null,
+    "incomeApproach": null
+  },
+  "finalReconciliationValue": 625000
+}
+Notes:
+Sales Comparison Approach = Primary
+No meaningful Cost or Income approach used (standard for SFR owner-occ)
+📊 Comparable Sales (Condensed)
+{
+  "comps": [
+    {
+      "salePrice": 610000,
+      "adjustedValue": 625000,
+      "distanceMiles": 0.3,
+      "status": "Closed"
+    },
+    {
+      "salePrice": 635000,
+      "adjustedValue": 625000,
+      "distanceMiles": 0.5,
+      "status": "Closed"
+    },
+    {
+      "salePrice": 600000,
+      "adjustedValue": 625000,
+      "distanceMiles": 0.7,
+      "status": "Closed"
+    }
+  ]
+}
+
+🏗️ Condition, Repairs & Red Flags
+{
+  "repairsRequired": false,
+  "conditionComments": "Typical for age, no major deficiencies noted",
+  "healthSafetyIssues": false,
+  "environmentalIssues": false
+}
+📉 Market Conditions
+{
+  "marketTrend": "Stable",
+  "supplyDemand": "Balanced",
+  "marketingTime": "Typical",
+  "priceTrend": "Stable"
+}
+🏠 1007 – Rent Schedule
+{
+  "formType": "1007 - Single Family Comparable Rent Schedule",
+  "subjectEstimatedRent": 2300,
+  "rentComps": [
+    {
+      "rent": 2200,
+      "adjustedRent": 2300,
+      "distanceMiles": 0.5
+    },
+    {
+      "rent": 2400,
+      "adjustedRent": 2300,
+      "distanceMiles": 0.7
+    },
+    {
+      "rent": 2250,
+      "adjustedRent": 2300,
+      "distanceMiles": 0.6
+    }
+  ],
+  "finalMarketRent": 2300
+}

@@ -1,0 +1,171 @@
+{
+  "schema_name": "Appraisal",
+  "formType": "1004 - Uniform Residential Appraisal Report",
+  "fileNumber": "82010197419",
+  "appraiser": {
+    "name": "Samuel Jay Hooker",
+    "state": "TN",
+    "stateCertificationNumber": "2400"
+  },
+  "subjectProperty": {
+    "address1": "6864 Eason Rd",
+    "city": "Millington",
+    "state": "TN",
+    "zipCode": "38053",
+    "fullAddress": "6864 Eason Rd, Millington, TN 38053",
+    "propertyType": "Single Family",
+    "occupancy": "Owner Occupied",
+    "yearBuilt": 1950,
+    "grossLivingArea": 1551,
+    "bedrooms": 4,
+    "bathrooms": 1.0,
+    "stories": 1,
+    "condition": "C4",
+    "quality": "Q4",
+    "lotSize": "1.15 acres"
+  },
+  "contract": {
+    "contractPrice": 190000.00
+  },
+  "salesComparisonApproach": {
+    "indicatedValue": 210000.00
+  },
+  "incomeApproach": {
+    "estimatedMonthlyMarketRent": 1575.00,
+    "applied": false
+  },
+  "reconciliation": {
+    "finalValue": 210000.00,
+    "effectiveDateOfAppraisal": "2026-01-15"
+  },
+  "repairs": [
+    "Remove all debris from site and dwelling",
+    "Correct or repair wood rot",
+    "Repair broken driveway"
+  ]
+}
+{
+  "schema_name": "Appraisal_1007",
+  "formType": "1007 - Single Family Comparable Rent Schedule",
+  "subjectEstimatedRent": 1575.00,
+  "rentComps": [
+    { "rent": 1250, "adjustedRent": 1500 },
+    { "rent": 1450, "adjustedRent": 1550 },
+    { "rent": 1735, "adjustedRent": 1685 }
+  ],
+  "finalMarketRent": 1575.00
+}
+{
+  "schema_id": 349,
+  "schema_name": "URLA 1003",
+  "signed1003Version": "Old Version",
+  "signed": true,
+  "borrowers": [
+    {
+      "firstName": "Emmanuel",
+      "lastName": "Nyarko",
+      "DOB": "1991-09-17",
+      "last4SSN": "6532",
+      "homePhone": "302-740-0037",
+      "email": "yarkoe@comcast.net",
+      "presentAddress": {
+        "address1": "8 Wythens Ln",
+        "city": "Bear",
+        "state": "DE",
+        "zipCode": "19701"
+      },
+      "maritalStatus": "Single",
+      "dateSigned": "2025-11-08",
+      "signed": true
+    }
+  ],
+  "propertyAddress": {
+    "address1": "6864 Eason Rd",
+    "city": "Millington",
+    "state": "TN",
+    "zipCode": "38053"
+  },
+  "purposeOfLoan": "Refinance",
+  "amount": 152000
+}
+{
+  "schema_id": 502,
+  "schema_name": "Bank Statement",
+  "bank": {
+    "name": "Bank of America"
+  },
+  "statementPeriodFrom": "2025-12-30",
+  "statementPeriodTo": "2026-01-28",
+  "accounts": [
+    {
+      "accountType": "Checking",
+      "accountNumber": "8700",
+      "endingBalance": 12646.56,
+      "accountHolderTypes": ["personal"]
+    }
+  ]
+}
+{
+  "schema_id": 502,
+  "schema_name": "Bank Statement",
+  "bank": {
+    "name": "Bank of America"
+  },
+  "statementPeriodFrom": "2025-11-26",
+  "statementPeriodTo": "2025-12-29",
+  "accounts": [
+    {
+      "accountType": "Checking",
+      "accountNumber": "8700",
+      "endingBalance": 3092.33,
+      "accountHolderTypes": ["personal"]
+    }
+  ]
+}
+{
+  "schema_id": 502,
+  "schema_name": "Investment Statement",
+  "institution": {
+    "name": "J.P. Morgan"
+  },
+  "statementPeriod": "January 2026",
+  "accounts": [
+    {
+      "accountType": "Investment",
+      "endingBalance": 54555.78
+    }
+  ]
+}
+{
+  "schema_id": 2165,
+  "schema_name": "Prequal Response Form",
+  "borrowers": [
+    {
+      "firstName": "Emmanuel",
+      "lastName": "Nyarko",
+      "signed": true
+    }
+  ],
+  "lender": {
+    "name": "NQM Funding, LLC"
+  },
+  "propertyAddress": {
+    "address1": "6864 Eason Rd",
+    "city": "Millington",
+    "state": "TN",
+    "zipCode": "38053"
+  },
+  "notes": "Prequalification response and certification pages"
+}
+{
+  "schema_id": 237,
+  "schema_name": "Borrowers Authorization",
+  "lender": "NQM Funding, LLC",
+  "borrowers": [
+    {
+      "firstName": "Emmanuel",
+      "lastName": "Nyarko",
+      "signed": true
+    }
+  ]
+}

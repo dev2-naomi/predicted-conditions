@@ -1,0 +1,452 @@
+{
+    "version": "1.0.0",
+    "job": {
+        "id": "melendez-niccum-0001-0000-000000000001",
+        "pipeline_name": "rack_and_stack_v1",
+        "steps": [
+            "ai:classify",
+            "hil:classify",
+            "ai:indexing",
+            "hil:indexing"
+        ],
+        "status": "success",
+        "created_at": "1748880000000",
+        "completed_at": "1748880600000",
+        "tasks": []
+    },
+    "documents": [
+        {
+            "id": "melendez-doc-0001-urla-1003",
+            "category": {
+                "category_id": 349,
+                "category_name": "URLA 1003",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 6,
+                "category": "349_URLA 1003",
+                "confidence": 0.99,
+                "vision_check": "passed",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "signed1003Version": "New Version",
+                "signed": true,
+                "new1003Borrowers": [
+                    {
+                        "firstName": "Marlene",
+                        "middleName": "",
+                        "lastName": "Melendez Niccum",
+                        "DOB": "1979-11-04",
+                        "last4SSN": "1935",
+                        "email": "marlenemelendez13@gmail.com",
+                        "homePhone": "323-208-2215",
+                        "cellPhone": "323-208-2215",
+                        "maritalStatus": "Single",
+                        "currentAddress": {
+                            "address1": "633 N 8th St",
+                            "city": "Montebello",
+                            "state": "CA",
+                            "zipCode": "90640"
+                        }
+                    }
+                ],
+                "loan": {
+                    "loanAmount": 753750,
+                    "purpose": "Purchase",
+                    "occupancy": "Primary Residence",
+                    "propertyAddress": {
+                        "address1": "633 N 8th St",
+                        "city": "Montebello",
+                        "state": "CA",
+                        "zipCode": "90640"
+                    }
+                }
+            }
+        },
+        {
+            "id": "melendez-doc-0002-purchase-contract",
+            "category": {
+                "category_id": 200,
+                "category_name": "Purchase Contract",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "2",
+                "group_index": 1,
+                "total_pages": 12,
+                "category": "200_Purchase Contract",
+                "confidence": 0.99,
+                "vision_check": "passed",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "buyers": [
+                    {
+                        "firstName": "Marlene",
+                        "lastName": "Melendez Niccum"
+                    }
+                ],
+                "signed": true,
+                "propertyAddress": {
+                    "address1": "633 N 8th St",
+                    "city": "Montebello",
+                    "state": "CA",
+                    "zipCode": "90640",
+                    "fullAddress": "633 N 8th St, Montebello, CA 90640"
+                },
+                "notes": {
+                    "purchasePrice": 1005000,
+                    "source_note": "Buyer, subject property, and purchase amount align across the URLA and closing-cost documents; contract dates were not reliably readable from the purchase-contract pages in this OCR view."
+                }
+            }
+        },
+        {
+            "id": "melendez-doc-0003-borrowers-auth",
+            "category": {
+                "category_id": 237,
+                "category_name": "Borrowers Authorization",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "3",
+                "group_index": 2,
+                "total_pages": 1,
+                "category": "237_Borrowers Authorization",
+                "confidence": 0.99,
+                "vision_check": "passed",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "lender": "NQM Funding LLC",
+                "borrowers": [
+                    {
+                        "firstName": "Marlene",
+                        "lastName": "Melendez Niccum",
+                        "signed": true
+                    }
+                ]
+            }
+        },
+        {
+            "id": "melendez-doc-0004-bank-statement-wf-jan",
+            "category": {
+                "category_id": 502,
+                "category_name": "Bank Statement",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "4",
+                "group_index": 3,
+                "total_pages": 8,
+                "category": "502_Bank Statement",
+                "confidence": 0.99,
+                "vision_check": "passed",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "bank": {
+                    "name": "Wells Fargo"
+                },
+                "statementPeriodFrom": "2026-01-01",
+                "statementPeriodTo": "2026-01-31",
+                "accounts": [
+                    {
+                        "accountType": "Checking",
+                        "accountNumber": "5585",
+                        "endingBalance": 10855.79,
+                        "accountHolderTypes": ["personal"]
+                    },
+                    {
+                        "accountType": "Savings",
+                        "accountNumber": "3873",
+                        "endingBalance": 705981.89,
+                        "accountHolderTypes": ["personal"]
+                    }
+                ]
+            }
+        },
+        {
+            "id": "melendez-doc-0005-bank-statement-boa-jan",
+            "category": {
+                "category_id": 502,
+                "category_name": "Bank Statement",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "5",
+                "group_index": 4,
+                "total_pages": 6,
+                "category": "502_Bank Statement",
+                "confidence": 0.99,
+                "vision_check": "passed",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "bank": {
+                    "name": "Bank of America"
+                },
+                "statementPeriodFrom": "2025-12-27",
+                "statementPeriodTo": "2026-01-27",
+                "accounts": [
+                    {
+                        "accountType": "Checking",
+                        "accountNumber": "5556",
+                        "endingBalance": 2000.14,
+                        "accountHolderTypes": ["personal"]
+                    },
+                    {
+                        "accountType": "Savings",
+                        "accountNumber": "3756",
+                        "endingBalance": 40727.78,
+                        "accountHolderTypes": ["personal"]
+                    }
+                ]
+            }
+        },
+        {
+            "id": "melendez-doc-0006-bank-statement-boa-dec",
+            "category": {
+                "category_id": 502,
+                "category_name": "Bank Statement",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "6",
+                "group_index": 5,
+                "total_pages": 5,
+                "category": "502_Bank Statement",
+                "confidence": 0.99,
+                "vision_check": "passed",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "bank": {
+                    "name": "Bank of America"
+                },
+                "statementPeriodFrom": "2025-11-25",
+                "statementPeriodTo": "2025-12-26",
+                "accounts": [
+                    {
+                        "accountType": "Checking",
+                        "accountNumber": "5556",
+                        "endingBalance": 2710.09,
+                        "accountHolderTypes": ["personal"]
+                    },
+                    {
+                        "accountType": "Savings",
+                        "accountNumber": "3756",
+                        "endingBalance": 40726.71,
+                        "accountHolderTypes": ["personal"]
+                    }
+                ]
+            }
+        },
+        {
+            "id": "melendez-doc-0007-prequal-response",
+            "category": {
+                "category_id": 2165,
+                "category_name": "Prequal Response Form",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "7",
+                "group_index": 6,
+                "total_pages": 2,
+                "category": "2165_Prequal Response Form",
+                "confidence": 0.99,
+                "vision_check": "passed",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "lender": {
+                    "name": "West Capital Lending, Inc."
+                },
+                "borrowers": [
+                    {
+                        "firstName": "Marlene",
+                        "lastName": "Melendez Niccum"
+                    }
+                ],
+                "propertyAddress": {
+                    "address1": "633 N 8th St",
+                    "city": "Montebello",
+                    "state": "CA",
+                    "zipCode": "90640"
+                },
+                "loanAmount": 753750,
+                "notes": "Prequalification and loan summary details"
+            }
+        },
+        {
+            "id": "melendez-doc-0008-smartfees",
+            "category": {
+                "category_id": 2174,
+                "category_name": "SmartFees",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "8",
+                "group_index": 7,
+                "total_pages": 2,
+                "category": "2174_SmartFees",
+                "confidence": 0.99,
+                "vision_check": "passed",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "lender": {
+                    "name": "West Capital Lending, Inc."
+                },
+                "propertyAddress": {
+                    "address1": "633 N 8th St",
+                    "city": "Montebello",
+                    "state": "CA",
+                    "zipCode": "90640"
+                },
+                "loan": {
+                    "loanAmount": 753750,
+                    "loanType": "Conventional",
+                    "occupancy": "Primary Residence",
+                    "purpose": "Purchase"
+                },
+                "estimatedValue": 1005000,
+                "costs": {
+                    "totalClosingCosts": 3581.50,
+                    "titleInsurance": 3924.00,
+                    "recordingFees": 183.00
+                }
+            }
+        }
+    ]
+}

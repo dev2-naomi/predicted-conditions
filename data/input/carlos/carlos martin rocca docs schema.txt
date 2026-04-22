@@ -1,0 +1,310 @@
+Below is the copy-paste version of the schemas I could match from this set.
+
+{
+  "schema_id": 349,
+  "schema_name": "URLA 1003",
+  "signed1003Version": "New Version",
+  "signed": true,
+  "new1003Borrowers": [
+    {
+      "name": {
+        "firstName": "Carlos",
+        "middleName": "Martin",
+        "lastName": "Rocca"
+      },
+      "DOB": "1983-02-18",
+      "last4SSN": "9999",
+      "email": "crocca@mirabellasrl.com",
+      "homePhone": "549-280-4994",
+      "cellPhone": "549-280-4994",
+      "maritalStatus": "Married",
+      "currentAddress": {
+        "address1": "Mattheus 1342",
+        "city": "Puerto Madryn",
+        "state": "CH",
+        "zipCode": "9120",
+        "fullAddress": "Mattheus 1342, Puerto Madryn, CH 9120"
+      },
+      "mailingAddress": {
+        "address1": "848 Brickell Ave",
+        "address2": "Unit 1225",
+        "city": "Miami",
+        "state": "FL",
+        "zipCode": "33131",
+        "fullAddress": "848 Brickell Ave Unit 1225, Miami, FL 33131"
+      },
+      "section2a": {
+        "accountTypes": [
+          {
+            "accountType": "Checking",
+            "financialInstitution": {
+              "name": "Bradesco Bank"
+            },
+            "cashOrMarketValue": 70000.00
+          }
+        ]
+      },
+      "section3a": {
+        "address": {
+          "address1": "Matheus 1342",
+          "city": "Puerto Madryn",
+          "state": "Chubut",
+          "zipCode": "9120",
+          "fullAddress": "Matheus 1342, Puerto Madryn, Chubut 9120"
+        },
+        "propertyValue": 550000.00,
+        "status": "Retained",
+        "intendedOccupancy": "Primary Residence"
+      },
+      "section4a": {
+        "loanAmount": 845000.00,
+        "purposeOfLoan": "Purchase",
+        "occupancy": "Primary Residence",
+        "propertyAddress": {
+          "address1": "9201 E Bay Harbor Dr",
+          "address2": "Unit 309",
+          "city": "Bay Harbor Islands",
+          "state": "FL",
+          "zipCode": "33154-2779",
+          "fullAddress": "9201 E Bay Harbor Dr Unit 309, Bay Harbor Islands, FL 33154-2779"
+        },
+        "manufacturedHome": "no",
+        "mixedUseProperty": "no"
+      },
+      "section4c": {
+        "expectedMonthlyRentalIncome": 9109.00
+      },
+      "firstMortgage": 5456.59,
+      "propertyTaxes": 1625.00,
+      "homeownerInsurance": 270.00,
+      "associationProjectDues": 1757.68,
+      "totalPayments": 9109.27
+    }
+  ]
+}
+{
+  "schema_id": 502,
+  "schema_name": "Bank Statement",
+  "bank": {
+    "name": "Bradesco Bank"
+  },
+  "statementPeriodFrom": "2026-01-01",
+  "statementPeriodTo": "2026-02-01",
+  "statementAddress": {
+    "address1": "Mattews 1342",
+    "city": "Puerto Madryn",
+    "state": "Chubut",
+    "zipCode": "9120",
+    "fullAddress": "Mattews 1342, Puerto Madryn, 9120 Chubut, Argentina"
+  },
+  "accounts": [
+    {
+      "accountType": "Checking",
+      "accountNumber": "9388",
+      "endingBalance": 60159.25,
+      "accountHolderTypes": [
+        "business"
+      ],
+      "accountHolderBusinesses": [
+        {
+          "name": "Blue Point Ltd"
+        }
+      ]
+    }
+  ]
+}
+{
+  "schema_id": 200,
+  "schema_name": "Purchase Contract",
+  "buyers": [
+    {
+      "firstName": "Carlos",
+      "middleName": "Martin",
+      "lastName": "Rocca"
+    }
+  ],
+  "propertyAddress": {
+    "address1": "9201 E Bay Harbor Dr",
+    "address2": "Unit 309",
+    "city": "Bay Harbor Islands",
+    "state": "FL",
+    "zipCode": "33154-2779",
+    "fullAddress": "9201 E Bay Harbor Dr Unit 309, Bay Harbor Islands, FL 33154-2779"
+  }
+}
+{
+  "schema_id": 237,
+  "schema_name": "Borrowers Authorization",
+  "lender": "",
+  "borrowers": [
+    {
+      "firstName": "Carlos",
+      "middleName": "Martin",
+      "lastName": "Rocca",
+      "dateSigned": "2026-01-21",
+      "signed": true
+    }
+  ]
+}
+{
+  "schema_name": "Appraisal",
+  "formType": "1073 - Individual Condominium Unit Appraisal Report",
+  "fileNumber": "25112405",
+  "appraisalCompany": {
+    "name": "Alpha One Real Estate Inc."
+  },
+  "appraiser": {
+    "name": "Carlos Rodriguez",
+    "companyName": "Alpha One Real Estate Inc",
+    "address": "3091 N 35th St, Hollywood, FL 33021",
+    "telephoneNumber": "(954) 925-7894",
+    "emailAddress": "alphaone@9549257894.com",
+    "state": "FL",
+    "stateCertificationNumber": "CERT RES RD3086",
+    "expirationDate": "2026-11-30"
+  },
+  "lenderClient": {
+    "name": "Nations Valuation Services",
+    "companyName": "Primary Residential Mortgage",
+    "address": "1480 North 2200 West, Salt Lake City, UT 84116"
+  },
+  "subjectProperty": {
+    "address1": "9201 E Bay Harbor Dr #309",
+    "address2": "Unit 309",
+    "city": "Bay Harbor Islands",
+    "state": "FL",
+    "zipCode": "33154",
+    "fullAddress": "9201 E Bay Harbor Dr #309, Bay Harbor Islands, FL 33154",
+    "legalDescription": "LA BAIA SOUTH CONDO UNIT 309 - NOT YET ASSIGNED",
+    "projectName": "LA BAIA CONDO",
+    "occupancy": "Owner",
+    "propertyRightsAppraised": "Fee Simple",
+    "assignmentType": "Purchase Transaction",
+    "propertyType": "Condominium",
+    "projectDescription": "Mid-Rise",
+    "hoaMonthlyAmount": 1198.00,
+    "taxYear": 2025,
+    "realEstateTaxes": 26000.00,
+    "specialAssessments": 0.00,
+    "femaFloodZone": "AE",
+    "femaMapNumber": "12086C0144L",
+    "femaMapDate": "2009-09-11",
+    "zoningClassification": "RM-1",
+    "zoningDescription": "MULTI-FAMILY DISTRICT (WATERFRONT LOTS)",
+    "view": "Bay; Water; Canal",
+    "units": {
+      "stories": 8,
+      "floors": 4,
+      "totalUnits": 68,
+      "subjectPhaseUnits": 68,
+      "ownerOccupiedUnits": 0,
+      "rentedUnits": 0,
+      "forSaleUnits": 0
+    },
+    "unitDescription": {
+      "floorLocation": "3rd Floor",
+      "levels": 1,
+      "roomCount": 4,
+      "bedrooms": 2,
+      "bathrooms": 2.1,
+      "grossLivingArea": 1308,
+      "heatingCooling": "Central",
+      "parking": "Valet",
+      "garageSpaces": 2,
+      "porchPatioDeck": "Balcony",
+      "condition": "C1",
+      "quality": "Q2",
+      "yearBuilt": 2025,
+      "effectiveAge": 0,
+      "designStyle": "MR1; CONDO"
+    }
+  },
+  "contract": {
+    "analyzed": false,
+    "contractPrice": 1300000.00,
+    "contractDate": "2021-12-28",
+    "sellerIsOwnerOfPublicRecord": true,
+    "financialAssistanceToBorrower": false
+  },
+  "neighborhood": {
+    "locationType": "Suburban",
+    "builtUp": "Over 75%",
+    "growth": "Stable",
+    "propertyValuesTrend": "Declining",
+    "demandSupply": "In Balance",
+    "marketingTime": "3-6 months",
+    "oneUnitLandUsePercent": 60,
+    "twoToFourUnitPercent": 5,
+    "multiFamilyPercent": 25,
+    "commercialPercent": 10,
+    "marketConditionsSummary": "Based on analysis of 46 condo sales over the past 12 months within Bay Harbor Islands, the average adjusted sale price decreased from $781,700 to $751,700, an implied change of -3.8%. Overall market trend was considered declining."
+  },
+  "salesComparisonApproach": {
+    "comparableListingsCount": 11,
+    "comparableSalesCount": 9,
+    "listedPriceRangeLow": 1025000.00,
+    "listedPriceRangeHigh": 1500000.00,
+    "salePriceRangeLow": 1039000.00,
+    "salePriceRangeHigh": 1800000.00,
+    "indicatedValue": 1350000.00,
+    "comparableSales": [
+      {
+        "comparableNumber": 1,
+        "address": "9751 E Bay Harbor Dr #9C, Bay Harbor Islands, FL 33154",
+        "projectName": "Carroll Walk",
+        "proximityToSubject": "0.40 miles N",
+        "salePrice": 1160000.00,
+        "saleDate": "2025-08-25",
+        "grossLivingArea": 1508,
+        "bedrooms": 2,
+        "bathrooms": 2.1,
+        "condition": "C3",
+        "floorLocation": "9th Floor",
+        "view": "Bay; Water; Canal",
+        "adjustedSalePrice": 1355600.00
+      },
+      {
+        "comparableNumber": 2,
+        "address": "9751 E Bay Harbor Dr #11D, Bay Harbor Islands, FL 33154",
+        "projectName": "Carroll Walk",
+        "proximityToSubject": "0.40 miles N",
+        "salePrice": 1200000.00,
+        "saleDate": "2025-08-25",
+        "grossLivingArea": 1731,
+        "bedrooms": 3,
+        "bathrooms": 2.1,
+        "condition": "C3",
+        "floorLocation": "11th Floor",
+        "view": "Bay; Water; Canal",
+        "adjustedSalePrice": 1300600.00
+      },
+      {
+        "comparableNumber": 3,
+        "address": "1300 Monad Ter #C, Miami Beach, FL 33139",
+        "projectName": "Monad Terrace",
+        "proximityToSubject": "6.87 miles S",
+        "salePrice": 1762500.00,
+        "saleDate": "2025-07-25",
+        "grossLivingArea": 1324,
+        "bedrooms": 2,
+        "bathrooms": 2.1,
+        "condition": "C2",
+        "floorLocation": "8th Floor",
+        "view": "Bay",
+        "adjustedSalePrice": 1401400.00
+      }
+    ]
+  },
+  "incomeApproach": {
+    "estimatedMonthlyMarketRent": 9700.00,
+    "indicatedValue": 0.00,
+    "summary": "See rent schedule",
+    "applied": false
+  },
+  "reconciliation": {
+    "finalValue": 1350000.00,
+    "effectiveDateOfAppraisal": "2025-12-08",
+    "dateOfSignatureAndReport": "2025-12-15",
+    "inspectionType": "Interior and exterior inspection"
+  }
+}

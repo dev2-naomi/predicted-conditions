@@ -332,18 +332,16 @@ def parse_loan_file(
     xml_content = (state or {}).get("loan_file_xml", "")
     if not xml_content:
         return Command(update={
-            "module_outputs": {"00": {"conditions": [{
-                "category": "Program Eligibility",
-                "severity": "HARD-STOP",
-                "priority": "P0",
-                "title": "Missing Loan File XML",
-                "description": "No loan_file_xml provided in state. Cannot proceed.",
-                "required_documents": ["MISMO XML loan file"],
-                "required_data_elements": [],
-                "condition_family_id": "missing_loan_file_xml",
-                "source_module": "00",
-            }]}},
-            "messages": [ToolMessage("HARD-STOP: No loan_file_xml provided.", tool_call_id=tool_call_id)],
+            "scenario_summary": {
+                "_loan_profile": {"metadata": {}},
+                "_xml_supplemental": {},
+                "_parsed_xml": {},
+            },
+            "messages": [ToolMessage(
+                "No loan_file_xml provided. Continuing with empty XML profile; "
+                "data will be populated from eligibility JSON and/or manifest.",
+                tool_call_id=tool_call_id,
+            )],
         })
 
     profile = xml_to_loan_profile(xml_content)
@@ -713,13 +711,16 @@ def parse_eligibility_output(
 
     # Support multiple layout formats:
     #   1. Flat: top-level program_results, application_data, etc.
-    #   2. Nested under "detailed_results"
+    #   2. Nested under "detailed_results" (skip if empty)
     #   3. Wrapped in entity.metadata.eligibility_response.complete_results.evaluation_results
+    #   4. Top-level eligibility_response.complete_results.evaluation_results (no entity wrapper)
     def _find_elig_root(d: dict) -> dict:
         if "program_results" in d:
             return d
-        if "detailed_results" in d:
-            return d["detailed_results"]
+        dr = d.get("detailed_results")
+        if isinstance(dr, dict) and dr:
+            return dr
+        # Path via entity.metadata
         ent = d.get("entity", {})
         meta = ent.get("metadata", {}) if isinstance(ent, dict) else {}
         er = (
@@ -729,16 +730,29 @@ def parse_eligibility_output(
         )
         if er:
             return er.get("detailed_results", er)
+        # Path via top-level eligibility_response (Aubrey-style layout)
+        er2 = (
+            d.get("eligibility_response", {})
+            .get("complete_results", {})
+            .get("evaluation_results", {})
+        )
+        if er2 and isinstance(er2, dict):
+            return er2
         return d
 
-    # Extract entity-level metadata (authoritative for program & income_doc)
+    # Extract entity-level metadata (authoritative for program & income_doc).
+    # Supports both entity-wrapped and flat top-level layouts.
     entity_meta: dict[str, Any] = {}
     entity_loan_program: dict[str, Any] = {}
     entity_missing_fields: list[dict] = []
     ent = data.get("entity", {})
-    if isinstance(ent, dict):
+    if isinstance(ent, dict) and ent:
         entity_meta = ent.get("metadata", {}) or {}
         entity_loan_program = entity_meta.get("loan_program", {}) or {}
+        entity_missing_fields = entity_loan_program.get("missing_fields", []) or []
+    elif "loan_program" in data and not ent:
+        entity_meta = data
+        entity_loan_program = data.get("loan_program", {}) or {}
         entity_missing_fields = entity_loan_program.get("missing_fields", []) or []
 
     detailed = _find_elig_root(data)

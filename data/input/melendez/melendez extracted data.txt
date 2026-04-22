@@ -1,0 +1,187 @@
+{
+  "schema_id": 349,
+  "schema_name": "URLA 1003",
+  "signed1003Version": "New Version",
+  "signed": true,
+  "new1003Borrowers": [
+    {
+      "firstName": "Marlene",
+      "middleName": "",
+      "lastName": "Melendez Niccum",
+      "DOB": "1979-11-04",
+      "last4SSN": "1935",
+      "email": "marlenemelendez13@gmail.com",
+      "homePhone": "323-208-2215",
+      "cellPhone": "323-208-2215",
+      "maritalStatus": "Single",
+      "currentAddress": {
+        "address1": "633 N 8th St",
+        "city": "Montebello",
+        "state": "CA",
+        "zipCode": "90640"
+      }
+    }
+  ],
+  "loan": {
+    "loanAmount": 753750,
+    "purpose": "Purchase",
+    "occupancy": "Primary Residence",
+    "propertyAddress": {
+      "address1": "633 N 8th St",
+      "city": "Montebello",
+      "state": "CA",
+      "zipCode": "90640"
+    }
+  }
+}
+{
+  "schema_id": 200,
+  "schema_name": "Purchase Contract",
+  "buyers": [
+    {
+      "firstName": "Marlene",
+      "lastName": "Melendez Niccum"
+    }
+  ],
+  "signed": true,
+  "dateSigned": "",
+  "datePrepared": "",
+  "propertyAddress": {
+    "address1": "633 N 8th St",
+    "city": "Montebello",
+    "state": "CA",
+    "zipCode": "90640",
+    "fullAddress": "633 N 8th St, Montebello, CA 90640"
+  },
+  "notes": {
+    "purchasePrice": 1005000,
+    "source_note": "Buyer, subject property, and purchase amount align across the URLA and closing-cost documents; contract dates were not reliably readable from the purchase-contract pages in this OCR view."
+  }
+}
+{
+  "schema_id": 237,
+  "schema_name": "Borrowers Authorization",
+  "lender": "NQM Funding LLC",
+  "borrowers": [
+    {
+      "firstName": "Marlene",
+      "lastName": "Melendez Niccum",
+      "signed": true
+    }
+  ]
+}
+{
+  "schema_id": 502,
+  "schema_name": "Bank Statement",
+  "bank": {
+    "name": "Wells Fargo"
+  },
+  "statementPeriodFrom": "2026-01-01",
+  "statementPeriodTo": "2026-01-31",
+  "accounts": [
+    {
+      "accountType": "Checking",
+      "accountNumber": "5585",
+      "endingBalance": 10855.79,
+      "accountHolderTypes": ["personal"]
+    },
+    {
+      "accountType": "Savings",
+      "accountNumber": "3873",
+      "endingBalance": 705981.89,
+      "accountHolderTypes": ["personal"]
+    }
+  ]
+}
+{
+  "schema_id": 502,
+  "schema_name": "Bank Statement",
+  "bank": {
+    "name": "Bank of America"
+  },
+  "statementPeriodFrom": "2025-12-27",
+  "statementPeriodTo": "2026-01-27",
+  "accounts": [
+    {
+      "accountType": "Checking",
+      "accountNumber": "5556",
+      "endingBalance": 2000.14,
+      "accountHolderTypes": ["personal"]
+    },
+    {
+      "accountType": "Savings",
+      "accountNumber": "3756",
+      "endingBalance": 40727.78,
+      "accountHolderTypes": ["personal"]
+    }
+  ]
+}
+{
+  "schema_id": 502,
+  "schema_name": "Bank Statement",
+  "bank": {
+    "name": "Bank of America"
+  },
+  "statementPeriodFrom": "2025-11-25",
+  "statementPeriodTo": "2025-12-26",
+  "accounts": [
+    {
+      "accountType": "Checking",
+      "accountNumber": "5556",
+      "endingBalance": 2710.09,
+      "accountHolderTypes": ["personal"]
+    },
+    {
+      "accountType": "Savings",
+      "accountNumber": "3756",
+      "endingBalance": 40726.71,
+      "accountHolderTypes": ["personal"]
+    }
+  ]
+}
+{
+  "schema_id": 2165,
+  "schema_name": "Prequal Response Form",
+  "lender": {
+    "name": "West Capital Lending, Inc."
+  },
+  "borrowers": [
+    {
+      "firstName": "Marlene",
+      "lastName": "Melendez Niccum"
+    }
+  ],
+  "propertyAddress": {
+    "address1": "633 N 8th St",
+    "city": "Montebello",
+    "state": "CA",
+    "zipCode": "90640"
+  },
+  "loanAmount": 753750,
+  "notes": "Prequalification and loan summary details"
+}
+{
+  "schema_id": 9001,
+  "schema_name": "Closing Cost Estimate (SmartFees)",
+  "lender": {
+    "name": "West Capital Lending, Inc."
+  },
+  "propertyAddress": {
+    "address1": "633 N 8th St",
+    "city": "Montebello",
+    "state": "CA",
+    "zipCode": "90640"
+  },
+  "loan": {
+    "loanAmount": 753750,
+    "loanType": "Conventional",
+    "occupancy": "Primary Residence",
+    "purpose": "Purchase"
+  },
+  "estimatedValue": 1005000,
+  "costs": {
+    "totalClosingCosts": 3581.50,
+    "titleInsurance": 3924.00,
+    "recordingFees": 183.00
+  }
+}

@@ -31,11 +31,12 @@ from typing_extensions import Annotated
 
 _ELIG_TO_MANIFEST_ALIASES: dict[str, list[str]] = {
     "emd check": ["emd docs", "emd"],
-    "loan pricing": ["lock confirmation", "smartfees", "loan estimate"],
+    "loan pricing": ["lock confirmation", "smartfees", "loan estimate", "prequal response form", "prequal response"],
     "title invoice": ["appraisal invoice", "title invoice"],
     "borrower certifications and disclosure": [
         "borrower certifications", "disclosure notices",
         "borrower certification", "compliance report",
+        "borrowers authorization", "borrower authorization",
     ],
     "anti steering disclosure": [
         "anti steering", "anti-steering",
