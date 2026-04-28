@@ -38,6 +38,10 @@ _ELIG_TO_MANIFEST_ALIASES: dict[str, list[str]] = {
         "borrower certification", "compliance report",
         "borrowers authorization", "borrower authorization",
     ],
+    "borrower authorization": [
+        "borrowers authorization", "borrower certifications and disclosure",
+        "borrower certifications", "borrower certification",
+    ],
     "anti steering disclosure": [
         "anti steering", "anti-steering",
     ],
