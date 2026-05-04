@@ -110,4 +110,18 @@ AND
 - guideline_trace indicates no further verification needed
 Otherwise keep.
 
+### 7) Masterlist Matching
+After merging, ranking, and quality filtering, run `match_to_masterlist` to map
+each engine condition to the official Encompass conditions library. This ensures:
+- Final conditions use the official wording from the company's condition library
+- Each condition carries metadata: `for_role`, `prior_to`, `masterlist_documents`
+- Unmatched conditions (no masterlist equivalent) are still included but flagged
+- Document Completeness conditions pass through unchanged (they are auto-generated)
+
+The tool order in STEP_09 is:
+1. `merge_conditions` — merge, de-dup, quality filter
+2. `rank_conditions` — priority ranking
+3. `match_to_masterlist` — semantic match to official library
+4. `generate_final_output` — assemble final JSON
+
 Return JSON only.

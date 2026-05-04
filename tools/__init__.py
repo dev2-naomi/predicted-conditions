@@ -33,6 +33,7 @@ from tools.property_tools import generate_property_conditions
 from tools.title_tools import generate_title_conditions
 from tools.compliance_tools import generate_compliance_conditions
 from tools.merger_tools import generate_final_output, merge_conditions, rank_conditions
+from tools.masterlist_tools import match_to_masterlist
 
 # General tools — always available regardless of step
 GENERAL_TOOLS = [
@@ -91,6 +92,7 @@ STEP_TOOLS = {
     "STEP_09": [
         merge_conditions,
         rank_conditions,
+        match_to_masterlist,
         generate_final_output,
     ],
 }

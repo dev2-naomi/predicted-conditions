@@ -276,6 +276,35 @@ def _canonical_family(fid: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Title-based document satisfaction mapping
+# ---------------------------------------------------------------------------
+# Maps condition title keywords to manifest category names they reference.
+# If a condition title matches a key and the manifest contains ANY of the
+# corresponding category names, the condition is considered doc-satisfied.
+_TITLE_TO_DOC_CATEGORIES: dict[str, list[str]] = {
+    "bank statement": ["bank statement"],
+    "asset statement": ["bank statement", "investment account statement"],
+    "short funds to close": ["bank statement", "investment account statement"],
+    "reserves": ["bank statement", "investment account statement"],
+    "lease": ["lease agreement", "executed lease", "lease", "rental agreement"],
+    "rent schedule": ["rent schedule", "1007", "1025", "appraisal report"],
+}
+
+
+def _is_doc_satisfied_by_title(cond: dict, manifest_categories: set[str]) -> bool:
+    """Check if a condition's required document is already satisfied by a
+    manifest category, based on the condition title rather than required_documents."""
+    if not manifest_categories:
+        return False
+    title = (cond.get("title") or "").lower()
+    for keyword, doc_cats in _TITLE_TO_DOC_CATEGORIES.items():
+        if keyword in title:
+            if any(dc in manifest_categories for dc in doc_cats):
+                return True
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Post-merge quality filters
 # ---------------------------------------------------------------------------
 
@@ -552,10 +581,46 @@ def generate_final_output(
             clean_summary[k] = val
 
     seen_conflicts = mo.get("09_merge", {}).get("seen_conflicts", [])
-    conditions: list[dict] = mo.get("09_rank", {}).get("ranked_conditions", [])
 
-    if not conditions:
-        conditions = mo.get("09_merge", {}).get("merged_conditions", [])
+    # Run masterlist matching automatically
+    ranked_conds = mo.get("09_rank", {}).get("ranked_conditions", [])
+    if not ranked_conds:
+        ranked_conds = mo.get("09_merge", {}).get("merged_conditions", [])
+
+    ml_output = mo.get("09_masterlist", {})
+    if not ml_output.get("matched_conditions") and not ml_output.get("passthrough_conditions"):
+        from tools.masterlist_tools import run_masterlist_matching
+        ml_output = run_masterlist_matching(ranked_conds, scenario_summary)
+
+    ml_matched = ml_output.get("matched_conditions", [])
+    ml_unmatched = ml_output.get("unmatched_conditions", [])
+    ml_passthrough = ml_output.get("passthrough_conditions", [])
+    ml_stats = ml_output.get("match_stats", {})
+
+    if ml_matched or ml_passthrough:
+        conditions = ml_passthrough + ml_matched
+    else:
+        conditions = ranked_conds
+
+    # Post-masterlist context filter: remove conditions whose subject matter
+    # is already satisfied by documents in the manifest.
+    submitted_docs: list[dict] = scenario_summary.get("_submitted_docs", [])
+    manifest_cats: set[str] = set()
+    for d in submitted_docs:
+        for field in ("category_name", "name"):
+            val = d.get(field, "")
+            if val:
+                manifest_cats.add(val.strip().lower())
+    if manifest_cats:
+        pre_count = len(conditions)
+        conditions = [
+            c for c in conditions
+            if c.get("category") == "Document Completeness"
+            or not _is_doc_satisfied_by_title(c, manifest_cats)
+        ]
+        doc_title_removed = pre_count - len(conditions)
+    else:
+        doc_title_removed = 0
 
     # Stats
     hard_stops = sum(1 for c in conditions if c.get("severity") == "HARD-STOP")
@@ -578,6 +643,12 @@ def generate_final_output(
                 d[k] = val if isinstance(val, list) else []
             else:
                 d[k] = val
+        # Additive masterlist fields — only present when matched
+        for mk in ("masterlist_id", "for_role", "prior_to",
+                    "masterlist_documents", "match_confidence"):
+            mv = c.get(mk)
+            if mv is not None:
+                d[mk] = mv
         distilled.append(d)
 
     final: dict[str, Any] = {
@@ -591,13 +662,19 @@ def generate_final_output(
             "by_priority": by_priority,
         },
     }
+    if ml_stats:
+        final["masterlist_stats"] = ml_stats
+
+    filter_note = ""
+    if doc_title_removed:
+        filter_note = f" ({doc_title_removed} removed: docs already in manifest)"
 
     return Command(update={
         "final_output": final,
         "current_step": "STEP_09",
         "messages": [ToolMessage(
             f"Final output generated: {len(conditions)} conditions, "
-            f"{hard_stops} hard-stop(s). By priority: {by_priority}",
+            f"{hard_stops} hard-stop(s). By priority: {by_priority}{filter_note}",
             tool_call_id=tool_call_id,
         )],
     })
