@@ -1,16 +1,14 @@
 """
-scenario_tools.py — Tools for STEP_00: Scenario Builder.
+scenario_tools.py — Tools for STEP_00: Scenario Builder (v2 Document-Centric).
 
-New XML-first flow:
-  1. parse_loan_file   — parses XML and produces a loan profile JSON
-                         (same shape as sample_case.json) via xml_to_loan_profile.
-  2. parse_loan_profile — if an external JSON was also provided (from platform),
-                          merges those fields over the XML-derived profile.
-  3. parse_submitted_documents — maps doc names to internal doc_types.
-  4. build_scenario_summary — reads the unified _loan_profile + _xml_supplemental
-                               to build the scenario_summary.
-  5. detect_contradictions — compares XML-derived vs external profile when both exist.
-  6. route_to_facets — partitions docs into per-facet buckets.
+Flow:
+  1. parse_loan_file           — parses MISMO XML into loan_context data
+  2. parse_manifest_documents  — converts manifest JSON into v2 documents[] array
+  3. parse_eligibility_output  — enriches loan_context from eligibility engine
+  4. load_doctype_masterlist   — loads the official Encompass doctype masterlist
+  5. build_scenario_summary    — builds v2 scenario_summary + document_inventory
+  6. detect_contradictions     — flags discrepancies across inputs
+  7. route_to_facets           — partitions docs and overlays by facet
 """
 
 from __future__ import annotations
@@ -385,180 +383,88 @@ def parse_loan_file(
 
 
 @tool
-def parse_loan_profile(
+def load_doctype_masterlist(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
     state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Merge an external loan profile JSON (from the platform/UI) over the
-    XML-derived profile. If no external JSON is provided, the XML-derived
-    profile is used as-is. External fields like loan_program, income_doc,
-    channel, borrower_type override the XML-derived values.
+    Load the official Encompass doctype masterlist from data/doctype_masterlist.json.
+    Returns only the NQM-relevant entries for use in document routing and naming.
     """
-    raw = (state or {}).get("loan_profile_json", "")
-    if not raw:
+    from pathlib import Path
+    masterlist_path = Path(__file__).parent.parent / "data" / "doctype_masterlist.json"
+    if not masterlist_path.exists():
         return Command(update={
             "messages": [ToolMessage(
-                "No external loan_profile_json provided. Using XML-derived profile as-is.",
+                "Warning: doctype_masterlist.json not found. Document type matching will use fallback names.",
                 tool_call_id=tool_call_id,
             )],
         })
 
-    try:
-        external = json.loads(raw) if isinstance(raw, str) else raw
-    except json.JSONDecodeError as e:
-        return Command(update={
-            "module_outputs": {"00": {"conditions": [{
-                "category": "Program Eligibility",
-                "severity": "SOFT-STOP",
-                "priority": "P1",
-                "title": "Invalid Loan Profile JSON",
-                "description": f"The external loan profile JSON could not be parsed: {e}. Falling back to XML-derived profile.",
-                "required_documents": ["Corrected loan profile JSON"],
-                "required_data_elements": [],
-                "condition_family_id": "invalid_loan_profile_json",
-                "source_module": "00",
-            }]}},
-            "messages": [ToolMessage(f"SOFT-STOP: Invalid JSON: {e}", tool_call_id=tool_call_id)],
-        })
+    with open(masterlist_path, encoding="utf-8") as f:
+        all_types = json.load(f)
 
-    ss = (state or {}).get("scenario_summary", {})
-    xml_profile = ss.get("_loan_profile", {})
+    nqm_types = [t for t in all_types if t.get("nqm_relevant")]
+    categories = {}
+    for t in nqm_types:
+        cat = t.get("category") or "Uncategorized"
+        categories[cat] = categories.get(cat, 0) + 1
 
-    if xml_profile:
-        xml_meta = xml_profile.get("metadata", {})
-        ext_meta = external.get("metadata", {})
-        merged_meta = _deep_merge(xml_meta, ext_meta)
-        merged_profile = dict(xml_profile)
-        merged_profile["metadata"] = merged_meta
-        # Preserve _xml_supplemental from XML-derived profile
-        if "_xml_supplemental" not in merged_profile:
-            merged_profile["_xml_supplemental"] = xml_profile.get("_xml_supplemental", {})
-    else:
-        merged_profile = external
-
-    program = merged_profile.get("metadata", {}).get("loan_program", {}).get("name", "unknown")
+    cat_summary = ", ".join(f"{k}: {v}" for k, v in sorted(categories.items()))
     return Command(update={
-        "scenario_summary": {
-            "_loan_profile": merged_profile,
-            "_external_profile_provided": True,
-        },
+        "scenario_summary": {"_doctype_masterlist": nqm_types},
         "messages": [ToolMessage(
-            f"External profile merged. Program: {program}, "
-            f"FICO: {merged_profile.get('metadata', {}).get('fico')}, "
-            f"LTV: {merged_profile.get('metadata', {}).get('ltv_pct')}",
+            f"Loaded doctype masterlist: {len(nqm_types)} NQM-relevant types "
+            f"(of {len(all_types)} total). Categories: {cat_summary}",
             tool_call_id=tool_call_id,
         )],
     })
 
 
 @tool
-def parse_submitted_documents(
+def parse_manifest_documents(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
     state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Parse submitted documents from state.
-
-    Checks inputs in order of preference:
-      1. manifest_json  — raw Tasktile manifest (cloud callers)
-      2. submitted_documents_json — pre-parsed doc list (legacy / test_pipeline)
-
-    The manifest is parsed in-process via manifest_parser, so cloud callers
-    only need to pass the raw JSON string.
+    Parse the manifest JSON into the v2 documents array.
+    Each document gets a doc_id, detected_document_type, doc_type (internal),
+    and any extracted entities / flags from the manifest.
     """
     s = state or {}
     manifest_raw = s.get("manifest_json", "")
-    legacy_raw = s.get("submitted_documents_json", "")
 
-    # --- Try manifest_json first ---
-    if manifest_raw:
-        try:
-            doc_list = parse_manifest_from_string(
-                manifest_raw if isinstance(manifest_raw, str) else json.dumps(manifest_raw)
-            )
-            doc_summary = ", ".join(f"{d['name']} ({d['doc_type']})" for d in doc_list[:20])
-            if len(doc_list) > 20:
-                doc_summary += f" ... and {len(doc_list) - 20} more"
-            return Command(update={
-                "scenario_summary": {"_submitted_docs": doc_list},
-                "messages": [ToolMessage(
-                    f"Parsed manifest_json → {len(doc_list)} submitted documents: {doc_summary}",
-                    tool_call_id=tool_call_id,
-                )],
-            })
-        except (json.JSONDecodeError, KeyError, TypeError) as e:
-            return Command(update={
-                "module_outputs": {"00": {"conditions": [{
-                    "category": "Document Completeness",
-                    "severity": "SOFT-STOP",
-                    "priority": "P1",
-                    "title": "Invalid Manifest JSON",
-                    "description": f"The manifest JSON could not be parsed: {e}. Falling back to submitted_documents_json if available.",
-                    "required_documents": ["Corrected manifest JSON"],
-                    "required_data_elements": [],
-                    "condition_family_id": "invalid_manifest_json",
-                    "source_module": "00",
-                }]}},
-                "scenario_summary": {"_submitted_docs": []},
-                "messages": [ToolMessage(
-                    f"SOFT-STOP: Invalid manifest JSON: {e}. Will try submitted_documents_json.",
-                    tool_call_id=tool_call_id,
-                )],
-            })
-
-    # --- Fall back to legacy submitted_documents_json ---
-    if not legacy_raw:
+    if not manifest_raw:
         return Command(update={
             "scenario_summary": {"_submitted_docs": []},
-            "messages": [ToolMessage("No submitted documents provided (no manifest_json or submitted_documents_json).", tool_call_id=tool_call_id)],
+            "messages": [ToolMessage(
+                "No manifest_json provided. No submitted documents available.",
+                tool_call_id=tool_call_id,
+            )],
         })
 
     try:
-        doc_list = json.loads(legacy_raw) if isinstance(legacy_raw, str) else legacy_raw
-    except json.JSONDecodeError as e:
+        doc_list = parse_manifest_from_string(
+            manifest_raw if isinstance(manifest_raw, str) else json.dumps(manifest_raw)
+        )
+        doc_summary = ", ".join(f"{d['name']} ({d['doc_type']})" for d in doc_list[:20])
+        if len(doc_list) > 20:
+            doc_summary += f" ... and {len(doc_list) - 20} more"
         return Command(update={
-            "module_outputs": {"00": {"conditions": [{
-                "category": "Document Completeness",
-                "severity": "SOFT-STOP",
-                "priority": "P1",
-                "title": "Invalid Submitted Documents JSON",
-                "description": f"The submitted documents JSON could not be parsed: {e}. No documents will be available for analysis.",
-                "required_documents": ["Corrected submitted documents JSON"],
-                "required_data_elements": [],
-                "condition_family_id": "invalid_submitted_docs_json",
-                "source_module": "00",
-            }]}},
+            "scenario_summary": {"_submitted_docs": doc_list},
+            "messages": [ToolMessage(
+                f"Parsed manifest_json -> {len(doc_list)} submitted documents: {doc_summary}",
+                tool_call_id=tool_call_id,
+            )],
+        })
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        return Command(update={
             "scenario_summary": {"_submitted_docs": []},
-            "messages": [ToolMessage(f"SOFT-STOP: Invalid JSON: {e}", tool_call_id=tool_call_id)],
+            "messages": [ToolMessage(
+                f"Error parsing manifest JSON: {e}. No documents available.",
+                tool_call_id=tool_call_id,
+            )],
         })
-
-    if not isinstance(doc_list, list):
-        doc_list = []
-
-    mapped: list[dict] = []
-    for doc in doc_list:
-        doc_id = str(doc.get("doc_id") or doc.get("id") or "")
-        name = doc.get("name", "")
-        doc_type = doc.get("doc_type") or _map_doc_name_to_type(name)
-        mapped.append({
-            "doc_id": doc_id,
-            "doc_type": doc_type,
-            "name": name,
-            "extracted_fields": doc.get("extracted_fields", {}),
-            "flags": doc.get("flags", []),
-        })
-
-    doc_summary = ", ".join(f"{d['name']} ({d['doc_type']})" for d in mapped[:20])
-    if len(mapped) > 20:
-        doc_summary += f" ... and {len(mapped) - 20} more"
-    return Command(update={
-        "scenario_summary": {"_submitted_docs": mapped},
-        "messages": [ToolMessage(
-            f"Parsed {len(mapped)} submitted documents: {doc_summary}",
-            tool_call_id=tool_call_id,
-        )],
-    })
 
 
 # ---------------------------------------------------------------------------
@@ -875,38 +781,8 @@ def build_scenario_summary(
     supplemental: dict = ss.get("_xml_supplemental", {}) or profile.get("_xml_supplemental", {})
     submitted_docs: list[dict] = ss.get("_submitted_docs", [])
 
-    # Re-apply external overrides in case parse_loan_profile ran in parallel
-    # with parse_loan_file and the merge hasn't been applied yet.
-    raw_ext = s.get("loan_profile_json", "")
-    if raw_ext and profile:
-        try:
-            ext = json.loads(raw_ext) if isinstance(raw_ext, str) else raw_ext
-            ext_meta = ext.get("metadata", {})
-            if ext_meta:
-                profile = dict(profile)
-                profile["metadata"] = _deep_merge(profile.get("metadata", {}), ext_meta)
-        except (json.JSONDecodeError, TypeError):
-            pass
-
     # Re-apply eligibility engine data (highest priority for numeric fields)
     eligibility_data = ss.get("_eligibility_data", {})
-
-    # Filter submitted docs to only those required by the eligibility engine.
-    # Uses the same fuzzy matching as doc_completeness_tools.
-    required_doc_categories = eligibility_data.get("required_doc_categories", [])
-    if required_doc_categories and submitted_docs:
-        from tools.doc_completeness_tools import _matches_manifest_name
-
-        def _doc_matches(doc: dict) -> bool:
-            doc_name = doc.get("name", "")
-            if not doc_name:
-                return False
-            return any(
-                _matches_manifest_name(cat, doc_name)
-                for cat in required_doc_categories
-            )
-
-        submitted_docs = [doc for doc in submitted_docs if _doc_matches(doc)]
 
     elig_app = eligibility_data.get("application_data", {})
     if elig_app:
@@ -1142,16 +1018,33 @@ def build_scenario_summary(
 
     guideline_refs = _guideline_section_refs(program, income_types, property_type)
 
+    # Build document_inventory from submitted docs
+    doc_inventory: list[dict] = []
+    for doc in submitted_docs:
+        doc_inventory.append({
+            "doc_id": doc.get("doc_id", ""),
+            "detected_document_type": doc.get("name", ""),
+            "doctype_id": None,
+            "category": doc.get("category_name", "") or doc.get("doc_type", ""),
+            "available": True,
+            "completeness_signals": [],
+            "detected_forms_or_attachments": [],
+            "key_entities_found": list(doc.get("extracted_fields", {}).keys())[:5],
+        })
+
     missing_str = ", ".join(missing) if missing else "none"
     return Command(update={
         "scenario_summary": summary,
         "missing_core_variables": missing,
+        "document_inventory": doc_inventory,
         "guideline_section_refs": guideline_refs,
         "messages": [ToolMessage(
             f"Scenario summary built. Program: {program}, Purpose: {purpose}, "
             f"Occupancy: {summary['occupancy']}, LTV: {ltv}, FICO: {fico}, "
             f"Property: {property_type} in {summary['property']['state']}. "
-            f"Income types: {income_types}. Missing core variables: {missing_str}",
+            f"Income types: {income_types}. "
+            f"Document inventory: {len(doc_inventory)} docs. "
+            f"Missing core variables: {missing_str}",
             tool_call_id=tool_call_id,
         )],
     })

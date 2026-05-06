@@ -1,5 +1,5 @@
 """
-credit_tools.py — Tools for STEP_04: Credit Conditions Engine.
+credit_tools.py — Tools for STEP_04: Credit Document Requests.
 """
 
 from __future__ import annotations
@@ -12,34 +12,36 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import Annotated
 
+from tools.shared.normalize import normalize_all
+
 
 @tool
-def generate_credit_conditions(
-    conditions: List[Dict],
+def generate_credit_document_requests(
+    document_requests: List[Dict],
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
     state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Store the credit conditions you generated after reasoning over the
+    Store the credit document requests you generated after reasoning over the
     scenario_summary, submitted documents, and NQMF guideline sections.
 
-    Each condition must conform to the standard schema.
-
     Args:
-        conditions: List of condition dicts conforming to the standard schema.
+        document_requests: List of document request dicts conforming to the
+                           standard document_request schema.
     """
-    for c in conditions:
-        c["category"] = "Credit"
-        c.setdefault("tags", [])
-        if "credit" not in c["tags"]:
-            c["tags"].append("credit")
+    normalize_all(document_requests, default_category="Credit")
 
-    titles = [c.get("title", "?") for c in conditions]
+    for dr in document_requests:
+        dr.setdefault("tags", [])
+        if "credit" not in dr["tags"]:
+            dr["tags"].append("credit")
+
+    names = [dr.get("document_type", "?") for dr in document_requests]
     return Command(update={
-        "module_outputs": {"04": {"conditions": conditions}},
+        "module_outputs": {"04": {"document_requests": document_requests}},
         "current_step": "STEP_04",
         "messages": [ToolMessage(
-            f"Stored {len(conditions)} credit condition(s): {titles}",
+            f"Stored {len(document_requests)} credit document request(s): {names}",
             tool_call_id=tool_call_id,
         )],
     })

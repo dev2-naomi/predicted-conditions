@@ -1,5 +1,5 @@
 """
-compliance_tools.py — Tools for STEP_07: Compliance Conditions Engine.
+compliance_tools.py — Tools for STEP_07: Compliance Document Requests.
 """
 
 from __future__ import annotations
@@ -12,34 +12,36 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import Annotated
 
+from tools.shared.normalize import normalize_all
+
 
 @tool
-def generate_compliance_conditions(
-    conditions: List[Dict],
+def generate_compliance_document_requests(
+    document_requests: List[Dict],
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
     state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Store the compliance conditions you generated after reasoning over the
-    scenario_summary, submitted documents, and NQMF guideline sections.
-
-    Each condition must conform to the standard schema.
+    Store the compliance document requests you generated after reasoning over
+    the scenario_summary, submitted documents, and NQMF guideline sections.
 
     Args:
-        conditions: List of condition dicts conforming to the standard schema.
+        document_requests: List of document request dicts conforming to the
+                           standard document_request schema.
     """
-    for c in conditions:
-        c["category"] = "Compliance"
-        c.setdefault("tags", [])
-        if "compliance" not in c["tags"]:
-            c["tags"].append("compliance")
+    normalize_all(document_requests, default_category="Compliance")
 
-    titles = [c.get("title", "?") for c in conditions]
+    for dr in document_requests:
+        dr.setdefault("tags", [])
+        if "compliance" not in dr["tags"]:
+            dr["tags"].append("compliance")
+
+    names = [dr.get("document_type", "?") for dr in document_requests]
     return Command(update={
-        "module_outputs": {"07": {"conditions": conditions}},
+        "module_outputs": {"07": {"document_requests": document_requests}},
         "current_step": "STEP_07",
         "messages": [ToolMessage(
-            f"Stored {len(conditions)} compliance condition(s): {titles}",
+            f"Stored {len(document_requests)} compliance document request(s): {names}",
             tool_call_id=tool_call_id,
         )],
     })

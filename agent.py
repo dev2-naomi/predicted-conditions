@@ -72,11 +72,9 @@ def _last_value(old: Any, new: Any) -> Any:  # noqa: ARG001
 
 class PredictiveConditionsState(TypedDict, total=False):
     # ---- Input fields ----
-    loan_file_xml: str                # MISMO XML — primary input, parsed into loan profile
-    loan_profile_json: str            # Optional external JSON override (from platform/UI)
-    submitted_documents_json: str     # Doc list (legacy: pre-parsed doc array)
-    manifest_json: str                # Raw Tasktile manifest JSON (preferred over submitted_documents_json)
-    eligibility_json: str             # Raw eligibility engine output JSON (application_data + eligible_programs)
+    loan_file_xml: str                # MISMO XML — primary input
+    manifest_json: str                # Raw manifest JSON (document inventory from extraction)
+    eligibility_json: str             # Raw eligibility engine output JSON
     env: str                          # "Test" | "Prod"
 
     # ---- Message history ----
@@ -86,6 +84,9 @@ class PredictiveConditionsState(TypedDict, total=False):
     scenario_summary: Annotated[NotRequired[dict], _merge_dicts]
     missing_core_variables: Annotated[NotRequired[list], _append_list]
     contradictions_detected: Annotated[NotRequired[list], _append_list]
+    document_inventory: Annotated[NotRequired[list], _append_list]
+    doctype_mapping_hints: Annotated[NotRequired[list], _append_list]
+    seen_conflicts: Annotated[NotRequired[list], _append_list]
     docs_by_facet: Annotated[NotRequired[dict], _merge_dicts]
     overlays_by_facet: Annotated[NotRequired[dict], _merge_dicts]
     guideline_section_refs: Annotated[NotRequired[dict], _merge_dicts]
@@ -93,7 +94,6 @@ class PredictiveConditionsState(TypedDict, total=False):
     current_step: Annotated[NotRequired[str], _last_value]
     step_reports: Annotated[NotRequired[dict], _merge_dicts]
     final_output: Annotated[NotRequired[dict], _last_value]
-    todos: Annotated[NotRequired[list[dict]], _append_list]
     dev_mode: NotRequired[dict]
 
 
@@ -119,25 +119,25 @@ _llm = ChatAnthropic(
 # ---------------------------------------------------------------------------
 
 _DEFAULT_INITIAL_PROMPT = (
-    "Execute the FULL predictive conditions workflow from STEP_00 through STEP_09.\n\n"
+    "Execute the FULL Predictive Document Needs workflow from STEP_00 through STEP_08.\n\n"
     "You MUST complete ALL steps in sequence. Do NOT stop after a single step.\n"
     "Do NOT output a summary between steps — just call the tools.\n\n"
     "Step sequence:\n"
-    "  STEP_00: parse_loan_file, parse_loan_profile, parse_submitted_documents, "
-    "parse_eligibility_output, build_scenario_summary, detect_contradictions, route_to_facets\n"
-    "  STEP_00b: check_submission_completeness\n"
-    "  STEP_01: check_overlay_conflicts, generate_crosscutting_conditions\n"
-    "  STEP_02: load_guideline_sections (income sections), then generate_income_conditions\n"
-    "  STEP_03: load_guideline_sections (asset sections), then generate_asset_conditions\n"
-    "  STEP_04: load_guideline_sections (credit sections), then generate_credit_conditions\n"
-    "  STEP_05: load_guideline_sections (property sections), then generate_property_conditions\n"
-    "  STEP_06: load_guideline_sections (title sections), then generate_title_conditions\n"
-    "  STEP_07: load_guideline_sections (compliance sections), then generate_compliance_conditions\n"
-    "  STEP_08: check_matrix_eligibility (deterministic), load_program_matrix (trimmed), "
-    "generate_matrix_conditions\n"
-    "  STEP_09: merge_conditions, rank_conditions, generate_final_output\n\n"
+    "  STEP_00: parse_loan_file, parse_manifest_documents, parse_eligibility_output, "
+    "load_doctype_masterlist, build_scenario_summary, detect_contradictions, route_to_facets\n"
+    "  STEP_01: load_guideline_sections, check_overlay_conflicts, "
+    "generate_crosscutting_document_requests\n"
+    "  STEP_02: load_guideline_sections (income), then generate_income_document_requests\n"
+    "  STEP_03: load_guideline_sections (assets), then generate_asset_document_requests\n"
+    "  STEP_04: load_guideline_sections (credit), then generate_credit_document_requests\n"
+    "  STEP_05: load_guideline_sections (property), then generate_property_document_requests\n"
+    "  STEP_06: load_guideline_sections (title), then generate_title_document_requests\n"
+    "  STEP_07: load_guideline_sections (compliance), then generate_compliance_document_requests\n"
+    "  STEP_08: merge_document_requests, rank_document_requests, generate_final_output\n\n"
     "For STEP_02 through STEP_07: first load the relevant guideline sections, then "
-    "reason over the scenario_summary + guidelines to generate conditions."
+    "reason over the scenario_summary + guidelines to generate document requests.\n"
+    "Output document_requests (not conditions). Each document request must include "
+    "specifications and reasons_needed."
 )
 
 

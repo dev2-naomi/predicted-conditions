@@ -1,11 +1,5 @@
 """
-income_tools.py — Tools for STEP_02: Income Conditions Engine.
-
-Two tools:
-  - load_guideline_sections: loads actual guideline text from guidelines.md
-    so the LLM can reason over the rules.
-  - generate_income_conditions: thin storage tool — the LLM passes in the
-    conditions it generated after reading the guidelines and scenario.
+income_tools.py — Tools for STEP_02: Income Document Requests.
 """
 
 from __future__ import annotations
@@ -19,6 +13,7 @@ from langgraph.types import Command
 from typing_extensions import Annotated
 
 from tools.shared.guidelines import load_sections
+from tools.shared.normalize import normalize_all
 
 
 @tool
@@ -30,7 +25,7 @@ def load_guideline_sections(
     """
     Load NQMF guideline content for the given section names.
     Returns the actual text content extracted from guidelines.md
-    so you can reason over the rules and determine which conditions apply.
+    so you can reason over the rules and determine which document requests apply.
 
     Args:
         section_names: List of guideline section headings to load
@@ -40,36 +35,32 @@ def load_guideline_sections(
 
 
 @tool
-def generate_income_conditions(
-    conditions: List[Dict],
+def generate_income_document_requests(
+    document_requests: List[Dict],
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
     state: Annotated[dict, InjectedState] = None,
 ) -> Command:
     """
-    Store the income conditions you generated after reasoning over the
+    Store the income document requests you generated after reasoning over the
     scenario_summary, submitted documents, and NQMF guideline sections.
 
-    Each condition must conform to the standard schema with fields:
-    condition_id, condition_family_id, category, title, description,
-    required_documents, required_data_elements, owner, severity, priority,
-    confidence, triggers, evidence_found, guideline_trace, overlay_trace,
-    resolution_criteria, dependencies, tags.
-
     Args:
-        conditions: List of condition dicts conforming to the standard schema.
+        document_requests: List of document request dicts conforming to the
+                           standard document_request schema.
     """
-    for c in conditions:
-        c["category"] = "Income"
-        c.setdefault("tags", [])
-        if "income" not in c["tags"]:
-            c["tags"].append("income")
+    normalize_all(document_requests, default_category="Income")
 
-    titles = [c.get("title", "?") for c in conditions]
+    for dr in document_requests:
+        dr.setdefault("tags", [])
+        if "income" not in dr["tags"]:
+            dr["tags"].append("income")
+
+    names = [dr.get("document_type", "?") for dr in document_requests]
     return Command(update={
-        "module_outputs": {"02": {"conditions": conditions}},
+        "module_outputs": {"02": {"document_requests": document_requests}},
         "current_step": "STEP_02",
         "messages": [ToolMessage(
-            f"Stored {len(conditions)} income condition(s): {titles}",
+            f"Stored {len(document_requests)} income document request(s): {names}",
             tool_call_id=tool_call_id,
         )],
     })

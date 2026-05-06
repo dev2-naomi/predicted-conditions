@@ -1,18 +1,15 @@
 """
-test_pipeline.py — Full end-to-end test with the real LLM.
+test_pipeline.py — Full end-to-end test with the real LLM (v2 Document-Centric).
 
-Supports two input modes:
-  1. XML-only: provide just the XML file path
-  2. XML + JSON: provide XML + a sample_case.json for external override
+Inputs:
+  - loan.xml (MISMO XML)
+  - manifest.json (document inventory from extraction)
+  - eligibility.json (eligibility engine output)
 
 Usage:
-    python test_pipeline.py                           # SelectITIN (default)
-    python test_pipeline.py data/input/case_scenario/SelectITIN
-    python test_pipeline.py /path/to/some.xml         # XML-only mode
-
-Submitted documents are loaded from a manifest JSON if available
-(MANIFEST_PATH env var or manifest.json in the case directory),
-otherwise falls back to individual JSON files in Pertinent Documents/.
+    python test_pipeline.py compiled_inputs/nyarko         # single loan
+    python test_pipeline.py --batch compiled_inputs         # all loans sequentially
+    python test_pipeline.py --batch compiled_inputs --output-dir test_results
 """
 
 from __future__ import annotations
@@ -27,170 +24,114 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
 
-from langchain_core.messages import HumanMessage
-
-from agent import agent, PredictiveConditionsState
+from agent import agent
 
 
 def _find_xml(directory: Path) -> str:
-    """Find and read the first .xml file in a directory."""
     for f in sorted(directory.iterdir()):
         if f.suffix.lower() == ".xml":
             return f.read_text()
     return ""
 
 
-def _find_json(directory: Path, pattern: str = "sample_case") -> str:
-    """Find and read a JSON file matching a pattern."""
-    for f in sorted(directory.iterdir()):
-        if f.suffix == ".json" and pattern in f.stem.lower():
-            return f.read_text()
-    return ""
-
-
 def _find_manifest_raw(directory: Path) -> str | None:
-    """
-    Find a manifest JSON file and return its raw string content.
-    Checks MANIFEST_PATH env var first, then any *manifest*.json in the directory.
-    Returns None if no manifest is found.
-    """
     env_path = os.environ.get("MANIFEST_PATH", "")
     if env_path:
         p = Path(env_path)
         if p.exists():
-            print(f"  Found manifest via MANIFEST_PATH: {p}")
             return p.read_text(encoding="utf-8")
 
     for f in sorted(directory.iterdir()):
         if f.suffix == ".json" and "manifest" in f.name.lower():
-            print(f"  Found manifest in directory: {f}")
             return f.read_text(encoding="utf-8")
 
     return None
 
 
 def _find_eligibility_raw(directory: Path) -> str | None:
-    """
-    Find an eligibility engine output JSON and return its raw string content.
-    Checks ELIGIBILITY_PATH env var first, then any *eligibility* or *sample_output*
-    JSON in the directory.
-    """
     env_path = os.environ.get("ELIGIBILITY_PATH", "")
     if env_path:
         p = Path(env_path)
         if p.exists():
-            print(f"  Found eligibility output via ELIGIBILITY_PATH: {p}")
             return p.read_text(encoding="utf-8")
 
     for f in sorted(directory.iterdir()):
         if f.suffix == ".json" and ("eligibility" in f.name.lower() or "sample_output" in f.name.lower()):
-            print(f"  Found eligibility output in directory: {f}")
             return f.read_text(encoding="utf-8")
 
     return None
 
 
-def _find_submitted_docs_legacy(directory: Path) -> list:
-    """
-    Legacy fallback: read individual doc JSON files from Pertinent Documents/.
-    Only used when no manifest is available.
-    """
-    docs_dir = directory / "Pertinent Documents"
-    if not docs_dir.exists():
-        return []
-    submitted = []
-    for fname in sorted(os.listdir(docs_dir)):
-        if fname.endswith(".json"):
-            with open(docs_dir / fname) as f:
-                d = json.load(f)
-                submitted.append({
-                    "doc_id": str(d.get("id", "")),
-                    "name": d.get("name", d.get("documentName", "unknown")),
-                })
-    return submitted
+def _serializable_state(sv: dict) -> dict:
+    out = {}
+    for k, v in sv.items():
+        if k == "messages":
+            out[k] = f"[{len(v)} messages]"
+            continue
+        if k == "loan_file_xml":
+            out[k] = f"[XML string, {len(v)} chars]"
+            continue
+        if k == "eligibility_json":
+            out[k] = f"[eligibility JSON, {len(v)} chars]"
+            continue
+        if k == "manifest_json":
+            out[k] = f"[manifest JSON, {len(v)} chars]"
+            continue
+        if isinstance(v, dict):
+            cleaned = {}
+            for dk, dv in v.items():
+                if dk == "raw_sections":
+                    cleaned[dk] = f"[{len(dv)} sections]"
+                elif dk == "_parsed_xml":
+                    cleaned[dk] = "{...parsed xml dict...}"
+                else:
+                    cleaned[dk] = dv
+            out[k] = cleaned
+        else:
+            out[k] = v
+    return out
 
 
-def main():
-    arg = sys.argv[1] if len(sys.argv) > 1 else "data/input/case_scenario/SelectITIN"
-    arg_path = Path(arg)
+def run_single(input_dir: Path, output_dir: Path | None = None) -> dict:
+    """Run the pipeline for a single loan directory. Returns the result dict."""
+    xml_content = _find_xml(input_dir)
+    manifest_raw = _find_manifest_raw(input_dir)
+    eligibility_raw = _find_eligibility_raw(input_dir)
+    source_label = input_dir.name
 
-    xml_content = ""
-    case_json = ""
-    manifest_raw: str | None = None
-    eligibility_raw: str | None = None
-    submitted_docs_legacy: list = []
-    source_label = ""
+    if not xml_content and not manifest_raw and not eligibility_raw:
+        print(f"  SKIP: No XML, manifest, or eligibility file found in {input_dir}")
+        return {}
 
-    if arg_path.is_file() and arg_path.suffix.lower() == ".xml":
-        xml_content = arg_path.read_text()
-        source_label = arg_path.name
-    elif arg_path.is_dir():
-        xml_content = _find_xml(arg_path)
-        case_json = _find_json(arg_path)
-        manifest_raw = _find_manifest_raw(arg_path)
-        eligibility_raw = _find_eligibility_raw(arg_path)
-        if not manifest_raw:
-            submitted_docs_legacy = _find_submitted_docs_legacy(arg_path)
-        source_label = arg_path.name
-    else:
-        print(f"Error: {arg} is not a valid file or directory.")
-        sys.exit(1)
-
-    if not xml_content:
-        print(f"Error: No XML file found in {arg}")
-        sys.exit(1)
-
-    # Allow env-var overrides for program and FICO (for testing)
-    test_program = os.environ.get("TEST_PROGRAM", "")
-    test_fico = os.environ.get("TEST_FICO", "")
-    if (test_program or test_fico) and not case_json:
-        override: dict = {"metadata": {}}
-        if test_program:
-            override["metadata"]["loan_program"] = {"name": test_program}
-        if test_fico:
-            override["metadata"]["fico"] = int(test_fico)
-        case_json = json.dumps(override)
-
-    # Build initial state — mirrors what a cloud caller would send
     initial_state: dict = {
         "loan_file_xml": xml_content,
         "env": "Test",
         "current_step": "STEP_00",
     }
-
-    if case_json:
-        initial_state["loan_profile_json"] = case_json
-
     if manifest_raw:
         initial_state["manifest_json"] = manifest_raw
-    elif submitted_docs_legacy:
-        initial_state["submitted_documents_json"] = json.dumps(submitted_docs_legacy)
-
     if eligibility_raw:
         initial_state["eligibility_json"] = eligibility_raw
 
-    doc_count_label = "manifest" if manifest_raw else f"{len(submitted_docs_legacy)} legacy docs"
+    doc_count_label = "manifest" if manifest_raw else "no documents"
     model_name = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-5")
     print("=" * 70)
-    print("  Starting Full Pipeline Run (with LLM)")
+    print(f"  SBIQ Predictive Document Needs Pipeline (v2)")
     print("=" * 70)
     print(f"  Model: {model_name}")
     print(f"  Source: {source_label}")
-    print(f"  External JSON: {'yes' if case_json else 'no (XML-derived profile)'}")
     print(f"  Documents: {doc_count_label}")
     print(f"  Eligibility: {'yes' if eligibility_raw else 'no'}")
     print("=" * 70)
     sys.stdout.flush()
 
     config = {"recursion_limit": 150}
-
     tool_call_count = 0
     start_time = time.time()
     accumulated_state: dict = {}
 
     for event in agent.stream(initial_state, config=config, stream_mode="values"):
         accumulated_state = event
-
         msgs = event.get("messages", [])
         if msgs:
             last_msg = msgs[-1]
@@ -207,7 +148,6 @@ def main():
                     content = content[:300] + "..."
                 if content.strip():
                     print(f"\n  LLM says: {content}")
-
         sys.stdout.flush()
 
     elapsed = time.time() - start_time
@@ -218,107 +158,195 @@ def main():
     state_vals = accumulated_state
     final_output = state_vals.get("final_output")
 
-    _KEEP_FIELDS = ("category", "severity", "priority", "title", "description", "required_documents", "required_data_elements")
-
-    def _distill(conds: list) -> list:
-        return [{k: c.get(k) for k in _KEEP_FIELDS} for c in conds]
-
-    # Collect conditions: prefer final_output, fall back to module_outputs
-    conditions = []
-    conditions_full = []
-    if final_output and final_output.get("conditions"):
-        conditions = final_output["conditions"]
-        conditions_full = final_output.get("conditions_full", conditions)
+    document_requests = []
+    if final_output and final_output.get("document_requests"):
+        document_requests = final_output["document_requests"]
     else:
         mo = state_vals.get("module_outputs", {})
-        ranked = mo.get("09_rank", {}).get("ranked_conditions", [])
-        merged = mo.get("09_merge", {}).get("merged_conditions", [])
-        conditions_full = ranked or merged
-        if not conditions_full:
-            for module_key in ["00b", "01", "02", "03", "04", "05", "06", "07", "08"]:
+        ranked = mo.get("08", {}).get("ranked_document_requests", [])
+        merged = mo.get("08", {}).get("merged_document_requests", [])
+        document_requests = ranked or merged
+        if not document_requests:
+            for module_key in ["01", "02", "03", "04", "05", "06", "07"]:
                 mod = mo.get(module_key, {})
-                conditions_full.extend(mod.get("conditions", []))
-        conditions = _distill(conditions_full)
+                document_requests.extend(mod.get("document_requests", []))
 
     scenario_summary = {
         k: v for k, v in state_vals.get("scenario_summary", {}).items()
         if not k.startswith("_")
     }
 
-    hard_stops = sum(1 for c in conditions_full if c.get("severity") == "HARD-STOP")
+    hard_stops = sum(1 for dr in document_requests if dr.get("severity") == "HARD-STOP")
     by_category: dict[str, int] = {}
     by_priority: dict[str, int] = {}
-    for c in conditions_full:
-        cat = c.get("category", "Other")
-        pri = c.get("priority", "P3")
+    by_status: dict[str, int] = {}
+    for dr in document_requests:
+        cat = dr.get("document_category", "Other")
+        pri = dr.get("priority", "P3")
+        status = dr.get("status", "unknown")
         by_category[cat] = by_category.get(cat, 0) + 1
         by_priority[pri] = by_priority.get(pri, 0) + 1
+        by_status[status] = by_status.get(status, 0) + 1
 
-    print(f"\n  Total conditions: {len(conditions)}")
+    print(f"\n  Total document requests: {len(document_requests)}")
     print(f"  Hard stops: {hard_stops}")
     print(f"  By priority: {by_priority}")
     print(f"  By category: {by_category}")
+    print(f"  By status: {by_status}")
 
-    print("\n  Conditions (distilled):")
-    for c in conditions:
-        print(f"    [{c.get('severity')}/{c.get('category')}] {c.get('title')}")
+    print("\n  Document Requests:")
+    for dr in document_requests:
+        spec_count = len(dr.get("specifications", []))
+        reason_count = len(dr.get("reasons_needed", []))
+        print(
+            f"    [{dr.get('severity')}/{dr.get('priority')}] "
+            f"{dr.get('document_type', '?')} "
+            f"({dr.get('document_category', '?')}) "
+            f"— {spec_count} specs, {reason_count} reasons "
+            f"[{dr.get('status', '?')}]"
+        )
 
-    output = {
+    result = {
         "scenario_summary": scenario_summary,
-        "conditions": conditions,
-        "conditions_full": conditions_full,
+        "seen_conflicts": state_vals.get("seen_conflicts", []),
+        "document_requests": document_requests,
         "stats": {
-            "total_conditions": len(conditions),
-            "hard_stops": hard_stops,
+            "total_document_requests": len(document_requests),
+            "hard_stop_documents": hard_stops,
             "by_category": by_category,
             "by_priority": by_priority,
+            "by_status": by_status,
+            "elapsed_seconds": round(elapsed, 1),
+            "tool_calls": tool_call_count,
         },
     }
 
-    with open("test_output.json", "w") as f:
-        json.dump(output, f, indent=2, default=str)
-    print(f"\n  Full output saved to test_output.json")
+    dest = output_dir or Path(".")
+    dest.mkdir(parents=True, exist_ok=True)
 
-    # Save the full final state (excluding messages and bulky raw data)
-    def _serializable_state(sv: dict) -> dict:
-        out = {}
-        for k, v in sv.items():
-            if k == "messages":
-                out[k] = f"[{len(v)} messages]"
-                continue
-            if k == "loan_file_xml":
-                out[k] = f"[XML string, {len(v)} chars]"
-                continue
-            if k == "eligibility_json":
-                out[k] = f"[eligibility JSON, {len(v)} chars]"
-                continue
-            if k == "manifest_json":
-                out[k] = f"[manifest JSON, {len(v)} chars]"
-                continue
-            if k == "submitted_documents_json":
-                try:
-                    docs = json.loads(v) if isinstance(v, str) else v
-                    out[k] = f"[{len(docs)} documents]"
-                except Exception:
-                    out[k] = f"[string, {len(str(v))} chars]"
-                continue
-            if isinstance(v, dict):
-                cleaned = {}
-                for dk, dv in v.items():
-                    if dk == "raw_sections":
-                        cleaned[dk] = f"[{len(dv)} sections]"
-                    elif dk == "_parsed_xml":
-                        cleaned[dk] = "{...parsed xml dict...}"
-                    else:
-                        cleaned[dk] = dv
-                out[k] = cleaned
-            else:
-                out[k] = v
-        return out
+    output_file = dest / f"{source_label}_output.json"
+    state_file = dest / f"{source_label}_final_state.json"
 
-    with open("test_final_state.json", "w") as f:
+    with open(output_file, "w") as f:
+        json.dump(result, f, indent=2, default=str)
+    print(f"\n  Output saved to {output_file}")
+
+    with open(state_file, "w") as f:
         json.dump(_serializable_state(state_vals), f, indent=2, default=str)
-    print(f"  Full final state saved to test_final_state.json")
+    print(f"  State saved to {state_file}")
+
+    return result
+
+
+def run_batch(parent_dir: Path, output_root: Path):
+    """Run all loan subdirectories sequentially and save results."""
+    loan_dirs = sorted(
+        d for d in parent_dir.iterdir()
+        if d.is_dir() and not d.name.startswith(".")
+    )
+    if not loan_dirs:
+        print(f"Error: No subdirectories found in {parent_dir}")
+        sys.exit(1)
+
+    print("=" * 70)
+    print(f"  BATCH RUN — {len(loan_dirs)} loans")
+    print(f"  Loans: {', '.join(d.name for d in loan_dirs)}")
+    print(f"  Output: {output_root}/")
+    print("=" * 70)
+    sys.stdout.flush()
+
+    batch_start = time.time()
+    summary_rows: list[dict] = []
+
+    for i, loan_dir in enumerate(loan_dirs, 1):
+        print(f"\n{'#' * 70}")
+        print(f"  [{i}/{len(loan_dirs)}] Running: {loan_dir.name}")
+        print(f"{'#' * 70}\n")
+        sys.stdout.flush()
+
+        out_dir = output_root / loan_dir.name
+        try:
+            result = run_single(loan_dir, output_dir=out_dir)
+            stats = result.get("stats", {})
+            summary_rows.append({
+                "loan": loan_dir.name,
+                "status": "OK",
+                "documents": stats.get("total_document_requests", 0),
+                "hard_stops": stats.get("hard_stop_documents", 0),
+                "by_category": stats.get("by_category", {}),
+                "by_priority": stats.get("by_priority", {}),
+                "elapsed_s": stats.get("elapsed_seconds", 0),
+                "tool_calls": stats.get("tool_calls", 0),
+            })
+        except Exception as e:
+            print(f"\n  ERROR running {loan_dir.name}: {e}")
+            summary_rows.append({
+                "loan": loan_dir.name,
+                "status": f"ERROR: {e}",
+                "documents": 0,
+                "hard_stops": 0,
+                "by_category": {},
+                "by_priority": {},
+                "elapsed_s": 0,
+                "tool_calls": 0,
+            })
+
+    batch_elapsed = time.time() - batch_start
+
+    print(f"\n\n{'=' * 70}")
+    print(f"  BATCH COMPLETE — {len(loan_dirs)} loans in {batch_elapsed:.0f}s")
+    print("=" * 70)
+    print(f"\n  {'Loan':<15} {'Status':<8} {'Docs':>5} {'Hard':>5} {'Time':>7} {'Calls':>6}")
+    print(f"  {'-'*15} {'-'*8} {'-'*5} {'-'*5} {'-'*7} {'-'*6}")
+    for row in summary_rows:
+        print(
+            f"  {row['loan']:<15} {row['status']:<8} "
+            f"{row['documents']:>5} {row['hard_stops']:>5} "
+            f"{row['elapsed_s']:>6.0f}s {row['tool_calls']:>6}"
+        )
+    print()
+
+    with open(output_root / "batch_summary.json", "w") as f:
+        json.dump({
+            "total_loans": len(loan_dirs),
+            "total_elapsed_seconds": round(batch_elapsed, 1),
+            "results": summary_rows,
+        }, f, indent=2)
+    print(f"  Batch summary saved to {output_root / 'batch_summary.json'}")
+
+
+def main():
+    args = sys.argv[1:]
+
+    is_batch = "--batch" in args
+    if is_batch:
+        args.remove("--batch")
+
+    output_dir_str = None
+    if "--output-dir" in args:
+        idx = args.index("--output-dir")
+        if idx + 1 < len(args):
+            output_dir_str = args[idx + 1]
+            args = args[:idx] + args[idx + 2:]
+        else:
+            print("Error: --output-dir requires a value")
+            sys.exit(1)
+
+    target = args[0] if args else "compiled_inputs"
+    target_path = Path(target)
+
+    if is_batch:
+        if not target_path.is_dir():
+            print(f"Error: {target} is not a directory for batch mode")
+            sys.exit(1)
+        output_root = Path(output_dir_str) if output_dir_str else Path("test_results")
+        run_batch(target_path, output_root)
+    else:
+        if not target_path.exists():
+            print(f"Error: {target} does not exist")
+            sys.exit(1)
+        out = Path(output_dir_str) if output_dir_str else None
+        run_single(target_path, output_dir=out)
 
 
 if __name__ == "__main__":

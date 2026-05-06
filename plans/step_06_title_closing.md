@@ -1,42 +1,148 @@
-# 06 — Title / Closing / Payoffs Conditions Engine (Focused)
+# 06 — Title, Closing, Escrow, and Payoff Document Needs Engine
 
 ## Role
-Generate predictive underwriting conditions related to TITLE, ESCROW, PAYOFFS, CLOSING docs, and settlement items.
-Use only title/closing docs, overlays, and the relevant NQMF guideline sections.
 
-Do NOT generate:
-- property insurance / hazard insurance / flood insurance conditions (those belong to Property STEP_05)
-- compliance/OFAC conditions (those belong to Compliance STEP_07)
-- entity vesting restriction conditions (those belong to Compliance STEP_07)
-- conditions for things that are "not applicable" to this transaction type
-  (e.g., do NOT generate "payoff statements not applicable for purchase" — just omit it)
-- speculative conditions without evidence
+Generate document-centric requests for title, vesting, liens, payoffs, escrow, closing, and settlement review.
+
+---
 
 ## Inputs
-- scenario_summary
-- documents_subset: docs_by_facet.title_closing
-- overlays_subset: overlays_by_facet.title_closing
-- NQMF Guidelines sections: guideline_section_refs.title_closing
-  (e.g., "PROPERTY INSURANCE", "TITLE INSURANCE", "TEXAS HOME EQUITY LOANS" if applicable)
 
-## Output JSON ONLY
-{ "conditions": [ ... ] }
+```json
+{
+  "scenario_summary": {},
+  "documents_subset": [],
+  "overlays_subset": [],
+  "doctype_masterlist": [],
+  "kg_nodes_subset": []
+}
+```
 
-## Condition Families
-- TITLE_COMMITMENT_REQUIRED
-- PRELIM_TITLE_REVIEW (liens, vesting, legal description)
-- PAYOFF_STATEMENTS_REQUIRED (only for refinance transactions)
-- HOA_CONDO_DOCS_REQUIRED
-- ESCROW_INSTRUCTIONS_AND_CONTACTS
-- CLOSING_DISCLOSURE_REVIEW
-- SEASONING_OR_CHAIN_OF_TITLE (if program requires)
-- TITLE_INSURANCE_COVERAGE
+---
 
-Deterministic checks:
-- If refi -> payoff(s) + mortgage statements + subordinate liens
-- If purchase -> do NOT generate payoff conditions
-- Ensure vesting/borrower name matches (if mismatch -> CrossCutting or include here but reference CrossCutting dependency)
-- If condo/HOA -> request questionnaire, master policy, budget per NQMF "CONDOMINIUMS - GENERAL" and insurance sections
-- Per NQMF "TITLE INSURANCE" section: verify title commitment requirements, coverage amount, vesting, gap coverage
+## Relevance Gate
+
+## Relevance Gate — STRICT
+
+Title/Closing generates ONLY documents an underwriter must review before approving the loan.
+
+**Always include:**
+- Title Commitment — underwriter must review title exceptions and lien position
+- Vesting Deed — confirms property ownership and vesting
+
+**Include if triggered:**
+- Payoff Statement — ONLY for refinance transactions
+- Mortgage Statement — ONLY for refinance (to verify existing loan)
+- HOA Documentation — ONLY if property is in an HOA (condo, PUD, or HOA indicated)
+- Survey — ONLY if title exception specifically requires it
+
+**DO NOT REQUEST — these are closing-stage documents, not underwriting inputs:**
+- Closing Disclosure — does NOT exist at underwriting time; generated at closing
+- Settlement Statement — generated at closing; duplicative with Closing Disclosure
+- Escrow Instructions — routine closing workflow item
+- Wire Transfer Instructions — routine closing workflow item
+- Tax Certificate — routine closing item
+
+**CROSS-MODULE DEDUP:**
+- Hazard Insurance Declaration Page — defer to Property module (STEP_05)
+- Rent Loss Insurance — defer to Income module (STEP_02) for DSCR loans
+- Flood Determination — defer to Property module (STEP_05)
+
+Target for this module: 2-3 documents max for a clean purchase loan.
+
+---
+
+## Output JSON Only
+
+```json
+{
+  "document_requests": []
+}
+```
+
+## Canonical Document Types
+
+- Title Commitment
+- Preliminary Title Report
+- Vesting Deed
+- Legal Description
+- Payoff Statement
+- Mortgage Statement
+- Subordinate Lien Documentation
+- Escrow Instructions
+- Closing Disclosure
+- Settlement Statement
+- HOA Demand
+- Tax Certificate
+- Insurance Binder
+- Hazard Insurance Declaration Page
+- Flood Insurance Declaration Page
+
+## Document Request Rules
+
+### A. Title Commitment / Preliminary Title
+
+Specifications:
+- Must identify borrower/owner/vested parties.
+- Must identify subject property address and legal description.
+- Must disclose liens, judgments, easements, exceptions, and title requirements.
+- Must show title insurer and effective date.
+- Must be dated within acceptable recency window.
+- Must reconcile vesting with borrower and transaction structure.
+
+Reasons:
+- Title must confirm ownership, lien position, and insurable interest.
+- Vesting and subject property must align with loan file.
+- Liens and exceptions may affect closing conditions.
+
+### B. Payoff Statement
+
+Specifications:
+- Must identify creditor/servicer.
+- Must identify account number.
+- Must show payoff amount.
+- Must show good-through date.
+- Must identify subject property or secured lien when applicable.
+- Must include per diem if applicable.
+
+Reasons:
+- Existing liens must be paid or subordinated for refinance transactions.
+- Payoff amount is required to calculate funds to close and lien position.
+
+### C. Mortgage Statement
+
+Specifications:
+- Must identify borrower, servicer, account number, property, payment, and unpaid balance.
+- Must be recent.
+- Must support payoff, housing history, or REO liability review.
+
+Reasons:
+- Existing mortgage obligations must be verified.
+- Mortgage statement may support lien, payoff, and payment history review.
+
+### D. Closing Disclosure / Settlement Statement
+
+Specifications:
+- Must show final or estimated transaction terms.
+- Must identify cash to close.
+- Must reconcile loan amount, payoff, fees, credits, and seller/borrower contributions.
+- Must align with title and escrow documents.
+
+Reasons:
+- Closing figures must reconcile with verified assets and approved loan terms.
+- Cash to close must be supported by acceptable funds.
+
+### E. Hazard / Flood Insurance
+
+Specifications:
+- Must identify insured property.
+- Must identify borrower or acceptable insured party.
+- Must show coverage amount, deductible, premium, and effective dates.
+- Must show mortgagee clause if required.
+- Must include flood insurance if flood determination requires it.
+
+Reasons:
+- Property insurance must satisfy collateral protection requirements.
+- Flood coverage is required when property is in a flood zone.
 
 Return JSON only.

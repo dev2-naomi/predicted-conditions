@@ -1,0 +1,3726 @@
+{
+    "version": "1.0.0",
+    "job": {
+        "id": "4583a339-9583-4a0f-83bf-a1f0549f95b0",
+        "pipeline_name": "rack_and_stack_v1",
+        "steps": [
+            "ai:pdf_convert",
+            "ai:pagegen",
+            "hil:splicer",
+            "hil:splitter",
+            "ai:ocr_partial",
+            "ai:classify",
+            "hil:classify",
+            "ai:indexing",
+            "hil:indexing"
+        ],
+        "status": "success",
+        "created_at": "1775534893397",
+        "completed_at": "1775559201169",
+        "task_groups": [
+            {
+                "id": "9eebeb2f-a65e-473e-8a7a-6f5df484c271",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893443",
+                "created_at": "1775534893442"
+            },
+            {
+                "id": "6dff7f35-87aa-4c5e-beaf-50399ef75be1",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893461",
+                "created_at": "1775534893461"
+            },
+            {
+                "id": "6e68d23c-f6c1-40c8-b50d-63c1c48956ba",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893493",
+                "created_at": "1775534893492"
+            },
+            {
+                "id": "5287a470-8d10-4892-874c-c79002adf76b",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893521",
+                "created_at": "1775534893521"
+            },
+            {
+                "id": "702e3e47-fea0-4e72-bde2-5a4cb6c046d7",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893559",
+                "created_at": "1775534893558"
+            },
+            {
+                "id": "a83ecdde-db4d-4e6f-864d-72945ba690ef",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893581",
+                "created_at": "1775534893581"
+            },
+            {
+                "id": "42a600a6-6985-45b6-90ef-7ed754056563",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893604",
+                "created_at": "1775534893604"
+            },
+            {
+                "id": "bde4b7ec-04ff-48cf-9c50-d4b0eb742fa9",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893630",
+                "created_at": "1775534893630"
+            },
+            {
+                "id": "9ac4be41-5fce-455f-9b2c-7b24e1e4d44c",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893769",
+                "created_at": "1775534893696"
+            },
+            {
+                "id": "4465dbaa-88c4-4d26-9aec-e58159ad6b79",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893797",
+                "created_at": "1775534893797"
+            },
+            {
+                "id": "7e8c92ca-73c1-47e2-bdd4-44cbd934b5ea",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "end_time": "1775534893827",
+                "created_at": "1775534893827"
+            },
+            {
+                "id": "deaf984e-23e4-487a-ba11-b290d489295b",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534903597",
+                "created_at": "1775534894293"
+            },
+            {
+                "id": "7e59eb56-4500-42d9-9f61-e834c7c28dad",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534904697",
+                "created_at": "1775534894031"
+            },
+            {
+                "id": "44946633-82ee-4bc2-8a6d-819964ef924f",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534905247",
+                "created_at": "1775534895147"
+            },
+            {
+                "id": "a42e9a3b-6e7d-47b6-ba5f-7d4b34e21f27",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534905312",
+                "created_at": "1775534905312"
+            },
+            {
+                "id": "ee7a4987-151b-45df-929e-7809eb348d30",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534905414",
+                "created_at": "1775534894875"
+            },
+            {
+                "id": "22f4442a-e93b-4f50-bcfc-e4faa3d7f931",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534905558",
+                "created_at": "1775534894600"
+            },
+            {
+                "id": "51a67e33-f67e-42f7-9f36-93e113770bc6",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534906076",
+                "created_at": "1775534895004"
+            },
+            {
+                "id": "29ed1ef8-5e9b-4c8d-9d07-b493346f4266",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534906373",
+                "created_at": "1775534894161"
+            },
+            {
+                "id": "161cc0f8-99e6-4d96-b689-c6381033b564",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534907033",
+                "created_at": "1775534894741"
+            },
+            {
+                "id": "c6c0e52b-0713-461f-9d51-4774e4553b89",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534907037",
+                "created_at": "1775534895306"
+            },
+            {
+                "id": "64238165-bcd2-47cc-9dc8-28bb398a0b83",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534907384",
+                "created_at": "1775534907384"
+            },
+            {
+                "id": "2135a76e-ffa9-4622-b95c-383ecaeecb12",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534910114",
+                "created_at": "1775534893845"
+            },
+            {
+                "id": "f02e8171-54c2-4297-9ea7-812eb27bb6b7",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "pagegen",
+                "tool": "ai",
+                "end_time": "1775534922623",
+                "created_at": "1775534894421"
+            },
+            {
+                "id": "644ad371-13c2-4ee1-911d-540017a607f7",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558458388",
+                "created_at": "1775534905366"
+            },
+            {
+                "id": "a34a89cb-a4ec-47b3-a930-2719887ea1ae",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558560294",
+                "created_at": "1775534907422"
+            },
+            {
+                "id": "2f566999-3836-4cb6-a26f-705deec6b635",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558572212",
+                "created_at": "1775534907474"
+            },
+            {
+                "id": "0c627341-c6b4-45f4-8a80-e965ec518437",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534903632",
+                "created_at": "1775534903632"
+            },
+            {
+                "id": "15038199-8e03-441e-abd9-e3b02758c5eb",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534904727",
+                "created_at": "1775534904728"
+            },
+            {
+                "id": "f8411541-ea72-44ba-9d1d-afaf47bcc684",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534905633",
+                "created_at": "1775534905588"
+            },
+            {
+                "id": "6a28ca87-a037-4a94-816d-6471e646b590",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534906103",
+                "created_at": "1775534906105"
+            },
+            {
+                "id": "d165e9d1-4b24-46f8-8add-308a50bd50c6",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534906388",
+                "created_at": "1775534906390"
+            },
+            {
+                "id": "b8ad7e4e-49dd-4ecc-b223-fec9d2d9eb54",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558427769",
+                "created_at": "1775534903672"
+            },
+            {
+                "id": "8cf5f174-9516-42a1-b7dc-c144c3b2e87b",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558450050",
+                "created_at": "1775534904841"
+            },
+            {
+                "id": "7ab7ade5-2c6a-40f2-bc92-1ffbe1a5e1fa",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558498438",
+                "created_at": "1775534905656"
+            },
+            {
+                "id": "750ab445-3005-48bb-9dc6-aa95f8562382",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558523607",
+                "created_at": "1775534906150"
+            },
+            {
+                "id": "e568d9b8-3448-4ef5-9698-cba28b06d5df",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558538237",
+                "created_at": "1775534906405"
+            },
+            {
+                "id": "3ad92608-cfe5-4e4d-8617-be334442f0c5",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534905448",
+                "created_at": "1775534905448"
+            },
+            {
+                "id": "80a39a4c-bf34-4c75-b853-ced291e86c29",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534907275",
+                "created_at": "1775534907177"
+            },
+            {
+                "id": "b94cccab-0942-4f7c-8b82-522ca2990530",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534910167",
+                "created_at": "1775534910167"
+            },
+            {
+                "id": "c0fba898-a922-4436-bc90-20f552924e43",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558483671",
+                "created_at": "1775534905487"
+            },
+            {
+                "id": "e4aadd4e-d185-458d-8cef-65f1f1fe5198",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558705915",
+                "created_at": "1775534910230"
+            },
+            {
+                "id": "4cd7b42a-b33b-4b93-ab10-95513eb2be75",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "splicer",
+                "tool": "hil",
+                "end_time": "1775534922650",
+                "created_at": "1775534922650"
+            },
+            {
+                "id": "e49afaba-9925-4bda-a842-93f5cb10375b",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "splitter",
+                "tool": "hil",
+                "end_time": "1775558766045",
+                "created_at": "1775534922686"
+            },
+            {
+                "id": "2ed0b62e-447f-43e9-bd35-048b4108f4af",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558429523",
+                "created_at": "1775558427798"
+            },
+            {
+                "id": "678a52ad-1550-45f3-a224-4407d03d823c",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558449534",
+                "created_at": "1775558429543"
+            },
+            {
+                "id": "76cb0dd9-9fc7-4c57-8e6f-42d0168b0b9b",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558449584",
+                "created_at": "1775558449564"
+            },
+            {
+                "id": "39f6fd52-98c4-4326-9466-c49cb7c078b9",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558460622",
+                "created_at": "1775558449613"
+            },
+            {
+                "id": "93b75d8c-1865-4ba4-9218-8d203174c554",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558451905",
+                "created_at": "1775558450073"
+            },
+            {
+                "id": "31ff83cc-8c06-426a-9b88-d1bb802a9eda",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558460587",
+                "created_at": "1775558458432"
+            },
+            {
+                "id": "19a45fce-ce68-44bf-afc2-6ba00e95cd55",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558513211",
+                "created_at": "1775558451993"
+            },
+            {
+                "id": "cf2c1988-0233-46c9-8f67-30f0e68765b2",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558485984",
+                "created_at": "1775558460626"
+            },
+            {
+                "id": "dfd277e0-2c66-4135-8a38-5b059710a5ba",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775558671798",
+                "created_at": "1775558460654"
+            },
+            {
+                "id": "efa02c7a-8a27-40a3-917e-606927794974",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558485921",
+                "created_at": "1775558483695"
+            },
+            {
+                "id": "ce800587-487d-42ba-9c7e-53184dff00a0",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558486059",
+                "created_at": "1775558486043"
+            },
+            {
+                "id": "7b28b27d-acfb-42bf-aac2-cf32c3cfe2b2",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558494750",
+                "created_at": "1775558486082"
+            },
+            {
+                "id": "d49f37e3-0233-40ea-9137-e0e6e3e686eb",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558500336",
+                "created_at": "1775558498455"
+            },
+            {
+                "id": "82dcaab3-c29d-4ec5-8ef5-f82b81b9c0c3",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558507000",
+                "created_at": "1775558485939"
+            },
+            {
+                "id": "5fbdd34c-37da-45f1-a83e-22e8e19e448c",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775558789022",
+                "created_at": "1775558494787"
+            },
+            {
+                "id": "522f3491-a10a-42d1-8753-70625be4511e",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558530344",
+                "created_at": "1775558500356"
+            },
+            {
+                "id": "818aef8c-979b-42ef-b2ed-c2bfe0f9d0ac",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558507034",
+                "created_at": "1775558507019"
+            },
+            {
+                "id": "2f2289ae-b8d0-43dd-a265-992f8a66ef54",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558515365",
+                "created_at": "1775558507053"
+            },
+            {
+                "id": "807a8d36-805f-4020-bcc0-7375ce8e19ac",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558513296",
+                "created_at": "1775558513280"
+            },
+            {
+                "id": "88382daa-3e33-45f0-ac50-6a763339156b",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558522353",
+                "created_at": "1775558513330"
+            },
+            {
+                "id": "b6c4df12-0aa3-4d76-b205-f6ad528e9804",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558525407",
+                "created_at": "1775558523672"
+            },
+            {
+                "id": "ceed8a4d-30f0-4345-8c20-47d082bec35a",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558530379",
+                "created_at": "1775558530364"
+            },
+            {
+                "id": "db2f41a1-3276-4251-b373-c7bdf39ddede",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558541035",
+                "created_at": "1775558530400"
+            },
+            {
+                "id": "afbef89f-1728-4758-b39d-b8f9c93668a9",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558540687",
+                "created_at": "1775558538250"
+            },
+            {
+                "id": "7d410875-111c-439c-8ad7-07dcbb878beb",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775558812638",
+                "created_at": "1775558515383"
+            },
+            {
+                "id": "372d8f63-cc9b-40e1-a490-d0dcac693f0d",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775558842664",
+                "created_at": "1775558522683"
+            },
+            {
+                "id": "d7537a1c-fe6b-4837-a6f2-b25abfd0652e",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558550713",
+                "created_at": "1775558525429"
+            },
+            {
+                "id": "31cda80c-19c1-48c7-b8c8-a13a605c678e",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558550758",
+                "created_at": "1775558550742"
+            },
+            {
+                "id": "405b8908-76e2-4eaa-8ae2-464a7a5286f7",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558561469",
+                "created_at": "1775558550787"
+            },
+            {
+                "id": "bfc8306a-2b17-40e6-b5e1-29a4c5fc1783",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558568626",
+                "created_at": "1775558540709"
+            },
+            {
+                "id": "94e22cdb-8396-4ae3-ad1b-3308bdd59f33",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775558892428",
+                "created_at": "1775558541057"
+            },
+            {
+                "id": "f7d37490-57f0-4ad3-8f46-f60808c7f47a",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558562890",
+                "created_at": "1775558560311"
+            },
+            {
+                "id": "806bb6be-a23c-4f6c-a66f-964dfcaac74a",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558574024",
+                "created_at": "1775558572282"
+            },
+            {
+                "id": "155f15f3-6d19-4641-ba61-00bbb3e49ab2",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558591179",
+                "created_at": "1775558562915"
+            },
+            {
+                "id": "3957d16b-c589-4e51-96d9-a133276a2c76",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775558986747",
+                "created_at": "1775558561500"
+            },
+            {
+                "id": "88d19e80-e578-4a91-8f27-7309ce083643",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558568651",
+                "created_at": "1775558568638"
+            },
+            {
+                "id": "ee46286b-782c-414d-8358-1daec8c676e4",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558576992",
+                "created_at": "1775558568664"
+            },
+            {
+                "id": "c55b9a61-58e0-4098-b4df-da785ec664d1",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558604307",
+                "created_at": "1775558574054"
+            },
+            {
+                "id": "10631f0a-c17d-47c3-936c-c10a49ed82e5",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775559003877",
+                "created_at": "1775558577013"
+            },
+            {
+                "id": "d7915d31-9b5f-4d5d-b449-80d629989b80",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558591227",
+                "created_at": "1775558591207"
+            },
+            {
+                "id": "55a8e1dc-aedb-4be8-82b8-c4129c304db7",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558603103",
+                "created_at": "1775558591252"
+            },
+            {
+                "id": "730f82b0-422c-4002-831f-428a6dc5c047",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558604368",
+                "created_at": "1775558604351"
+            },
+            {
+                "id": "5d99c367-590c-40f5-81ef-0977199436c1",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558614226",
+                "created_at": "1775558604470"
+            },
+            {
+                "id": "9d9120c6-eae3-439a-91f4-1f02db184da9",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775559054923",
+                "created_at": "1775558603132"
+            },
+            {
+                "id": "a6429eba-464b-4eef-ba4e-8c1d902b64da",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775559097773",
+                "created_at": "1775558614285"
+            },
+            {
+                "id": "85cb40c9-2d00-4e7e-8676-581c4fe5c4b2",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558707639",
+                "created_at": "1775558705982"
+            },
+            {
+                "id": "6ca46c64-a8cf-4381-8367-ea58f2fc7d16",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558738003",
+                "created_at": "1775558707703"
+            },
+            {
+                "id": "73e125fa-893f-41b1-b023-3b7733c910c5",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558738087",
+                "created_at": "1775558738053"
+            },
+            {
+                "id": "6bd1c6d2-256c-4467-9d34-b4eae00a15f4",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558825382",
+                "created_at": "1775558738152"
+            },
+            {
+                "id": "8c243709-b426-40ab-abdc-080805689678",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "end_time": "1775558768238",
+                "created_at": "1775558766065"
+            },
+            {
+                "id": "a23e29b0-7982-4e2a-bde1-95c9fee9d174",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "classify",
+                "tool": "ai",
+                "end_time": "1775558798530",
+                "created_at": "1775558768257"
+            },
+            {
+                "id": "8671e659-bf37-4643-8d79-b28747afe4f3",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "classify",
+                "tool": "hil",
+                "end_time": "1775558798651",
+                "created_at": "1775558798637"
+            },
+            {
+                "id": "3f4740b0-0602-474c-a0bf-f8c09b5492d7",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "indexing",
+                "tool": "ai",
+                "end_time": "1775558808821",
+                "created_at": "1775558798669"
+            },
+            {
+                "id": "8d7de517-97c5-4db4-bff6-290b35ff0917",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775559142745",
+                "created_at": "1775558808835"
+            },
+            {
+                "id": "2358ff4b-0487-4964-a1ed-8afa4a438c6b",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "indexing",
+                "tool": "hil",
+                "end_time": "1775559201164",
+                "created_at": "1775558825450"
+            }
+        ],
+        "tasks": [
+            {
+                "id": "efd10073-cfdc-4ae2-adf7-92f636dcd89c",
+                "task_group_id": "9eebeb2f-a65e-473e-8a7a-6f5df484c271",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893446"
+            },
+            {
+                "id": "364d558a-6268-4ee8-a70c-df971a575ebc",
+                "task_group_id": "6dff7f35-87aa-4c5e-beaf-50399ef75be1",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893464"
+            },
+            {
+                "id": "15518712-8d40-48a3-a40c-4a922b748688",
+                "task_group_id": "6e68d23c-f6c1-40c8-b50d-63c1c48956ba",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893496"
+            },
+            {
+                "id": "90fb96ad-1902-4ceb-b9f3-baa3bd975943",
+                "task_group_id": "5287a470-8d10-4892-874c-c79002adf76b",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893524"
+            },
+            {
+                "id": "811450f5-be8b-4df3-b60d-e513aafee624",
+                "task_group_id": "702e3e47-fea0-4e72-bde2-5a4cb6c046d7",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893562"
+            },
+            {
+                "id": "d41b2fca-f3a6-40de-a29c-20c6b11293e4",
+                "task_group_id": "a83ecdde-db4d-4e6f-864d-72945ba690ef",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893584"
+            },
+            {
+                "id": "02604038-febf-4e28-8794-5466e3b688ea",
+                "task_group_id": "42a600a6-6985-45b6-90ef-7ed754056563",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893607"
+            },
+            {
+                "id": "4de9165f-b926-45b0-98ed-96ca39ca187e",
+                "task_group_id": "bde4b7ec-04ff-48cf-9c50-d4b0eb742fa9",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893634"
+            },
+            {
+                "id": "a51c4834-9602-485b-be19-a9553192483c",
+                "task_group_id": "9ac4be41-5fce-455f-9b2c-7b24e1e4d44c",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893773"
+            },
+            {
+                "id": "0a73f4d9-7c00-4044-aca7-9c93d5c509d7",
+                "task_group_id": "4465dbaa-88c4-4d26-9aec-e58159ad6b79",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893800"
+            },
+            {
+                "id": "0b65090f-9326-4f3c-8864-c515e3a3cfca",
+                "task_group_id": "7e8c92ca-73c1-47e2-bdd4-44cbd934b5ea",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "pdf_convert",
+                "tool": "ai",
+                "attempt": 1,
+                "created_at": "1775534893831"
+            },
+            {
+                "id": "4c446c4d-15e3-49ed-b9a8-bd9c0492fdc8",
+                "task_group_id": "deaf984e-23e4-487a-ba11-b290d489295b",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534894291",
+                "end_time": "1775534903592",
+                "created_at": "1775534894295"
+            },
+            {
+                "id": "b5a76675-ec5b-4f51-9f85-4273e69239e9",
+                "task_group_id": "7e59eb56-4500-42d9-9f61-e834c7c28dad",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534894029",
+                "end_time": "1775534904693",
+                "created_at": "1775534894034"
+            },
+            {
+                "id": "8e478cff-ab08-4d00-b4c7-e353d0950094",
+                "task_group_id": "44946633-82ee-4bc2-8a6d-819964ef924f",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534895145",
+                "end_time": "1775534905237",
+                "created_at": "1775534895149"
+            },
+            {
+                "id": "0d631d0a-de2a-431a-8497-035e3b1a3b46",
+                "task_group_id": "a42e9a3b-6e7d-47b6-ba5f-7d4b34e21f27",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534905315"
+            },
+            {
+                "id": "f3c73cf9-ef82-4be8-912f-7d2028d33274",
+                "task_group_id": "ee7a4987-151b-45df-929e-7809eb348d30",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534894873",
+                "end_time": "1775534905406",
+                "created_at": "1775534894877"
+            },
+            {
+                "id": "b4945895-5af8-4163-8ce0-ca3119e029e8",
+                "task_group_id": "22f4442a-e93b-4f50-bcfc-e4faa3d7f931",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534894598",
+                "end_time": "1775534905554",
+                "created_at": "1775534894602"
+            },
+            {
+                "id": "9b9ccf02-9b74-4cdc-a164-c006c123e35a",
+                "task_group_id": "51a67e33-f67e-42f7-9f36-93e113770bc6",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534895003",
+                "end_time": "1775534906072",
+                "created_at": "1775534895007"
+            },
+            {
+                "id": "80f9e386-019d-4240-8878-54a7b13928fc",
+                "task_group_id": "29ed1ef8-5e9b-4c8d-9d07-b493346f4266",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534894162",
+                "end_time": "1775534906369",
+                "created_at": "1775534894164"
+            },
+            {
+                "id": "99ac27fe-bc16-406b-b3fb-82705cda7937",
+                "task_group_id": "161cc0f8-99e6-4d96-b689-c6381033b564",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534894739",
+                "end_time": "1775534907028",
+                "created_at": "1775534894743"
+            },
+            {
+                "id": "8107b594-eb92-461b-a400-b89caff5550e",
+                "task_group_id": "c6c0e52b-0713-461f-9d51-4774e4553b89",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534895303",
+                "end_time": "1775534907031",
+                "created_at": "1775534895308"
+            },
+            {
+                "id": "1d01fefb-687a-4683-a4ca-3c38b42387c9",
+                "task_group_id": "64238165-bcd2-47cc-9dc8-28bb398a0b83",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534907387"
+            },
+            {
+                "id": "8c9536cc-f422-4c0a-97fd-c592f7b12513",
+                "task_group_id": "2135a76e-ffa9-4622-b95c-383ecaeecb12",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534893844",
+                "end_time": "1775534910109",
+                "created_at": "1775534893847"
+            },
+            {
+                "id": "b205cfe6-1b0f-4b59-ab05-9c472967e457",
+                "task_group_id": "f02e8171-54c2-4297-9ea7-812eb27bb6b7",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "pagegen",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775534894419",
+                "end_time": "1775534922617",
+                "created_at": "1775534894423"
+            },
+            {
+                "id": "eef4b005-250b-4acc-b774-45c6f0bf31e4",
+                "task_group_id": "644ad371-13c2-4ee1-911d-540017a607f7",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558454115",
+                "end_time": "1775558458379",
+                "created_at": "1775534905368",
+                "output": {
+                    "id": "fe362d55-04c2-4fbb-8055-3ced97d54374",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558458386"
+                }
+            },
+            {
+                "id": "4435f2d5-0f19-44ba-bccc-869e79b8e83e",
+                "task_group_id": "a34a89cb-a4ec-47b3-a930-2719887ea1ae",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558555052",
+                "end_time": "1775558560286",
+                "created_at": "1775534907424",
+                "output": {
+                    "id": "eec8bca5-a5a9-467d-80ac-aee225026700",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558560292"
+                }
+            },
+            {
+                "id": "85eb7123-45d8-461c-88ac-168cef0052d3",
+                "task_group_id": "2f566999-3836-4cb6-a26f-705deec6b635",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558565502",
+                "end_time": "1775558572203",
+                "created_at": "1775534907476",
+                "output": {
+                    "id": "093a11b1-4d22-4925-8fff-c595d7f46f2b",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558572209"
+                }
+            },
+            {
+                "id": "931c0a1c-c396-41f6-a79f-28834e64b806",
+                "task_group_id": "0c627341-c6b4-45f4-8a80-e965ec518437",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534903635"
+            },
+            {
+                "id": "cc60ad40-b893-4533-863a-2f9e0b13c73f",
+                "task_group_id": "15038199-8e03-441e-abd9-e3b02758c5eb",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534904731"
+            },
+            {
+                "id": "b498339d-f0fe-4fd8-bc27-a7778c5b373a",
+                "task_group_id": "f8411541-ea72-44ba-9d1d-afaf47bcc684",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534905637"
+            },
+            {
+                "id": "322d91b5-4dde-4337-b72c-1870cbfff5e9",
+                "task_group_id": "6a28ca87-a037-4a94-816d-6471e646b590",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534906107"
+            },
+            {
+                "id": "405148cf-ae21-4e21-bce3-dc1ea7380c80",
+                "task_group_id": "d165e9d1-4b24-46f8-8add-308a50bd50c6",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534906392"
+            },
+            {
+                "id": "93f5fa9b-d6f0-45aa-b8f5-0b3df20b1b5a",
+                "task_group_id": "b8ad7e4e-49dd-4ecc-b223-fec9d2d9eb54",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558422078",
+                "end_time": "1775558427667",
+                "created_at": "1775534903673",
+                "output": {
+                    "id": "f20553e7-3cc0-42bf-bcc3-22dabab519e4",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558427697"
+                }
+            },
+            {
+                "id": "2b0dc65c-5c5e-4599-88f8-9f77697a93aa",
+                "task_group_id": "8cf5f174-9516-42a1-b7dc-c144c3b2e87b",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558438636",
+                "end_time": "1775558450041",
+                "created_at": "1775534904843",
+                "output": {
+                    "id": "d0bc1d49-7f13-4c6b-adf0-19081853a335",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558450046"
+                }
+            },
+            {
+                "id": "74f64543-5ec0-43a1-b5c8-22e7ba1c7a08",
+                "task_group_id": "7ab7ade5-2c6a-40f2-bc92-1ffbe1a5e1fa",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558490750",
+                "end_time": "1775558498430",
+                "created_at": "1775534905658",
+                "output": {
+                    "id": "7858c66d-f20a-4412-8d50-7646e5fb5426",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558498436"
+                }
+            },
+            {
+                "id": "4f334bd0-d00e-4182-9072-af43489cd80f",
+                "task_group_id": "750ab445-3005-48bb-9dc6-aa95f8562382",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558512384",
+                "end_time": "1775558523590",
+                "created_at": "1775534906152",
+                "output": {
+                    "id": "8184d70f-d9a9-4c3a-8bbe-13650eac67d1",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558523600"
+                }
+            },
+            {
+                "id": "f117df62-49c8-4c58-9d06-ac19888f90ee",
+                "task_group_id": "e568d9b8-3448-4ef5-9698-cba28b06d5df",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558529776",
+                "end_time": "1775558538227",
+                "created_at": "1775534906407",
+                "output": {
+                    "id": "573fc3b0-37dc-4187-b653-d32818153295",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558538235"
+                }
+            },
+            {
+                "id": "96f9b898-7715-4cac-8537-80c739d061b1",
+                "task_group_id": "3ad92608-cfe5-4e4d-8617-be334442f0c5",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534905452"
+            },
+            {
+                "id": "1febe518-d60a-4684-ae33-1eeb257e1863",
+                "task_group_id": "80a39a4c-bf34-4c75-b853-ced291e86c29",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534907188"
+            },
+            {
+                "id": "5b30b8a5-6669-4773-9867-7c2a8dc5522c",
+                "task_group_id": "b94cccab-0942-4f7c-8b82-522ca2990530",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534910170"
+            },
+            {
+                "id": "0cbc2e08-cb5a-4272-a5bb-9cdbbc987eb6",
+                "task_group_id": "c0fba898-a922-4436-bc90-20f552924e43",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558475207",
+                "end_time": "1775558483661",
+                "created_at": "1775534905489",
+                "output": {
+                    "id": "8a289098-096a-46ea-b9b4-f58297533818",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558483668"
+                }
+            },
+            {
+                "id": "31e5d54f-ba30-4f8c-b400-b77850cab2d4",
+                "task_group_id": "e4aadd4e-d185-458d-8cef-65f1f1fe5198",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558693765",
+                "end_time": "1775558705901",
+                "created_at": "1775534910231",
+                "output": {
+                    "id": "a69334f2-a4e5-4ddf-8906-999e175d6a4d",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558705910"
+                }
+            },
+            {
+                "id": "097d7c93-d1ea-4757-94df-b8e4406bda01",
+                "task_group_id": "4cd7b42a-b33b-4b93-ab10-95513eb2be75",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "splicer",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775534922654"
+            },
+            {
+                "id": "65efc1c3-b38d-494f-ba44-b3dba38b3e92",
+                "task_group_id": "e49afaba-9925-4bda-a842-93f5cb10375b",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "splitter",
+                "tool": "hil",
+                "attempt": 2,
+                "start_time": "1775558739067",
+                "end_time": "1775558766035",
+                "created_at": "1775534922688",
+                "output": {
+                    "id": "6fd16137-3b36-4652-8f0a-9f0d1c40dfb3",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558766041"
+                }
+            },
+            {
+                "id": "5472791d-1ef6-4efe-b2a5-6c09788bf851",
+                "task_group_id": "2ed0b62e-447f-43e9-bd35-048b4108f4af",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "document_id": "da616d88-454c-485b-8f7c-c52361e11bcf",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558427803",
+                "end_time": "1775558429509",
+                "created_at": "1775558427802",
+                "output": {
+                    "id": "15b72f35-6fe4-4fbc-8407-7a84e53d7030",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558429521"
+                }
+            },
+            {
+                "id": "bf00403b-ad2e-4f94-90c8-a8448e2aeb76",
+                "task_group_id": "678a52ad-1550-45f3-a224-4407d03d823c",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "document_id": "da616d88-454c-485b-8f7c-c52361e11bcf",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558429546",
+                "end_time": "1775558449524",
+                "created_at": "1775558429546",
+                "output": {
+                    "id": "2bb8c5c8-6bfc-4456-9790-b124b826ca26",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558449531"
+                }
+            },
+            {
+                "id": "5ca7145b-e60a-485d-94ad-72387331419f",
+                "task_group_id": "76cb0dd9-9fc7-4c57-8e6f-42d0168b0b9b",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558449582"
+            },
+            {
+                "id": "b6f53027-b0d9-484c-b601-81b5fcba8c1d",
+                "task_group_id": "39f6fd52-98c4-4326-9466-c49cb7c078b9",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "document_id": "da616d88-454c-485b-8f7c-c52361e11bcf",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558449618",
+                "end_time": "1775558460612",
+                "created_at": "1775558449616",
+                "output": {
+                    "id": "a5379911-98b0-42bf-866c-e50fb5ff40f6",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558460617"
+                }
+            },
+            {
+                "id": "b07a72bb-c8f8-47bf-ae78-8e6020d157c8",
+                "task_group_id": "93b75d8c-1865-4ba4-9218-8d203174c554",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "document_id": "438f97fe-5d98-42f4-ad47-50b50d123c79",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558450077",
+                "end_time": "1775558451895",
+                "created_at": "1775558450075",
+                "output": {
+                    "id": "35aeba13-a01b-418d-aeb7-10a2e2625561",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558451901"
+                }
+            },
+            {
+                "id": "d00e84ec-2f2e-472e-aa11-38ed94976205",
+                "task_group_id": "31ff83cc-8c06-426a-9b88-d1bb802a9eda",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "document_id": "730e24e5-98fe-4622-9e9d-148d44908df2",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558458437",
+                "end_time": "1775558460580",
+                "created_at": "1775558458436",
+                "output": {
+                    "id": "bcc413f2-467c-4599-a51f-06f02972ac7a",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558460585"
+                }
+            },
+            {
+                "id": "83e91106-2ec5-4877-afc3-0dd3caed842f",
+                "task_group_id": "19a45fce-ce68-44bf-afc2-6ba00e95cd55",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "document_id": "438f97fe-5d98-42f4-ad47-50b50d123c79",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558451998",
+                "end_time": "1775558513202",
+                "created_at": "1775558451997",
+                "output": {
+                    "id": "a93b8c33-d749-4b8d-aad9-82da820e0f4e",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558513208"
+                }
+            },
+            {
+                "id": "ce621608-6019-48c7-82d9-b0e53f68e334",
+                "task_group_id": "cf2c1988-0233-46c9-8f67-30f0e68765b2",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "document_id": "730e24e5-98fe-4622-9e9d-148d44908df2",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558460635",
+                "end_time": "1775558485977",
+                "created_at": "1775558460628",
+                "output": {
+                    "id": "5f244b1d-365f-48f3-a7de-cf36d31634be",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558485982"
+                }
+            },
+            {
+                "id": "dc3f32b7-b106-450c-9430-1e7cddf5abae",
+                "task_group_id": "dfd277e0-2c66-4135-8a38-5b059710a5ba",
+                "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775558582222",
+                "end_time": "1775558671792",
+                "created_at": "1775558460671",
+                "output": {
+                    "id": "5d483ec5-3b10-4246-ac3c-67fb5b137d0a",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/08e37601-4259-4a80-82f2-b74608f13958/indexing/hil/da616d88-454c-485b-8f7c-c52361e11bcf_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775558671797"
+                }
+            },
+            {
+                "id": "7768d67a-9131-4d19-82e4-18632b6b888b",
+                "task_group_id": "efa02c7a-8a27-40a3-917e-606927794974",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "document_id": "7f73cbc8-7ce2-4252-8ddc-cfa853a6b682",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558483701",
+                "end_time": "1775558485914",
+                "created_at": "1775558483699",
+                "output": {
+                    "id": "ca21e916-6996-46fe-9fc8-e826dc57bcec",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558485919"
+                }
+            },
+            {
+                "id": "d1c6dd53-2fc5-4546-903e-38128088937e",
+                "task_group_id": "ce800587-487d-42ba-9c7e-53184dff00a0",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558486058"
+            },
+            {
+                "id": "dc402846-7c1f-442e-8e01-c777e38505f5",
+                "task_group_id": "7b28b27d-acfb-42bf-aac2-cf32c3cfe2b2",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "document_id": "730e24e5-98fe-4622-9e9d-148d44908df2",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558486086",
+                "end_time": "1775558494739",
+                "created_at": "1775558486085",
+                "output": {
+                    "id": "a7623cba-dc68-4523-b2d2-b8c0dc2425bb",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558494746"
+                }
+            },
+            {
+                "id": "a6e813d9-dc33-4dae-bd46-f32c813ba65e",
+                "task_group_id": "d49f37e3-0233-40ea-9137-e0e6e3e686eb",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "document_id": "7cb3b3a2-5028-4f6c-a80d-d6d08ac292be",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558498460",
+                "end_time": "1775558500327",
+                "created_at": "1775558498458",
+                "output": {
+                    "id": "4cdc8377-2d84-4e0b-acd7-9ca06b6c8fc2",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558500333"
+                }
+            },
+            {
+                "id": "6d98ab4b-8644-431e-907d-bb07fe9afd06",
+                "task_group_id": "82dcaab3-c29d-4ec5-8ef5-f82b81b9c0c3",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "document_id": "7f73cbc8-7ce2-4252-8ddc-cfa853a6b682",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558485955",
+                "end_time": "1775558506994",
+                "created_at": "1775558485953",
+                "output": {
+                    "id": "4e213e3b-7324-4671-b658-b8ebcab23727",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558506998"
+                }
+            },
+            {
+                "id": "5ab860a4-6548-49c5-89df-3a05c0caeb28",
+                "task_group_id": "5fbdd34c-37da-45f1-a83e-22e8e19e448c",
+                "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775558771540",
+                "end_time": "1775558789017",
+                "created_at": "1775558494802",
+                "output": {
+                    "id": "07de3619-df3d-4a00-98c3-5d9188b8a805",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/2ffe3916-1c0f-46be-b4cf-4e64d501e6a5/indexing/hil/730e24e5-98fe-4622-9e9d-148d44908df2_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775558789021"
+                }
+            },
+            {
+                "id": "ebd9ebd9-aae3-4fd7-b441-9552ab1cef6a",
+                "task_group_id": "522f3491-a10a-42d1-8753-70625be4511e",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "document_id": "7cb3b3a2-5028-4f6c-a80d-d6d08ac292be",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558500361",
+                "end_time": "1775558530337",
+                "created_at": "1775558500360",
+                "output": {
+                    "id": "3435838e-7db0-4084-a206-40cb885b8fdf",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558530342"
+                }
+            },
+            {
+                "id": "8ecd39d6-64d6-4cb1-9c19-833d3c3eb7c6",
+                "task_group_id": "818aef8c-979b-42ef-b2ed-c2bfe0f9d0ac",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558507033"
+            },
+            {
+                "id": "4fdcf63a-3bec-4cae-b6d7-bb593e1b4043",
+                "task_group_id": "2f2289ae-b8d0-43dd-a265-992f8a66ef54",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "document_id": "7f73cbc8-7ce2-4252-8ddc-cfa853a6b682",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558507056",
+                "end_time": "1775558515359",
+                "created_at": "1775558507056",
+                "output": {
+                    "id": "6c50fe5b-f50b-45ee-887a-f72cafecc69f",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558515363"
+                }
+            },
+            {
+                "id": "c972d792-5e89-4891-8b7a-41d40f9695e5",
+                "task_group_id": "807a8d36-805f-4020-bcc0-7375ce8e19ac",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558513295"
+            },
+            {
+                "id": "5a85e044-d1ee-422c-abbb-3d7881ed78ad",
+                "task_group_id": "88382daa-3e33-45f0-ac50-6a763339156b",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "document_id": "438f97fe-5d98-42f4-ad47-50b50d123c79",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558513336",
+                "end_time": "1775558522221",
+                "created_at": "1775558513334",
+                "output": {
+                    "id": "0271442a-31bf-4101-9374-68da6db30125",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558522268"
+                }
+            },
+            {
+                "id": "5575a274-4512-4044-8df4-429b10f0a53a",
+                "task_group_id": "b6c4df12-0aa3-4d76-b205-f6ad528e9804",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "document_id": "133be867-95c6-42f8-b7ae-821104935db1",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558523682",
+                "end_time": "1775558525401",
+                "created_at": "1775558523680",
+                "output": {
+                    "id": "a9886560-8c81-4f6b-b3bb-83211f8bd60e",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558525405"
+                }
+            },
+            {
+                "id": "69eb5ef6-db61-48e2-8571-017560295d0f",
+                "task_group_id": "ceed8a4d-30f0-4345-8c20-47d082bec35a",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558530378"
+            },
+            {
+                "id": "3cfda40d-a681-4410-a99c-b4f5ff0f12b7",
+                "task_group_id": "db2f41a1-3276-4251-b373-c7bdf39ddede",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "document_id": "7cb3b3a2-5028-4f6c-a80d-d6d08ac292be",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558530404",
+                "end_time": "1775558541019",
+                "created_at": "1775558530403",
+                "output": {
+                    "id": "1a3722ad-f12b-42ec-97fe-e14f937419f8",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558541031"
+                }
+            },
+            {
+                "id": "bf63acc9-7b9d-4e69-bb98-01e1e3da504b",
+                "task_group_id": "afbef89f-1728-4758-b39d-b8f9c93668a9",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "document_id": "bb6c43f6-718a-459e-8fcc-7882a3a92751",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558538254",
+                "end_time": "1775558540677",
+                "created_at": "1775558538253",
+                "output": {
+                    "id": "87c28791-ccad-4d7a-8ed4-0912b447e9d2",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558540683"
+                }
+            },
+            {
+                "id": "1f8188f2-5158-442b-87a8-62defea8ff58",
+                "task_group_id": "7d410875-111c-439c-8ad7-07dcbb878beb",
+                "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775558793819",
+                "end_time": "1775558812633",
+                "created_at": "1775558515395",
+                "output": {
+                    "id": "7132ee11-3c17-468e-91aa-a9b9f9682e26",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/8944a3bd-c7b1-4521-83c3-88d80279997e/indexing/hil/7f73cbc8-7ce2-4252-8ddc-cfa853a6b682_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775558812638"
+                }
+            },
+            {
+                "id": "792a6f19-e870-4fa6-bc91-a84408c3866d",
+                "task_group_id": "372d8f63-cc9b-40e1-a490-d0dcac693f0d",
+                "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775558817210",
+                "end_time": "1775558842658",
+                "created_at": "1775558522722",
+                "output": {
+                    "id": "8a990eae-50f2-43f1-9391-e1620465867d",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/664b860d-e21c-43c0-a105-8190a2a42b00/indexing/hil/438f97fe-5d98-42f4-ad47-50b50d123c79_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775558842662"
+                }
+            },
+            {
+                "id": "5f58d271-9e69-4c64-82aa-6dcc8f00b6b5",
+                "task_group_id": "d7537a1c-fe6b-4837-a6f2-b25abfd0652e",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "document_id": "133be867-95c6-42f8-b7ae-821104935db1",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558525437",
+                "end_time": "1775558550704",
+                "created_at": "1775558525436",
+                "output": {
+                    "id": "3c5e42d5-a352-4c61-bc99-783fc78a2052",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558550710"
+                }
+            },
+            {
+                "id": "958cc02b-67ff-4e5b-9958-f82ff7c90a23",
+                "task_group_id": "31cda80c-19c1-48c7-b8c8-a13a605c678e",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558550756"
+            },
+            {
+                "id": "3104b973-c765-4e79-9db0-dbc72643075d",
+                "task_group_id": "405b8908-76e2-4eaa-8ae2-464a7a5286f7",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "document_id": "133be867-95c6-42f8-b7ae-821104935db1",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558550793",
+                "end_time": "1775558561455",
+                "created_at": "1775558550790",
+                "output": {
+                    "id": "bacb0093-2714-42ef-a21b-00e7cbf39e49",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558561463"
+                }
+            },
+            {
+                "id": "47891ede-cf3f-40bf-9eea-393812aef160",
+                "task_group_id": "bfc8306a-2b17-40e6-b5e1-29a4c5fc1783",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "document_id": "bb6c43f6-718a-459e-8fcc-7882a3a92751",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558540766",
+                "end_time": "1775558568619",
+                "created_at": "1775558540714",
+                "output": {
+                    "id": "0c2be28b-5b98-4615-9b9a-535202d84ba5",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558568624"
+                }
+            },
+            {
+                "id": "d6b25a6d-4f4b-44ac-8bb1-5b4ec165fe27",
+                "task_group_id": "94e22cdb-8396-4ae3-ad1b-3308bdd59f33",
+                "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775558847279",
+                "end_time": "1775558892422",
+                "created_at": "1775558541071",
+                "output": {
+                    "id": "ebbc9194-ba00-4caa-aab4-6c7c392bfbcc",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/80194e64-5754-482a-b653-31bad8af5444/indexing/hil/7cb3b3a2-5028-4f6c-a80d-d6d08ac292be_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775558892426"
+                }
+            },
+            {
+                "id": "2f648f10-28b4-4c2e-96b6-76f20ccef966",
+                "task_group_id": "f7d37490-57f0-4ad3-8f46-f60808c7f47a",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "document_id": "ba8b7fd9-ed91-4ddf-86c6-c9ec5449f0c2",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558560314",
+                "end_time": "1775558562882",
+                "created_at": "1775558560314",
+                "output": {
+                    "id": "d0b17e81-8b03-463f-8504-79952e0df712",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558562888"
+                }
+            },
+            {
+                "id": "1ebd534b-b5e1-4081-a899-fd13414a4f2a",
+                "task_group_id": "806bb6be-a23c-4f6c-a66f-964dfcaac74a",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "document_id": "aaf6fa37-4e3c-4c7d-9788-556311a1f15b",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558572286",
+                "end_time": "1775558574016",
+                "created_at": "1775558572285",
+                "output": {
+                    "id": "90219e66-4723-45bc-a144-93c4963c291c",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558574022"
+                }
+            },
+            {
+                "id": "664a6386-966d-43af-8df6-090341fee1f3",
+                "task_group_id": "155f15f3-6d19-4641-ba61-00bbb3e49ab2",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "document_id": "ba8b7fd9-ed91-4ddf-86c6-c9ec5449f0c2",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558562920",
+                "end_time": "1775558591169",
+                "created_at": "1775558562919",
+                "output": {
+                    "id": "5c794363-3b02-4aba-99fd-1c2208516ad3",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558591176"
+                }
+            },
+            {
+                "id": "14013645-9306-4518-9bae-5b7817c2560e",
+                "task_group_id": "3957d16b-c589-4e51-96d9-a133276a2c76",
+                "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775558895655",
+                "end_time": "1775558986742",
+                "created_at": "1775558561515",
+                "output": {
+                    "id": "bebcdc11-a8b7-4c3c-a830-832e348dcca8",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/1e0a9382-aeed-4d2c-9e06-6cd995f5cce4/indexing/hil/133be867-95c6-42f8-b7ae-821104935db1_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775558986746"
+                }
+            },
+            {
+                "id": "fc787b88-63c8-44ec-b9b0-b7dc23c43381",
+                "task_group_id": "88d19e80-e578-4a91-8f27-7309ce083643",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558568651"
+            },
+            {
+                "id": "9593dfa3-57ba-4274-b19e-f2f21bde1d1f",
+                "task_group_id": "ee46286b-782c-414d-8358-1daec8c676e4",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "document_id": "bb6c43f6-718a-459e-8fcc-7882a3a92751",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558568671",
+                "end_time": "1775558576986",
+                "created_at": "1775558568667",
+                "output": {
+                    "id": "5c7c9d61-7fa3-44ba-9907-d156ecc6ea9f",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558576990"
+                }
+            },
+            {
+                "id": "774a2c38-447f-44df-8314-cef9c5829967",
+                "task_group_id": "c55b9a61-58e0-4098-b4df-da785ec664d1",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "document_id": "aaf6fa37-4e3c-4c7d-9788-556311a1f15b",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558574059",
+                "end_time": "1775558604299",
+                "created_at": "1775558574057",
+                "output": {
+                    "id": "f0422bda-581c-4436-82e8-e6fecbb48a9c",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558604305"
+                }
+            },
+            {
+                "id": "1bba2a61-83f8-406e-8b54-72f98d06b61b",
+                "task_group_id": "10631f0a-c17d-47c3-936c-c10a49ed82e5",
+                "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775558992637",
+                "end_time": "1775559003870",
+                "created_at": "1775558577053",
+                "output": {
+                    "id": "aee15d2b-f835-4441-9338-b889cec8fecb",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/74b382f2-b6ae-4e08-961b-1fd32e516da4/indexing/hil/bb6c43f6-718a-459e-8fcc-7882a3a92751_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775559003874"
+                }
+            },
+            {
+                "id": "97bd4297-132d-4802-971a-b448f4452830",
+                "task_group_id": "d7915d31-9b5f-4d5d-b449-80d629989b80",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558591225"
+            },
+            {
+                "id": "d2aaa164-fc6b-4ae8-a64e-285350fa77a2",
+                "task_group_id": "55a8e1dc-aedb-4be8-82b8-c4129c304db7",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "document_id": "ba8b7fd9-ed91-4ddf-86c6-c9ec5449f0c2",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558591257",
+                "end_time": "1775558603094",
+                "created_at": "1775558591255",
+                "output": {
+                    "id": "5d946d50-2740-414a-abae-01caa647da6b",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558603100"
+                }
+            },
+            {
+                "id": "35811ae4-5d89-4256-91fd-b09b892f19ad",
+                "task_group_id": "730f82b0-422c-4002-831f-428a6dc5c047",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558604367"
+            },
+            {
+                "id": "3547a1e7-5243-41dc-b330-34adb75a2f4a",
+                "task_group_id": "5d99c367-590c-40f5-81ef-0977199436c1",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "document_id": "aaf6fa37-4e3c-4c7d-9788-556311a1f15b",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558604476",
+                "end_time": "1775558614216",
+                "created_at": "1775558604473",
+                "output": {
+                    "id": "0c331b83-afcb-4a9f-807f-3cbc27f08219",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558614221"
+                }
+            },
+            {
+                "id": "be76d505-5b01-473e-a84d-c87ff85ba602",
+                "task_group_id": "9d9120c6-eae3-439a-91f4-1f02db184da9",
+                "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775559007500",
+                "end_time": "1775559054917",
+                "created_at": "1775558603153",
+                "output": {
+                    "id": "2f6a82f7-18d4-4fe7-bc3f-c7d4e54b7812",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/2ae03342-0ca9-49dc-b434-47e0b0d0e81a/indexing/hil/ba8b7fd9-ed91-4ddf-86c6-c9ec5449f0c2_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775559054921"
+                }
+            },
+            {
+                "id": "4d3381db-f412-468d-9647-a36eb95a0634",
+                "task_group_id": "a6429eba-464b-4eef-ba4e-8c1d902b64da",
+                "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775559058623",
+                "end_time": "1775559097766",
+                "created_at": "1775558614298",
+                "output": {
+                    "id": "fede9a23-eeff-4205-ac99-2ee11bcbb9fe",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/77e30557-2cab-4eaf-9d99-89318d7030c5/indexing/hil/aaf6fa37-4e3c-4c7d-9788-556311a1f15b_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775559097771"
+                }
+            },
+            {
+                "id": "df1b7407-43c1-4fd5-82e1-035db3a87303",
+                "task_group_id": "85cb40c9-2d00-4e7e-8676-581c4fe5c4b2",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "document_id": "19868faa-a7bb-4a32-a1f5-ab30ca92deb2",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558705989",
+                "end_time": "1775558707629",
+                "created_at": "1775558705987",
+                "output": {
+                    "id": "4f8d6a14-5772-469a-a63a-8c18a1916e0a",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558707635"
+                }
+            },
+            {
+                "id": "7d7acdd5-03d2-4e48-ab0c-a782b3ae51ff",
+                "task_group_id": "6ca46c64-a8cf-4381-8367-ea58f2fc7d16",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "document_id": "19868faa-a7bb-4a32-a1f5-ab30ca92deb2",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558707770",
+                "end_time": "1775558737994",
+                "created_at": "1775558707768",
+                "output": {
+                    "id": "139092b7-a066-4749-860d-f99c515d92e8",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558738000"
+                }
+            },
+            {
+                "id": "fa0bb481-6448-4ef5-8fe3-5995bb9d6639",
+                "task_group_id": "73e125fa-893f-41b1-b023-3b7733c910c5",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558738084"
+            },
+            {
+                "id": "ed6ce62d-4a68-401e-b74f-d6905d8beca3",
+                "task_group_id": "6bd1c6d2-256c-4467-9d34-b4eae00a15f4",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "document_id": "19868faa-a7bb-4a32-a1f5-ab30ca92deb2",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558738157",
+                "end_time": "1775558825375",
+                "created_at": "1775558738155",
+                "output": {
+                    "id": "9f3802cb-467d-4d91-b4b9-78434f5fd22d",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558825380"
+                }
+            },
+            {
+                "id": "632378ed-4fe7-4584-8772-019f54216108",
+                "task_group_id": "8c243709-b426-40ab-abdc-080805689678",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "document_id": "cbcd8874-5d26-4d36-a6b8-0859eec66660",
+                "type": "ocr_partial",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558766069",
+                "end_time": "1775558768229",
+                "created_at": "1775558766068",
+                "output": {
+                    "id": "0c613fb8-c01e-467f-b30f-6b099e603fd9",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558768234"
+                }
+            },
+            {
+                "id": "b386ec69-a22c-4824-8970-1550e1f63dbf",
+                "task_group_id": "a23e29b0-7982-4e2a-bde1-95c9fee9d174",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "document_id": "cbcd8874-5d26-4d36-a6b8-0859eec66660",
+                "type": "classify",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558768261",
+                "end_time": "1775558798334",
+                "created_at": "1775558768260",
+                "output": {
+                    "id": "7e83f4d4-f20d-4474-a3e4-589b47320a3d",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558798433"
+                }
+            },
+            {
+                "id": "94cf16e0-c07d-4c98-8b49-66ca9bd016d4",
+                "task_group_id": "8671e659-bf37-4643-8d79-b28747afe4f3",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "classify",
+                "tool": "hil",
+                "attempt": 1,
+                "created_at": "1775558798651"
+            },
+            {
+                "id": "ea3a9d46-e4e0-4bc1-8631-3a9728b0502a",
+                "task_group_id": "3f4740b0-0602-474c-a0bf-f8c09b5492d7",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "document_id": "cbcd8874-5d26-4d36-a6b8-0859eec66660",
+                "type": "indexing",
+                "tool": "ai",
+                "attempt": 1,
+                "start_time": "1775558798675",
+                "end_time": "1775558808814",
+                "created_at": "1775558798672",
+                "output": {
+                    "id": "313b26b8-5dba-4327-81b8-d816e0fe1e79",
+                    "bucket": "tasktile-dev",
+                    "output_key": "",
+                    "content_type": "application/json",
+                    "created_at": "1775558808819"
+                }
+            },
+            {
+                "id": "cafa1a5e-704d-4087-b5d4-7a901cf3386f",
+                "task_group_id": "8d7de517-97c5-4db4-bff6-290b35ff0917",
+                "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775559101526",
+                "end_time": "1775559142739",
+                "created_at": "1775558808848",
+                "output": {
+                    "id": "59b49bec-4f2a-48bc-bbfd-ec45dab480a3",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/a9b92603-0fbb-4121-9c35-e0a1361ed375/indexing/hil/cbcd8874-5d26-4d36-a6b8-0859eec66660_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775559142744"
+                }
+            },
+            {
+                "id": "dd1c6011-c57a-4f5b-b48d-871fd9f39910",
+                "task_group_id": "2358ff4b-0487-4964-a1ed-8afa4a438c6b",
+                "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+                "type": "indexing",
+                "tool": "hil",
+                "attempt": 1,
+                "start_time": "1775559147501",
+                "end_time": "1775559201156",
+                "created_at": "1775558825464",
+                "output": {
+                    "id": "f4457858-fd87-4088-9789-a4bbb8537a87",
+                    "bucket": "tasktile-dev",
+                    "output_key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/ec0c3940-d3b8-4f68-9270-07a1aee279dc/indexing/hil/19868faa-a7bb-4a32-a1f5-ab30ca92deb2_content.json",
+                    "content_type": "application/json",
+                    "created_at": "1775559201160"
+                }
+            }
+        ]
+    },
+    "tenant": {
+        "client_id": "9480b522-c02e-47de-a3d6-bc4e526745f1"
+    },
+    "counts": {
+        "blobs": 11,
+        "documents": 11
+    },
+    "input": [
+        {
+            "id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "525e3474-f409-469c-b761-da5828101bff",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/Prequal_Response_Form_-_VERONICA_MONTES.pdf"
+            },
+            "metadata": {}
+        },
+        {
+            "id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "f10ca10a-4625-4b2d-8b2c-9ae39dd75fe0",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/Purchase_Contract_-_13109_AMANDA_COURT_BAKERSFIELD_CA_93314_PREPARED_2026_02_09_SIGNED_2026_02_09.pdf"
+            },
+            "metadata": {}
+        },
+        {
+            "id": "80194e64-5754-482a-b653-31bad8af5444",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "5ca7323a-8365-43fc-a73c-fe29f19ae9b0",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/Bank_Statement_-_JPMORGAN_CHASE_BANK_N_A_000006276903234_SAVINGS_VERONICA_M_MONTES_2026_01_20.pdf"
+            },
+            "metadata": {}
+        },
+        {
+            "id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "ac96c372-93f7-46a3-aeb6-872249f40256",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/Other_Income_-_VERONICA_MARIE_MONTES_1.pdf"
+            },
+            "metadata": {}
+        },
+        {
+            "id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "9479a663-07ca-4bd9-9eb0-e191a7a17802",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/EMD_Docs_-_PLACER_TITLE_COMPANY_VERONICA_MONTES_13109_AMANDA_COURT_BAKERSFIELD_CA_93314_2026_02_11.pdf"
+            },
+            "metadata": {}
+        },
+        {
+            "id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "75375b84-e222-4727-948c-5f79111d14e3",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/Other_Income_-_VERONICA_MARIE_MONTES.pdf"
+            },
+            "metadata": {}
+        },
+        {
+            "id": "08e37601-4259-4a80-82f2-b74608f13958",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "10a22153-9400-4b3a-ad63-c5879bbb65c3",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/EMD_Docs_-_PLACER_TITLE_COMPANY_VERONICA_MARIE_MONTES_13109_AMANDA_COURT_BAKERSFIELD_CALIFORNIA_93314_2026_03_02.pdf"
+            },
+            "metadata": {}
+        },
+        {
+            "id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "98a28851-7e12-49a1-8a78-eca0ba220385",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/Escrow_Fee_Sheet_-_TICOR_TITLE_LOAN_5372100.pdf"
+            },
+            "metadata": {}
+        },
+        {
+            "id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "7301d3a4-9839-4842-81a8-0fd98dd6f64d",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/Borrowers_Authorization_-_C2_FINANCIAL_CORPORATION_VERONICA_MONTES_2026_02_12.pdf"
+            },
+            "metadata": {}
+        },
+        {
+            "id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "99eddfd6-96bf-4afd-a84f-4d4e6068399f",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/Form_1099-NEC_-_VERONICA_M_MONTES_2025_ASTRYA_GLOBAL.pdf"
+            },
+            "metadata": {}
+        },
+        {
+            "id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+            "type": "blob",
+            "source_type": "uploaded",
+            "upload_id": "1d5fd51b-e72c-4ee7-963f-00da5eb53d67",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/uploads/2026-04-07/URLA_1003_-_VERONICA_MARIE_MONTES_13109_AMANDA_COURT_BAKERSFIELD_CA_93314_1.pdf"
+            },
+            "metadata": {}
+        }
+    ],
+    "documents": [
+        {
+            "id": "da616d88-454c-485b-8f7c-c52361e11bcf",
+            "blob_id": "08e37601-4259-4a80-82f2-b74608f13958",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/08e37601-4259-4a80-82f2-b74608f13958/documents/da616d88-454c-485b-8f7c-c52361e11bcf.pdf"
+            },
+            "category": {
+                "category_id": 1080,
+                "category_name": "EMD Docs",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 1,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/08e37601-4259-4a80-82f2-b74608f13958/documents/da616d88-454c-485b-8f7c-c52361e11bcf.pdf",
+                "category": "1080_EMD Docs",
+                "confidence": 0.9972009658813477,
+                "titleCompany": "Placer Title Company",
+                "buyers": [
+                    {
+                        "lastName": "Montes",
+                        "firstName": "Veronica Marie",
+                        "middleName": "",
+                        "suffix": null
+                    }
+                ],
+                "propertyAddress": {
+                    "fullAddress": "",
+                    "address1": "13109 Amanda Court",
+                    "address2": "",
+                    "city": "Bakersfield",
+                    "state": "California",
+                    "zipCode": "93314"
+                },
+                "date": "2026-03-02",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        },
+        {
+            "id": "438f97fe-5d98-42f4-ad47-50b50d123c79",
+            "blob_id": "664b860d-e21c-43c0-a105-8190a2a42b00",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/664b860d-e21c-43c0-a105-8190a2a42b00/documents/438f97fe-5d98-42f4-ad47-50b50d123c79.pdf"
+            },
+            "category": {
+                "category_id": 523,
+                "category_name": "Escrow Fee Sheet",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 2,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/664b860d-e21c-43c0-a105-8190a2a42b00/documents/438f97fe-5d98-42f4-ad47-50b50d123c79.pdf",
+                "category": "523_Escrow Fee Sheet",
+                "confidence": 0.9922860860824585,
+                "escrowCompany": {
+                    "name": "TICOR TITLE"
+                },
+                "loanNumber": "",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        },
+        {
+            "id": "730e24e5-98fe-4622-9e9d-148d44908df2",
+            "blob_id": "2ffe3916-1c0f-46be-b4cf-4e64d501e6a5",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/2ffe3916-1c0f-46be-b4cf-4e64d501e6a5/documents/730e24e5-98fe-4622-9e9d-148d44908df2.pdf"
+            },
+            "category": {
+                "category_id": 237,
+                "category_name": "Borrowers Authorization",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 1,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/2ffe3916-1c0f-46be-b4cf-4e64d501e6a5/documents/730e24e5-98fe-4622-9e9d-148d44908df2.pdf",
+                "category": "237_Borrowers Authorization",
+                "confidence": 0.9983433485031128,
+                "lender": "C2 Financial Corporation",
+                "borrowers": [
+                    {
+                        "lastName": "Montes",
+                        "firstName": "Veronica",
+                        "middleName": "",
+                        "suffix": "",
+                        "dateSigned": "2026-02-12",
+                        "signed": true
+                    }
+                ],
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        },
+        {
+            "id": "7f73cbc8-7ce2-4252-8ddc-cfa853a6b682",
+            "blob_id": "8944a3bd-c7b1-4521-83c3-88d80279997e",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/8944a3bd-c7b1-4521-83c3-88d80279997e/documents/7f73cbc8-7ce2-4252-8ddc-cfa853a6b682.pdf"
+            },
+            "category": {
+                "category_id": 1080,
+                "category_name": "EMD Docs",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 2,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/8944a3bd-c7b1-4521-83c3-88d80279997e/documents/7f73cbc8-7ce2-4252-8ddc-cfa853a6b682.pdf",
+                "category": "1080_EMD Docs",
+                "confidence": 0.9973418116569519,
+                "titleCompany": "Placer Title Company",
+                "buyers": [
+                    {
+                        "lastName": "Montes",
+                        "firstName": "Veronica",
+                        "middleName": "",
+                        "suffix": null
+                    }
+                ],
+                "propertyAddress": {
+                    "fullAddress": null,
+                    "address1": "13109 Amanda Court",
+                    "address2": null,
+                    "city": "Bakersfield",
+                    "state": "California",
+                    "zipCode": "93314"
+                },
+                "date": "2026-02-11",
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        },
+        {
+            "id": "7cb3b3a2-5028-4f6c-a80d-d6d08ac292be",
+            "blob_id": "80194e64-5754-482a-b653-31bad8af5444",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/80194e64-5754-482a-b653-31bad8af5444/documents/7cb3b3a2-5028-4f6c-a80d-d6d08ac292be.pdf"
+            },
+            "category": {
+                "category_id": 502,
+                "category_name": "Bank Statement",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 2,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/80194e64-5754-482a-b653-31bad8af5444/documents/7cb3b3a2-5028-4f6c-a80d-d6d08ac292be.pdf",
+                "category": "502_Bank Statement",
+                "confidence": 0.9971808195114136,
+                "bank": {
+                    "name": "JPMorgan Chase Bank, N.A."
+                },
+                "statementPeriodFrom": "2025-12-17",
+                "statementPeriodTo": "2026-01-20",
+                "accounts": [
+                    {
+                        "accountHolderTypes": [
+                            "person"
+                        ],
+                        "accountHolderPersons": [
+                            {
+                                "lastName": "MONTES",
+                                "firstName": "VERONICA ",
+                                "middleName": "M",
+                                "suffix": null
+                            }
+                        ],
+                        "accountHolderTrusts": [],
+                        "accountHolderBusinesses": [],
+                        "accountNumber": "000006276903234",
+                        "accountType": "Savings",
+                        "endingBalance": 184002.1,
+                        "hasLargeDepositWithdrawal": true
+                    }
+                ],
+                "statementAddress": {
+                    "fullAddress": null,
+                    "address1": "3460 W CELESTE AVE",
+                    "address2": null,
+                    "city": "FRESNO",
+                    "state": "California",
+                    "zipCode": "93711-1508"
+                },
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        },
+        {
+            "id": "133be867-95c6-42f8-b7ae-821104935db1",
+            "blob_id": "1e0a9382-aeed-4d2c-9e06-6cd995f5cce4",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/1e0a9382-aeed-4d2c-9e06-6cd995f5cce4/documents/133be867-95c6-42f8-b7ae-821104935db1.pdf"
+            },
+            "category": {
+                "category_id": 16,
+                "category_name": "Paystub",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 1,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/1e0a9382-aeed-4d2c-9e06-6cd995f5cce4/documents/133be867-95c6-42f8-b7ae-821104935db1.pdf",
+                "category": "16_Paystub",
+                "confidence": 0.9970830082893372,
+                "employee": {
+                    "lastName": "Montes",
+                    "firstName": "Veronica MARIE",
+                    "middleName": "",
+                    "suffix": null,
+                    "last4SSN": "7529"
+                },
+                "address": {
+                    "fullAddress": "",
+                    "address1": "2631 RADNOR AVENUE",
+                    "address2": null,
+                    "city": "LONG BEACH",
+                    "state": "California",
+                    "zipCode": "90815"
+                },
+                "employer": {
+                    "name": "Astrya Global",
+                    "EIN": null,
+                    "positionOrTitle": null
+                },
+                "employerAddress": {
+                    "fullAddress": "",
+                    "address1": "109 E 17TH ST",
+                    "address2": "STE 63",
+                    "city": "CHEYENNE",
+                    "state": "Wyoming",
+                    "zipCode": "82001-4584"
+                },
+                "payStubPeriodFrom": "2026-01-26",
+                "payStubPeriodTo": "2026-02-01",
+                "hireDate": null,
+                "hourlyRate": "",
+                "hoursPerWeek": "",
+                "hoursWorked": "",
+                "current": 6737.85,
+                "YTD": 40146.55,
+                "variableIncomes": [],
+                "addToRegular": [],
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        },
+        {
+            "id": "bb6c43f6-718a-459e-8fcc-7882a3a92751",
+            "blob_id": "74b382f2-b6ae-4e08-961b-1fd32e516da4",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/74b382f2-b6ae-4e08-961b-1fd32e516da4/documents/bb6c43f6-718a-459e-8fcc-7882a3a92751.pdf"
+            },
+            "category": {
+                "category_id": 2165,
+                "category_name": "Prequal Response Form",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 3,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/74b382f2-b6ae-4e08-961b-1fd32e516da4/documents/bb6c43f6-718a-459e-8fcc-7882a3a92751.pdf",
+                "category": "2165_Prequal Response Form",
+                "confidence": 0.9974767565727234,
+                "borrowers": [
+                    {
+                        "lastName": "Montes",
+                        "firstName": "Veronica",
+                        "middleName": "",
+                        "suffix": "",
+                        "dateSigned": "",
+                        "signed": false
+                    }
+                ],
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        },
+        {
+            "id": "ba8b7fd9-ed91-4ddf-86c6-c9ec5449f0c2",
+            "blob_id": "2ae03342-0ca9-49dc-b434-47e0b0d0e81a",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/2ae03342-0ca9-49dc-b434-47e0b0d0e81a/documents/ba8b7fd9-ed91-4ddf-86c6-c9ec5449f0c2.pdf"
+            },
+            "category": {
+                "category_id": 16,
+                "category_name": "Paystub",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 1,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/2ae03342-0ca9-49dc-b434-47e0b0d0e81a/documents/ba8b7fd9-ed91-4ddf-86c6-c9ec5449f0c2.pdf",
+                "category": "16_Paystub",
+                "confidence": 0.9971241354942322,
+                "employee": {
+                    "lastName": "MONTES",
+                    "firstName": "VERONICA MARIE",
+                    "middleName": "",
+                    "suffix": null,
+                    "last4SSN": "7529"
+                },
+                "address": {
+                    "fullAddress": "",
+                    "address1": "2631 RADNOR AVENUE",
+                    "address2": null,
+                    "city": "LONG BEACH",
+                    "state": "California",
+                    "zipCode": "90815"
+                },
+                "employer": {
+                    "name": "Astrya Global",
+                    "EIN": null,
+                    "positionOrTitle": null
+                },
+                "employerAddress": {
+                    "fullAddress": "",
+                    "address1": "109 E 17TH ST",
+                    "address2": "STE 63",
+                    "city": "CHEYENNE",
+                    "state": "Wyoming",
+                    "zipCode": "82001-4584"
+                },
+                "payStubPeriodFrom": "2026-01-19",
+                "payStubPeriodTo": "2026-01-25",
+                "hireDate": null,
+                "hourlyRate": "",
+                "hoursPerWeek": "",
+                "hoursWorked": "",
+                "current": 6533.25,
+                "YTD": 33408.7,
+                "variableIncomes": [],
+                "addToRegular": [],
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        },
+        {
+            "id": "aaf6fa37-4e3c-4c7d-9788-556311a1f15b",
+            "blob_id": "77e30557-2cab-4eaf-9d99-89318d7030c5",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/77e30557-2cab-4eaf-9d99-89318d7030c5/documents/aaf6fa37-4e3c-4c7d-9788-556311a1f15b.pdf"
+            },
+            "category": {
+                "category_id": 2103,
+                "category_name": "Form 1099-NEC",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 2,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/77e30557-2cab-4eaf-9d99-89318d7030c5/documents/aaf6fa37-4e3c-4c7d-9788-556311a1f15b.pdf",
+                "category": "2103_Form 1099-NEC",
+                "confidence": 0.9980668425559998,
+                "year": 2025,
+                "payer": {
+                    "name": "ASTRYA GLOBAL"
+                },
+                "nonemployeeCompensation": 444639.2,
+                "recipient": {
+                    "lastName": "MONTES",
+                    "firstName": "VERONICA ",
+                    "middleName": "M",
+                    "suffix": null
+                },
+                "recipientsAddress": {
+                    "fullAddress": null,
+                    "address1": "2631 RADNOR AVENUE",
+                    "address2": null,
+                    "city": "LONG BEACH",
+                    "state": "California",
+                    "zipCode": "90815"
+                },
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        },
+        {
+            "id": "19868faa-a7bb-4a32-a1f5-ab30ca92deb2",
+            "blob_id": "ec0c3940-d3b8-4f68-9270-07a1aee279dc",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/ec0c3940-d3b8-4f68-9270-07a1aee279dc/documents/19868faa-a7bb-4a32-a1f5-ab30ca92deb2.pdf"
+            },
+            "category": {
+                "category_id": 349,
+                "category_name": "URLA 1003",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 12,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/ec0c3940-d3b8-4f68-9270-07a1aee279dc/documents/19868faa-a7bb-4a32-a1f5-ab30ca92deb2.pdf",
+                "category": "349_URLA 1003",
+                "confidence": 0.9985634684562683,
+                "signed1003Version": "New Version",
+                "signed": false,
+                "new1003Borrowers": [
+                    {
+                        "name": {
+                            "lastName": "Montes",
+                            "firstName": "Veronica Marie",
+                            "middleName": null,
+                            "suffix": null
+                        },
+                        "alternateNames": [],
+                        "last4SSN": "7529",
+                        "DOB": "1978-02-09",
+                        "citizenship": null,
+                        "maritalStatus": null,
+                        "homePhone": "562-965-2633",
+                        "cellPhone": "562-965-2633",
+                        "workPhone": null,
+                        "email": "drveronicamontes@gmail.com",
+                        "currentAddress": {
+                            "fullAddress": "3460 West Celeste Avenue, Fresno, California, 93711",
+                            "address1": "3460 West Celeste Avenue",
+                            "address2": null,
+                            "city": "Fresno",
+                            "state": "California",
+                            "zipCode": "93711",
+                            "yrsOnCurrentAddress": {
+                                "years": null,
+                                "months": null
+                            },
+                            "housing": null,
+                            "rentPerMonth": null
+                        },
+                        "isFormerAddress": null,
+                        "formerAddress": {
+                            "fullAddress": "3460 West Celeste Avenue, Fresno, California, 93711",
+                            "address1": "3460 West Celeste Avenue",
+                            "address2": null,
+                            "city": "Fresno",
+                            "state": "California",
+                            "zipCode": "93711",
+                            "yrsOnformerAddress": {
+                                "years": 0,
+                                "months": 10
+                            },
+                            "housing": null,
+                            "rentPerMonth": null
+                        },
+                        "isMailingAddress": null,
+                        "mailingAddress": {
+                            "fullAddress": "3460 West Celeste Avenue, Fresno, California, 93711",
+                            "address1": "3460 West Celeste Avenue",
+                            "address2": null,
+                            "city": "Fresno",
+                            "state": "California",
+                            "zipCode": "93711"
+                        },
+                        "isSection1b": null,
+                        "isSection1c": null,
+                        "isSection1d": null,
+                        "isSection1e": null,
+                        "isSection2b": null,
+                        "isSection2c": null,
+                        "isSection2d": null,
+                        "isSection3a": null,
+                        "isSection3b": null,
+                        "isSection3c": null,
+                        "section3c": [
+                            {
+                                "address": {
+                                    "fullAddress": null,
+                                    "address1": null,
+                                    "address2": null,
+                                    "city": null,
+                                    "state": null,
+                                    "zipCode": null
+                                },
+                                "propertyValue": null,
+                                "status": null,
+                                "intendedOccupancy": null,
+                                "monthlyInsurance": null,
+                                "monthlyRentalIncome": null,
+                                "mortgages": [
+                                    {
+                                        "creditor": {
+                                            "name": null
+                                        },
+                                        "accountNumber": null,
+                                        "unpaidBalance": null,
+                                        "monthlyPayment": null,
+                                        "creditLimit": null,
+                                        "type": null
+                                    }
+                                ]
+                            }
+                        ],
+                        "isSection4b": null,
+                        "isSection4c": null,
+                        "isSection4d": null,
+                        "titleWillBeHeldInWhatNames": {
+                            "name": "Astrya Global"
+                        },
+                        "firstMortgage": null,
+                        "subordinateLiens": null,
+                        "homeownerInsurance": null,
+                        "supplementalPropertyInsurance": null,
+                        "propertyTaxes": null,
+                        "mortgageInsurance": null,
+                        "associationProjectDues": null,
+                        "otherPayments": null,
+                        "totalPayments": null,
+                        "section1b": {
+                            "employer": {
+                                "name": "Astrya Global"
+                            },
+                            "businessPhone": "661-758-8400",
+                            "address": {
+                                "fullAddress": "3460 West Celeste Avenue, Fresno, California, 93711",
+                                "address1": "3460 West Celeste Avenue",
+                                "address2": null,
+                                "city": "Fresno",
+                                "state": "California",
+                                "zipCode": "93711"
+                            },
+                            "position": "Psychologist",
+                            "startDate": "2024-02-26",
+                            "yrsOnThisJob": {
+                                "years": 3,
+                                "months": 2
+                            },
+                            "employedBy": null,
+                            "selfEmployed": false,
+                            "ownershipShare": null,
+                            "monthlyIncome": 33347,
+                            "base": null,
+                            "overtime": null,
+                            "bonus": null,
+                            "commission": null,
+                            "military": null,
+                            "entitlements": null,
+                            "other": null,
+                            "totalIncome": null
+                        },
+                        "section1c": {
+                            "employer": {
+                                "name": "Astrya Global"
+                            },
+                            "businessPhone": "661-758-8400",
+                            "address": {
+                                "fullAddress": "3460 West Celeste Avenue, Fresno, California, 93711",
+                                "address1": "3460 West Celeste Avenue",
+                                "address2": null,
+                                "city": "Fresno",
+                                "state": "California",
+                                "zipCode": "93711"
+                            },
+                            "position": "Psychologist",
+                            "startDate": "2024-02-26",
+                            "yrsOnThisJob": {
+                                "years": 3,
+                                "months": 2
+                            },
+                            "employedBy": null,
+                            "selfEmployed": false,
+                            "ownershipShare": null,
+                            "monthlyIncome": 33347,
+                            "base": null,
+                            "overtime": null,
+                            "bonus": null,
+                            "commission": null,
+                            "military": null,
+                            "entitlements": null,
+                            "other": null,
+                            "totalIncome": null
+                        },
+                        "section1d": {
+                            "employer": {
+                                "name": "Astrya Global"
+                            },
+                            "address": {
+                                "fullAddress": "3460 West Celeste Avenue, Fresno, California, 93711",
+                                "address1": "3460 West Celeste Avenue",
+                                "address2": null,
+                                "city": "Fresno",
+                                "state": "California",
+                                "zipCode": "93711"
+                            },
+                            "position": "Psychologist",
+                            "startDate": "2024-02-26",
+                            "endDate": null,
+                            "selfEmployed": false,
+                            "previousGrossMonthlyIncome": null
+                        },
+                        "section1e": {
+                            "incomeSources": [
+                                {
+                                    "incomeSource": null,
+                                    "monthlyIncome": null
+                                }
+                            ]
+                        },
+                        "section2a": {
+                            "accountTypes": [
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "93791169782E00420140",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "002 93791169781E01920121",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "93791169781E01820120 608",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "93791169781E01320101 202",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "017 93791169782E00120131",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "013 93791169781E00120091",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "015 93791169781E00320091",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "510 93791169781E01020100",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "93791169782E00320140 122",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/ADVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "93791169781E00920100 510",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "93791169781E02020130 516",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "217 93791169781E00420100",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "46091133",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "CARMAX AUTO FINANCE"
+                                    }
+                                },
+                                {
+                                    "accountType": null,
+                                    "accountNumber": "025 93791169782E00220131",
+                                    "cashOrMarketValue": null,
+                                    "financialInstitution": {
+                                        "name": "DEPT OF ED/ADVANTAGE"
+                                    }
+                                }
+                            ]
+                        },
+                        "section2b": {
+                            "assetOrCreditTypes": [
+                                {
+                                    "assetOrCreditType": null,
+                                    "cashOrMarketValue": null
+                                }
+                            ]
+                        },
+                        "section2c": {
+                            "accountTypes": [
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "93791169782E00420140",
+                                    "unpaidBalance": 40339,
+                                    "monthlyPayment": 403.39
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "002 93791169781E01920121",
+                                    "unpaidBalance": 36798,
+                                    "monthlyPayment": 367.98
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "93791169781E01820120 608",
+                                    "unpaidBalance": 35115,
+                                    "monthlyPayment": 351.15
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "93791169781E01320101 202",
+                                    "unpaidBalance": 25168,
+                                    "monthlyPayment": 251.68
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "017 93791169782E00120131",
+                                    "unpaidBalance": 24772,
+                                    "monthlyPayment": 247.72
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "013 93791169781E00120091",
+                                    "unpaidBalance": 23572,
+                                    "monthlyPayment": 235.72
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "015 93791169781E00320091",
+                                    "unpaidBalance": 21795,
+                                    "monthlyPayment": 217.95
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "510 93791169781E01020100",
+                                    "unpaidBalance": 19933,
+                                    "monthlyPayment": 199.33
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/ADVANTAGE"
+                                    },
+                                    "accountNumber": "93791169782E00320140 122",
+                                    "unpaidBalance": 19905,
+                                    "monthlyPayment": 199.05
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "93791169781E00920100 510",
+                                    "unpaidBalance": 19135,
+                                    "monthlyPayment": 191.35
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "93791169781E02020130 516",
+                                    "unpaidBalance": 18721,
+                                    "monthlyPayment": 187.21
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/AIDVANTAGE"
+                                    },
+                                    "accountNumber": "217 93791169781E00420100",
+                                    "unpaidBalance": 17593,
+                                    "monthlyPayment": 175.93
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "CARMAX AUTO FINANCE"
+                                    },
+                                    "accountNumber": "46091133",
+                                    "unpaidBalance": 16184,
+                                    "monthlyPayment": 609
+                                },
+                                {
+                                    "accountType": null,
+                                    "company": {
+                                        "name": "DEPT OF ED/ADVANTAGE"
+                                    },
+                                    "accountNumber": "025 93791169782E00220131",
+                                    "unpaidBalance": 14400,
+                                    "monthlyPayment": 144
+                                }
+                            ]
+                        },
+                        "section2d": {
+                            "liabilityOrExpenses": [
+                                {
+                                    "liabilityOrExpense": null,
+                                    "monthlyPayment": null
+                                }
+                            ]
+                        },
+                        "section3a": {
+                            "address": {
+                                "fullAddress": "3460 West Celeste Avenue, Fresno, California, 93711",
+                                "address1": "3460 West Celeste Avenue",
+                                "address2": null,
+                                "city": "Fresno",
+                                "state": "California",
+                                "zipCode": "93711"
+                            },
+                            "propertyValue": null,
+                            "status": "Unmarried",
+                            "intendedOccupancy": null,
+                            "monthlyInsurance": null,
+                            "monthlyRentalIncome": null,
+                            "mortgages": [
+                                {
+                                    "creditor": {
+                                        "name": null
+                                    },
+                                    "accountNumber": null,
+                                    "unpaidBalance": null,
+                                    "monthlyPayment": null,
+                                    "creditLimit": null,
+                                    "type": null
+                                }
+                            ]
+                        },
+                        "section3b": {
+                            "address": {
+                                "fullAddress": "3460 West Celeste Avenue, Fresno, California, 93711",
+                                "address1": "3460 West Celeste Avenue",
+                                "address2": null,
+                                "city": "Fresno",
+                                "state": "California",
+                                "zipCode": "93711"
+                            },
+                            "propertyValue": null,
+                            "status": "Unmarried",
+                            "intendedOccupancy": null,
+                            "monthlyInsurance": null,
+                            "monthlyRentalIncome": null,
+                            "mortgages": [
+                                {
+                                    "creditor": {
+                                        "name": null
+                                    },
+                                    "accountNumber": null,
+                                    "unpaidBalance": null,
+                                    "monthlyPayment": null,
+                                    "creditLimit": null,
+                                    "type": null
+                                }
+                            ]
+                        },
+                        "section4a": {
+                            "loanAmount": null,
+                            "purposeOfLoan": "",
+                            "specify": null,
+                            "propertyAddress": {
+                                "fullAddress": "",
+                                "address1": "13109 AMANDA COURT",
+                                "address2": null,
+                                "city": "BAKERSFIELD",
+                                "state": "California",
+                                "zipCode": "93314"
+                            },
+                            "occupancy": null,
+                            "mixedUseProperty": null,
+                            "manufacturedHome": null
+                        },
+                        "section4b": {
+                            "creditors": [
+                                {
+                                    "creditor": {
+                                        "name": null
+                                    },
+                                    "lienType": null,
+                                    "monthlyPayment": null,
+                                    "creditLimit": null,
+                                    "loanAmount": null
+                                }
+                            ]
+                        },
+                        "section4c": {
+                            "expectedMonthlyRentalIncome": null
+                        },
+                        "section4d": {
+                            "assetTypes": [
+                                {
+                                    "assetType": null,
+                                    "deposited": null,
+                                    "source": null,
+                                    "cashOrMarketValue": null
+                                }
+                            ]
+                        },
+                        "section5a": {
+                            "a": null,
+                            "a1": null,
+                            "a2": null,
+                            "a3": null,
+                            "b": null,
+                            "c": null,
+                            "c1": null,
+                            "d1": null,
+                            "d2": null,
+                            "e": null
+                        },
+                        "section5b": {
+                            "f": null,
+                            "g": null,
+                            "h": null,
+                            "i": null,
+                            "j": null,
+                            "k": null,
+                            "l": null,
+                            "m": null,
+                            "m1": [
+                                {}
+                            ]
+                        }
+                    }
+                ],
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        },
+        {
+            "id": "cbcd8874-5d26-4d36-a6b8-0859eec66660",
+            "blob_id": "a9b92603-0fbb-4121-9c35-e0a1361ed375",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/a9b92603-0fbb-4121-9c35-e0a1361ed375/documents/cbcd8874-5d26-4d36-a6b8-0859eec66660.pdf"
+            },
+            "category": {
+                "category_id": 200,
+                "category_name": "Purchase Contract",
+                "source": "hil"
+            },
+            "metadata": {
+                "group_name": "1",
+                "group_index": 0,
+                "total_pages": 29,
+                "object_name": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/a9b92603-0fbb-4121-9c35-e0a1361ed375/documents/cbcd8874-5d26-4d36-a6b8-0859eec66660.pdf",
+                "category": "200_Purchase Contract",
+                "confidence": 0.9977643489837646,
+                "buyers": [
+                    {
+                        "lastName": "Montes",
+                        "firstName": "Veronica",
+                        "middleName": "",
+                        "suffix": null
+                    }
+                ],
+                "propertyAddress": {
+                    "fullAddress": "",
+                    "address1": "13109 AMANDA COURT",
+                    "address2": "",
+                    "city": "Bakersfield",
+                    "state": "California",
+                    "zipCode": "93314"
+                },
+                "datePrepared": "2026-02-09",
+                "dateSigned": "2026-02-09",
+                "signed": true,
+                "exceptions": {
+                    "for_bullzip": false,
+                    "possible_wrong_upload": false,
+                    "unsupported_language": false,
+                    "is_missing_pages": false,
+                    "copy_is_not_clear": false,
+                    "truncated": false,
+                    "blank_page": false,
+                    "split_document": false,
+                    "clarify_information_with_client": false,
+                    "refer_to_qc": false,
+                    "not_for_encoding": false,
+                    "incomplete_unitization": false,
+                    "corrupted": false,
+                    "expired": false,
+                    "insufficient_information": false,
+                    "other_exception": false,
+                    "other_exception_text": ""
+                },
+                "vision_check": "passed"
+            }
+        }
+    ],
+    "artifacts": [
+        {
+            "type": "ocr",
+            "document_id": "da616d88-454c-485b-8f7c-c52361e11bcf",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/08e37601-4259-4a80-82f2-b74608f13958/ocr/da616d88-454c-485b-8f7c-c52361e11bcf.txt"
+            }
+        },
+        {
+            "type": "ocr",
+            "document_id": "438f97fe-5d98-42f4-ad47-50b50d123c79",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/664b860d-e21c-43c0-a105-8190a2a42b00/ocr/438f97fe-5d98-42f4-ad47-50b50d123c79.txt"
+            }
+        },
+        {
+            "type": "ocr",
+            "document_id": "730e24e5-98fe-4622-9e9d-148d44908df2",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/2ffe3916-1c0f-46be-b4cf-4e64d501e6a5/ocr/730e24e5-98fe-4622-9e9d-148d44908df2.txt"
+            }
+        },
+        {
+            "type": "ocr",
+            "document_id": "7f73cbc8-7ce2-4252-8ddc-cfa853a6b682",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/8944a3bd-c7b1-4521-83c3-88d80279997e/ocr/7f73cbc8-7ce2-4252-8ddc-cfa853a6b682.txt"
+            }
+        },
+        {
+            "type": "ocr",
+            "document_id": "7cb3b3a2-5028-4f6c-a80d-d6d08ac292be",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/80194e64-5754-482a-b653-31bad8af5444/ocr/7cb3b3a2-5028-4f6c-a80d-d6d08ac292be.txt"
+            }
+        },
+        {
+            "type": "ocr",
+            "document_id": "133be867-95c6-42f8-b7ae-821104935db1",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/1e0a9382-aeed-4d2c-9e06-6cd995f5cce4/ocr/133be867-95c6-42f8-b7ae-821104935db1.txt"
+            }
+        },
+        {
+            "type": "ocr",
+            "document_id": "bb6c43f6-718a-459e-8fcc-7882a3a92751",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/74b382f2-b6ae-4e08-961b-1fd32e516da4/ocr/bb6c43f6-718a-459e-8fcc-7882a3a92751.txt"
+            }
+        },
+        {
+            "type": "ocr",
+            "document_id": "ba8b7fd9-ed91-4ddf-86c6-c9ec5449f0c2",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/2ae03342-0ca9-49dc-b434-47e0b0d0e81a/ocr/ba8b7fd9-ed91-4ddf-86c6-c9ec5449f0c2.txt"
+            }
+        },
+        {
+            "type": "ocr",
+            "document_id": "aaf6fa37-4e3c-4c7d-9788-556311a1f15b",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/77e30557-2cab-4eaf-9d99-89318d7030c5/ocr/aaf6fa37-4e3c-4c7d-9788-556311a1f15b.txt"
+            }
+        },
+        {
+            "type": "ocr",
+            "document_id": "19868faa-a7bb-4a32-a1f5-ab30ca92deb2",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/ec0c3940-d3b8-4f68-9270-07a1aee279dc/ocr/19868faa-a7bb-4a32-a1f5-ab30ca92deb2.txt"
+            }
+        },
+        {
+            "type": "ocr",
+            "document_id": "cbcd8874-5d26-4d36-a6b8-0859eec66660",
+            "source": {
+                "bucket": "tasktile-dev",
+                "key": "clients/9480b522-c02e-47de-a3d6-bc4e526745f1/jobs/4583a339-9583-4a0f-83bf-a1f0549f95b0/blobs/a9b92603-0fbb-4121-9c35-e0a1361ed375/ocr/cbcd8874-5d26-4d36-a6b8-0859eec66660.txt"
+            }
+        }
+    ]
+}

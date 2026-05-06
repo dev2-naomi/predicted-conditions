@@ -16,9 +16,9 @@ from typing import Any
 STEP_CONFIG: dict[str, dict[str, Any]] = {
     "STEP_00": {
         "name": "Scenario Builder",
-        "description": "Parse MISMO XML, loan profile JSON, and submitted documents into scenario_summary; detect missing variables and contradictions; route docs to facets.",
+        "description": "Parse MISMO XML, manifest documents, and eligibility output into scenario_summary; detect missing variables and contradictions; build document inventory; route docs and overlays to facets.",
         "plan_file": "step_00_scenario_builder.md",
-        "tools": ["parse_loan_file", "parse_loan_profile", "parse_submitted_documents", "parse_eligibility_output", "build_scenario_summary", "detect_contradictions", "route_to_facets"],
+        "tools": ["parse_loan_file", "parse_manifest_documents", "parse_eligibility_output", "load_doctype_masterlist", "build_scenario_summary", "detect_contradictions", "route_to_facets"],
         "substeps": [
                 {
                         "id": "0.1",
@@ -29,27 +29,27 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 },
                 {
                         "id": "0.2",
-                        "name": "Parse loan profile JSON",
+                        "name": "Parse manifest documents",
                         "tools": [
-                                "parse_loan_profile"
+                                "parse_manifest_documents"
                         ]
                 },
                 {
-                        "id": "0.2b",
-                        "name": "Parse submitted documents",
-                        "tools": [
-                                "parse_submitted_documents"
-                        ]
-                },
-                {
-                        "id": "0.2c",
+                        "id": "0.3",
                         "name": "Parse eligibility engine output",
                         "tools": [
                                 "parse_eligibility_output"
                         ]
                 },
                 {
-                        "id": "0.3",
+                        "id": "0.4",
+                        "name": "Load doctype masterlist",
+                        "tools": [
+                                "load_doctype_masterlist"
+                        ]
+                },
+                {
+                        "id": "0.5",
                         "name": "Build scenario summary and detect contradictions",
                         "tools": [
                                 "build_scenario_summary",
@@ -57,36 +57,14 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                         ]
                 },
                 {
-                        "id": "0.4",
-                        "name": "Route docs to facets",
+                        "id": "0.6",
+                        "name": "Route docs and overlays to facets",
                         "tools": [
                                 "route_to_facets"
                         ]
                 },
                 {
-                        "id": "0.5",
-                        "name": "Save step report",
-                        "tools": [
-                                "save_step_report"
-                        ]
-                }
-        ],
-    },
-    "STEP_00b": {
-        "name": "Submission Document Completeness Check",
-        "description": "Deterministic check of whether required submission documents are present based on transaction type and income doc type.",
-        "plan_file": "step_00b_doc_completeness.md",
-        "tools": ["check_submission_completeness"],
-        "substeps": [
-                {
-                        "id": "0b.1",
-                        "name": "Check submission completeness",
-                        "tools": [
-                                "check_submission_completeness"
-                        ]
-                },
-                {
-                        "id": "0b.2",
+                        "id": "0.7",
                         "name": "Save step report",
                         "tools": [
                                 "save_step_report"
@@ -95,27 +73,34 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         ],
     },
     "STEP_01": {
-        "name": "Cross-Cutting Gatekeeper",
-        "description": "Generate cross-cutting conditions: missing core variables, contradictions, overlay conflicts, universal compliance prerequisites.",
+        "name": "Cross-Cutting Document Needs Gatekeeper",
+        "description": "Generate document requests for missing core variables, contradictions, overlay conflicts, and file-wide blockers.",
         "plan_file": "step_01_cross_cutting.md",
-        "tools": ["check_overlay_conflicts", "generate_crosscutting_conditions"],
+        "tools": ["load_guideline_sections", "check_overlay_conflicts", "generate_crosscutting_document_requests"],
         "substeps": [
                 {
                         "id": "1.1",
+                        "name": "Load cross-cutting guideline sections",
+                        "tools": [
+                                "load_guideline_sections"
+                        ]
+                },
+                {
+                        "id": "1.2",
                         "name": "Check overlay conflicts",
                         "tools": [
                                 "check_overlay_conflicts"
                         ]
                 },
                 {
-                        "id": "1.2",
-                        "name": "Generate cross-cutting conditions",
+                        "id": "1.3",
+                        "name": "Generate cross-cutting document requests",
                         "tools": [
-                                "generate_crosscutting_conditions"
+                                "generate_crosscutting_document_requests"
                         ]
                 },
                 {
-                        "id": "1.3",
+                        "id": "1.4",
                         "name": "Save step report",
                         "tools": [
                                 "save_step_report"
@@ -124,10 +109,10 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         ],
     },
     "STEP_02": {
-        "name": "Income Conditions Engine",
-        "description": "Generate income-only conditions for W2, self-employed, bank statement, retirement, rental, DSCR, etc.",
+        "name": "Income Document Needs Engine",
+        "description": "Generate document requests for income qualification, calculation, stability, and documentation.",
         "plan_file": "step_02_income.md",
-        "tools": ["load_guideline_sections", "generate_income_conditions"],
+        "tools": ["load_guideline_sections", "generate_income_document_requests"],
         "substeps": [
                 {
                         "id": "2.1",
@@ -138,9 +123,9 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 },
                 {
                         "id": "2.2",
-                        "name": "Generate income conditions",
+                        "name": "Generate income document requests",
                         "tools": [
-                                "generate_income_conditions"
+                                "generate_income_document_requests"
                         ]
                 },
                 {
@@ -153,10 +138,10 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         ],
     },
     "STEP_03": {
-        "name": "Assets Conditions Engine",
-        "description": "Generate conditions for assets, funds to close, and reserves.",
+        "name": "Assets Document Needs Engine",
+        "description": "Generate document requests for funds to close, reserves, gifts, large deposits, sourcing, and asset ownership.",
         "plan_file": "step_03_assets.md",
-        "tools": ["load_guideline_sections", "generate_asset_conditions"],
+        "tools": ["load_guideline_sections", "generate_asset_document_requests"],
         "substeps": [
                 {
                         "id": "3.1",
@@ -167,9 +152,9 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 },
                 {
                         "id": "3.2",
-                        "name": "Generate asset conditions",
+                        "name": "Generate asset document requests",
                         "tools": [
-                                "generate_asset_conditions"
+                                "generate_asset_document_requests"
                         ]
                 },
                 {
@@ -182,10 +167,10 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         ],
     },
     "STEP_04": {
-        "name": "Credit Conditions Engine",
-        "description": "Generate credit-only conditions covering report completeness, housing history, bankruptcy, etc.",
+        "name": "Credit Document Needs Engine",
+        "description": "Generate document requests for credit report completeness, scores, tradelines, housing history, inquiries, disputes, and credit events.",
         "plan_file": "step_04_credit.md",
-        "tools": ["load_guideline_sections", "generate_credit_conditions"],
+        "tools": ["load_guideline_sections", "generate_credit_document_requests"],
         "substeps": [
                 {
                         "id": "4.1",
@@ -196,9 +181,9 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 },
                 {
                         "id": "4.2",
-                        "name": "Generate credit conditions",
+                        "name": "Generate credit document requests",
                         "tools": [
-                                "generate_credit_conditions"
+                                "generate_credit_document_requests"
                         ]
                 },
                 {
@@ -211,10 +196,10 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         ],
     },
     "STEP_05": {
-        "name": "Property and Appraisal Conditions Engine",
-        "description": "Generate conditions for subject property and appraisal requirements.",
+        "name": "Property and Appraisal Document Needs Engine",
+        "description": "Generate document requests for appraisal, valuation, property type, LTV support, rent schedule, condo/PUD, inspections, and flood/property eligibility.",
         "plan_file": "step_05_property_appraisal.md",
-        "tools": ["load_guideline_sections", "generate_property_conditions"],
+        "tools": ["load_guideline_sections", "generate_property_document_requests"],
         "substeps": [
                 {
                         "id": "5.1",
@@ -225,9 +210,9 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 },
                 {
                         "id": "5.2",
-                        "name": "Generate property and appraisal conditions",
+                        "name": "Generate property document requests",
                         "tools": [
-                                "generate_property_conditions"
+                                "generate_property_document_requests"
                         ]
                 },
                 {
@@ -240,10 +225,10 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         ],
     },
     "STEP_06": {
-        "name": "Title and Closing Conditions Engine",
-        "description": "Generate conditions for title, escrow, payoffs, and closing.",
+        "name": "Title and Closing Document Needs Engine",
+        "description": "Generate document requests for title, vesting, lien position, payoff, escrow, insurance, taxes, closing disclosure, and settlement support.",
         "plan_file": "step_06_title_closing.md",
-        "tools": ["load_guideline_sections", "generate_title_conditions"],
+        "tools": ["load_guideline_sections", "generate_title_document_requests"],
         "substeps": [
                 {
                         "id": "6.1",
@@ -254,9 +239,9 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 },
                 {
                         "id": "6.2",
-                        "name": "Generate title and closing conditions",
+                        "name": "Generate title document requests",
                         "tools": [
-                                "generate_title_conditions"
+                                "generate_title_document_requests"
                         ]
                 },
                 {
@@ -269,10 +254,10 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         ],
     },
     "STEP_07": {
-        "name": "Compliance Conditions Engine",
-        "description": "Generate conditions for compliance, disclosures, and affidavits.",
+        "name": "Compliance Document Needs Engine",
+        "description": "Generate document requests for authorizations, affidavits, occupancy certifications, business purpose, ITIN support, identity, trust/entity docs.",
         "plan_file": "step_07_compliance.md",
-        "tools": ["load_guideline_sections", "generate_compliance_conditions"],
+        "tools": ["load_guideline_sections", "generate_compliance_document_requests"],
         "substeps": [
                 {
                         "id": "7.1",
@@ -283,9 +268,9 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 },
                 {
                         "id": "7.2",
-                        "name": "Generate compliance conditions",
+                        "name": "Generate compliance document requests",
                         "tools": [
-                                "generate_compliance_conditions"
+                                "generate_compliance_document_requests"
                         ]
                 },
                 {
@@ -298,70 +283,34 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         ],
     },
     "STEP_08": {
-        "name": "Program Matrix Eligibility Check",
-        "description": "Load the program-specific matrix from program_matrices.md and verify the loan meets LTV/FICO grid, geographic, borrower, property, and DTI eligibility requirements.",
-        "plan_file": "step_08_program_eligibility.md",
-        "tools": ["check_matrix_eligibility", "load_program_matrix", "generate_matrix_conditions"],
+        "name": "Document Request Merger and Ranker",
+        "description": "Merge document requests from modules 01-07; aggregate specifications and reasons; de-duplicate; rank; produce final Predictive Document Needs List.",
+        "plan_file": "step_08_merger_ranker.md",
+        "tools": ["merge_document_requests", "rank_document_requests", "generate_final_output"],
         "substeps": [
                 {
                         "id": "8.1",
-                        "name": "Run deterministic matrix checks",
+                        "name": "Merge and de-duplicate document requests",
                         "tools": [
-                                "check_matrix_eligibility"
+                                "merge_document_requests"
                         ]
                 },
                 {
                         "id": "8.2",
-                        "name": "Load trimmed matrix for LLM review",
+                        "name": "Rank document requests",
                         "tools": [
-                                "load_program_matrix"
+                                "rank_document_requests"
                         ]
                 },
                 {
                         "id": "8.3",
-                        "name": "Generate additional matrix conditions",
-                        "tools": [
-                                "generate_matrix_conditions"
-                        ]
-                },
-                {
-                        "id": "8.4",
-                        "name": "Save step report",
-                        "tools": [
-                                "save_step_report"
-                        ]
-                }
-        ],
-    },
-    "STEP_09": {
-        "name": "Merger and Ranker",
-        "description": "Merge outputs from modules 01-08; de-duplicate, resolve conflicts, rank, and output final JSON.",
-        "plan_file": "step_09_merger_ranker.md",
-        "tools": ["merge_conditions", "rank_conditions", "generate_final_output"],
-        "substeps": [
-                {
-                        "id": "9.1",
-                        "name": "Merge and de-duplicate conditions",
-                        "tools": [
-                                "merge_conditions"
-                        ]
-                },
-                {
-                        "id": "9.2",
-                        "name": "Rank conditions",
-                        "tools": [
-                                "rank_conditions"
-                        ]
-                },
-                {
-                        "id": "9.3",
                         "name": "Generate final output",
                         "tools": [
                                 "generate_final_output"
                         ]
                 },
                 {
-                        "id": "9.4",
+                        "id": "8.4",
                         "name": "Save step report",
                         "tools": [
                                 "save_step_report"
@@ -376,7 +325,7 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
 # Step ordering (derived from phases)
 # ---------------------------------------------------------------------------
 
-STEP_ORDER: list[str] = ["STEP_00", "STEP_00b", "STEP_01", "STEP_02", "STEP_03", "STEP_04", "STEP_05", "STEP_06", "STEP_07", "STEP_08", "STEP_09"]
+STEP_ORDER: list[str] = ["STEP_00", "STEP_01", "STEP_02", "STEP_03", "STEP_04", "STEP_05", "STEP_06", "STEP_07", "STEP_08"]
 
 
 # ---------------------------------------------------------------------------
