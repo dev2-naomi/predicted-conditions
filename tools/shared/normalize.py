@@ -61,6 +61,7 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     # Authorization / 4506
     "irs form 4506-c": "IRS 4506-C Authorization",
     "irs form 4506c": "IRS 4506-C Authorization",
+    "irs form 4506-c - tax transcript authorization": "IRS 4506-C Authorization",
     "4506-c": "IRS 4506-C Authorization",
     "4506c": "IRS 4506-C Authorization",
     "borrower authorization form (4506-c)": "IRS 4506-C Authorization",
@@ -76,6 +77,11 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     "non-owner occupancy certification / investment property affidavit": "Owner Occupancy Certification",
     "occupancy certification / declaration": "Owner Occupancy Certification",
     "occupancy declaration": "Owner Occupancy Certification",
+    "occupancy certification / intent to occupy statement": "Owner Occupancy Certification",
+    "occupancy certification - primary residence": "Owner Occupancy Certification",
+    "investment property occupancy certification": "Owner Occupancy Certification",
+    "primary residence documentation": "Owner Occupancy Certification",
+    "intent to occupy statement": "Owner Occupancy Certification",
     "affidavit of occupancy": "Affidavit of Occupancy",
     "annual certification of occupancy": "Annual Certification of Occupancy",
     "primary residence verification": "Owner Occupancy Certification",
@@ -83,6 +89,8 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     # Purchase contract
     "purchase contract": "Purchase Contract",
     "purchase contract (fully executed)": "Purchase Contract",
+    "purchase contract - fully executed": "Purchase Contract",
+    "purchase contract with all addenda": "Purchase Contract",
     "fully executed purchase contract": "Purchase Contract",
 
     # Compliance / business purpose
@@ -105,6 +113,8 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     "form 1099-misc": "Form 1099-MISC",
     "consolidated 1099": "Consolidated 1099",
     "1099": "Form 1099-NEC",
+    "1099 forms": "Form 1099-NEC",
+    "1099 form": "Form 1099-NEC",
 
     # Income - tax returns
     "tax return - 1040": "Form 1040",
@@ -141,12 +151,14 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     # Income - rental
     "form 1007 rent schedule": "Rental Income Calculations Worksheet",
     "form 1007": "Rental Income Calculations Worksheet",
+    "form 1007 rent schedule / small residential income property appraisal report": "Rental Income Calculations Worksheet",
     "1007 rent schedule": "Rental Income Calculations Worksheet",
     "rent schedule": "Rental Income Calculations Worksheet",
     "rental income calculations worksheet": "Rental Income Calculations Worksheet",
     "lease agreement": "Rental Agreement",
     "rental agreement": "Rental Agreement",
     "lease": "Rental Agreement",
+    "evidence property listed for rent": "Rental Agreement",
 
     # Income - LOE
     "letter of explanation - declining income": "Income LOE",
@@ -158,7 +170,13 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     # Income - other
     "business license or cpa letter": "Verification of Employment",
     "business verification letter": "Verification of Employment",
+    "business verification - active status": "Verification of Employment",
+    "active status verification": "Verification of Employment",
     "cpa verification letter": "Verification of Employment",
+    "cpa letter / business ownership verification": "Verification of Employment",
+    "cpa letter / business verification letter": "Verification of Employment",
+    "cpa letter": "Verification of Employment",
+    "business verification - active and operating": "Verification of Employment",
     "ssa 1099": "SSA 1099",
     "award letter": "Award Letter",
     "employment contract": "Employment Contract",
@@ -170,6 +188,8 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     "additional bank statements - all accounts": "Bank Statement",
     "business bank statements": "Bank Statement",
     "bank statements - rental income receipt": "Bank Statement",
+    "bank statements - rental income verification": "Bank Statement",
+    "bank statements - rental deposit verification": "Bank Statement",
     "earnest money deposit verification": "Verification of Deposit",
     "emd verification": "Verification of Deposit",
     "earnest money deposit": "Verification of Deposit",
@@ -189,6 +209,8 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     "loe source of large deposits": "LOE Source of Large Deposits",
     "letter of explanation - large deposit": "LOE Source of Large Deposits",
     "large deposit loe": "LOE Source of Large Deposits",
+    "letter of explanation - large deposits": "LOE Source of Large Deposits",
+    "letter of explanation - large or unusual deposits": "LOE Source of Large Deposits",
 
     # Credit
     "credit report": "Credit Report",
@@ -217,15 +239,25 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     "flood determination": "Flood Hazard Determination",
     "flood hazard determination": "Flood Hazard Determination",
     "flood certification": "Flood Certification",
+    "flood insurance": "Flood Certification",
     "property insurance": "Hazard Insurance",
+    "property insurance / hazard insurance": "Hazard Insurance",
     "hazard insurance": "Hazard Insurance",
     "hazard insurance declaration page": "Hazard Insurance",
     "homeowners insurance": "Hazard Insurance",
     "rent loss insurance": "Hazard Insurance",
     "rent loss insurance evidence": "Hazard Insurance",
+    "rent loss insurance / loss of rents coverage": "Hazard Insurance",
+    "loss of rents coverage": "Hazard Insurance",
     "1-4 family rider": "Deed of Trust",
+    "1-4 family rider / assignment of rents": "Deed of Trust",
+    "1-4 family rider (assignment of rents)": "Deed of Trust",
+    "assignment of rents": "Deed of Trust",
     "property inspection": "Property Inspection",
     "commercial bpo / field review": "Appraisal Report",
+    "commercial bpo / evaluation": "Appraisal Report",
+    "commercial bpo or field review": "Appraisal Report",
+    "commercial bpo": "Appraisal Report",
     "form 1025 small residential income property appraisal report": "Appraisal Report",
     "condo questionnaire": "Condo PUD Questionnaire",
     "condo pud questionnaire": "Condo PUD Questionnaire",
@@ -257,12 +289,27 @@ _DOCTYPE_ALIASES: dict[str, str] = {
 
     # Settlement / source of funds (delayed financing)
     "settlement statement - original purchase": "Settlement Statement",
+    "original purchase settlement statement": "Settlement Statement",
     "source of funds - original purchase": "Bank Statement",
+    "source of funds documentation": "Bank Statement",
+    "source of funds documentation - delayed financing": "Bank Statement",
+    "delayed financing documentation - source of funds": "Bank Statement",
+    "delayed financing documentation": "Bank Statement",
+    "delayed financing transaction documentation": "Bank Statement",
 
     # Entity / Trust / Legal
     "trust documents": "Trust Documents",
+    "entity documentation": "Trust Documents",
+    "entity documentation - llc operating agreement and articles of organization": "Trust Documents",
+    "entity documentation - vesting verification": "Trust Documents",
+    "entity documentation - llc/trust (if applicable)": "Trust Documents",
+    "entity documentation package - llc/corporation": "Trust Documents",
+    "entity documentation package": "Trust Documents",
+    "llc operating agreement": "Trust Documents",
+    "articles of organization": "Trust Documents",
     "power of attorney": "Power of Attorney",
     "divorce decree": "Divorce Decree",
+    "non-borrowing owner acknowledgment letter": "Borrowers Authorization",
 
     # ITIN
     "itin": "ITIN",
@@ -300,23 +347,74 @@ _MULTI_TYPE_DOCS: dict[str, list[str]] = {
     ],
 }
 
-# Build the masterlist name set at import time for validation
+# Build the masterlist name set and lowercase lookup at import time
 _MASTERLIST_NAMES: set[str] = set()
+_MASTERLIST_LOWER: dict[str, str] = {}  # lowercase -> canonical
 
 
 def _load_masterlist_names() -> None:
-    global _MASTERLIST_NAMES
+    global _MASTERLIST_NAMES, _MASTERLIST_LOWER
     if _MASTERLIST_NAMES:
         return
     ml_path = Path(__file__).parent.parent.parent / "data" / "doctype_masterlist.json"
-    if ml_path.exists():
-        with open(ml_path, encoding="utf-8") as f:
-            data = json.load(f)
-        _MASTERLIST_NAMES = {d["document_type"] for d in data if d.get("nqm_relevant")}
+    if not ml_path.exists():
+        return
+    with open(ml_path, encoding="utf-8") as f:
+        data = json.load(f)
+    nqm = {d["document_type"] for d in data if d.get("nqm_relevant")}
+    _MASTERLIST_NAMES = nqm
+    _MASTERLIST_LOWER = {n.lower(): n for n in nqm}
+
+
+def _fuzzy_match(name: str) -> str | None:
+    """Try substring and token-based matching against the masterlist."""
+    lower = name.lower().strip()
+
+    # Strip common suffixes/prefixes the LLM adds
+    for noise in [
+        " - tax transcript authorization", " - fully executed",
+        " with all addenda", " (fully executed)", " - all pages",
+        " / intent to occupy statement", " - active status",
+        " - rental income verification", " - rental income receipt",
+        " - rental deposit verification",
+        " - source of funds", " - original purchase",
+        " - llc operating agreement and articles of organization",
+        " - llc/trust (if applicable)", " - llc/corporation",
+        " package - llc/corporation", " - vesting verification",
+        " - active and operating",
+        " (assignment of rents)",
+        " - primary residence",
+        " / loss of rents coverage",
+        " / hazard insurance",
+    ]:
+        if lower.endswith(noise):
+            lower = lower[: -len(noise)].strip()
+            break
+        if noise.lstrip(" -/") in lower:
+            candidate = lower.replace(noise.lstrip(" -/"), "").strip(" -/,")
+            if candidate in _MASTERLIST_LOWER:
+                return _MASTERLIST_LOWER[candidate]
+
+    if lower in _MASTERLIST_LOWER:
+        return _MASTERLIST_LOWER[lower]
+
+    # Try alias lookup on the cleaned name
+    alias = _DOCTYPE_ALIASES.get(lower)
+    if alias:
+        return alias
+
+    return None
 
 
 def normalize_document_type(name: str) -> str:
-    """Map an LLM-generated document name to the canonical masterlist name."""
+    """Map an LLM-generated document name to the canonical masterlist name.
+
+    Resolution order:
+    1. Exact match in masterlist
+    2. Exact match in _DOCTYPE_ALIASES (case-insensitive)
+    3. Fuzzy match (strip LLM noise suffixes, then re-check)
+    4. Pass through unchanged
+    """
     if not name:
         return "Unknown"
 
@@ -328,6 +426,10 @@ def normalize_document_type(name: str) -> str:
     alias = _DOCTYPE_ALIASES.get(name.lower().strip())
     if alias:
         return alias
+
+    fuzzy = _fuzzy_match(name)
+    if fuzzy:
+        return fuzzy
 
     return name
 
@@ -404,7 +506,15 @@ def normalize_document_request(dr: dict, default_category: str = "Other") -> dic
 
 
 def normalize_all(document_requests: list[dict], default_category: str = "Other") -> list[dict]:
-    """Normalize a list of document request dicts."""
+    """Normalize a list of document request dicts.
+
+    Documents that don't resolve to a canonical masterlist name are dropped.
+    """
+    _load_masterlist_names()
+    result = []
     for dr in document_requests:
         normalize_document_request(dr, default_category)
-    return document_requests
+        dt = dr.get("document_type", "")
+        if dt in _MASTERLIST_NAMES or dt in _MULTI_TYPE_DOCS:
+            result.append(dr)
+    return result

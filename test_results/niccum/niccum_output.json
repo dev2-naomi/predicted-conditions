@@ -96,10 +96,10 @@
       "subject_property_rental_income": null
     },
     "doc_profile": [
+      "purchase_contract",
       "other",
       "bank_statement",
-      "loan_application",
-      "purchase_contract"
+      "loan_application"
     ],
     "housing_expenses": {
       "present": [],
@@ -360,35 +360,30 @@
   "document_requests": [
     {
       "document_type": "Credit Report",
-      "document_category": "Credit",
-      "borrower_name": "Marlene A Melendez Niccum",
+      "category": "credit",
       "priority": "P0",
+      "borrower": "Marlene A Melendez Niccum",
       "specifications": [
-        "Must be a tri-merge or Residential Mortgage Credit Report (RMCR) from all 3 major bureaus (Experian, TransUnion, Equifax)",
+        "Must be a tri-merge or Residential Mortgage Credit Report (RMCR) from approved credit reporting agencies (Experian, TransUnion, Equifax)",
         "Must include all borrowers on the loan",
-        "Must display credit scores from all reporting bureaus",
-        "Must show complete tradeline details including payment history, balances, and account status",
-        "Must include inquiries, public records, disputes, collections, charge-offs, and fraud alerts if any",
-        "Must verify all credit references provided on loan application",
-        "Must certify results of public record searches for each city of residence in last 2 years",
-        "Must be dated within program-allowed recency window",
-        "Must verify valid Social Security number for borrower"
+        "Must verify Social Security Number for borrower",
+        "Must display credit scores from all three bureaus",
+        "Must show complete tradeline details including account history, balances, and payment status",
+        "Must show mortgage/housing payment history if applicable",
+        "Must include all inquiries, public records, disputes, collections, charge-offs, and alerts",
+        "Must certify results of public record searches for each city where borrower resided in last 2 years",
+        "Must be dated within program recency requirements"
       ],
       "reasons_needed": [
-        "Credit score of 780 must be verified to validate Flex Select program eligibility",
-        "Tradeline requirements must be reviewed per NQMF guidelines",
-        "Housing history verification is required per guidelines",
-        "Credit report is needed to confirm no credit events, bankruptcies, foreclosures, or short sales exist",
-        "Public record search required to verify no undisclosed liens or judgments",
-        "Required to identify any disputes or fraud alerts requiring resolution"
+        "Credit score of 780 must be verified to confirm program eligibility for Flex Select",
+        "Tradeline requirements must be validated (3 tradelines 12+ months OR 2 tradelines 24+ months with activity in last 12 months)",
+        "Credit report is required to identify any credit events, inquiries, disputes, or housing history",
+        "Public records search required to verify no undisclosed judgments, liens, or bankruptcies",
+        "Tri-merge report required per NQM Funding guidelines for all borrowers"
       ],
-      "source_guidelines": [
-        "NQMF Credit Report Requirements",
-        "NQMF Housing Events and Prior Bankruptcy"
-      ],
-      "relevance_gate_passed": true,
-      "gate_reason": "Credit Report is ALWAYS required for all loan programs",
+      "guideline_reference": "NQM Funding Underwriting Guidelines - Credit Report section",
       "severity": "SOFT-STOP",
+      "document_category": "Credit",
       "status": "needed",
       "tags": [
         "credit"
@@ -399,26 +394,34 @@
       "document_id": "CC-001",
       "document_name": "Government-Issued Photo ID",
       "document_category": "Cross-Cutting",
-      "borrower_name": "Marlene A Melendez Niccum",
       "priority": "P1",
       "specifications": [
         "Must be valid (not expired) government-issued photo identification",
-        "Must include borrower's full legal name matching loan application",
-        "Must include photograph clearly identifying the borrower",
-        "Acceptable forms: Driver's license, Passport, State ID, Military ID",
-        "Must reconcile name 'Marlene A Melendez Niccum' with any variations on other documents"
+        "Must display borrower's full legal name matching loan application",
+        "Must include photograph, signature, and date of birth",
+        "Acceptable forms: Driver's License, Passport, State ID, Military ID"
       ],
       "reasons_needed": [
         {
-          "reason": "Borrower identity verification is required for all loan transactions",
+          "reason": "Identity verification is required for all borrowers before underwriting can proceed",
           "reason_type": "compliance"
         },
         {
-          "reason": "Government ID establishes authoritative borrower name for cross-document validation",
+          "reason": "Borrower name on ID must reconcile with all loan documents, credit report, and title",
           "reason_type": "document_validation"
         }
       ],
+      "borrower_name": "Marlene A Melendez Niccum",
+      "source_step": "STEP_01_CROSSCUTTING",
       "document_type": "Government-Issued Photo ID",
+      "acceptable_types": [
+        "Drivers License",
+        "Passport",
+        "Non-Driver ID",
+        "Permanent Resident Card",
+        "Social Security ID",
+        "Travel VISA"
+      ],
       "severity": "SOFT-STOP",
       "status": "needed",
       "tags": [
@@ -430,27 +433,27 @@
       "document_id": "CC-002",
       "document_name": "IRS Form 4506-C",
       "document_category": "Cross-Cutting",
-      "borrower_name": "Marlene A Melendez Niccum",
       "priority": "P1",
       "specifications": [
-        "Must be fully executed with original borrower signature",
-        "Must include current date within 120 days of closing",
-        "Must list correct borrower name and Social Security Number",
-        "Must identify subject property address correctly",
-        "Must authorize IRS to release tax transcripts for applicable tax years",
-        "Required per NQMF guidelines for all income documentation types"
+        "Must be fully executed and signed by borrower",
+        "Must include correct borrower name, SSN, and current address",
+        "Must specify tax years to be requested (typically last 2 years)",
+        "Must be dated within 120 days of closing",
+        "Signature must match borrower's legal name on loan application"
       ],
       "reasons_needed": [
         {
-          "reason": "IRS Form 4506-C is mandatory per NQMF guidelines for income verification",
+          "reason": "Per NQMF guidelines, a fully executed and signed IRS Form-4506C is required for all income documentation",
           "reason_type": "guideline_requirement"
         },
         {
-          "reason": "Tax transcript authorization enables verification of income documentation",
-          "reason_type": "document_validation"
+          "reason": "Required to authorize lender to obtain tax transcripts for income verification",
+          "reason_type": "compliance"
         }
       ],
-      "document_type": "IRS Form 4506-C",
+      "borrower_name": "Marlene A Melendez Niccum",
+      "source_step": "STEP_01_CROSSCUTTING",
+      "document_type": "IRS 4506-C Authorization",
       "severity": "SOFT-STOP",
       "status": "needed",
       "tags": [
@@ -460,59 +463,30 @@
     },
     {
       "document_id": "CC-003",
-      "document_name": "Occupancy Certification",
+      "document_name": "Fully Executed Purchase Contract",
       "document_category": "Cross-Cutting",
-      "borrower_name": "Marlene A Melendez Niccum",
       "priority": "P1",
       "specifications": [
-        "Must certify intent to occupy subject property as primary residence",
-        "Must include borrower signature and date",
-        "Must identify subject property address",
-        "Must be consistent with loan application declarations",
-        "Must confirm borrower will occupy within 60 days of closing"
+        "Must include all pages, addenda, and amendments",
+        "Must be fully executed with all party signatures and dates",
+        "Must identify subject property address matching loan application",
+        "Must state purchase price of $1,020,000 consistent with loan scenario",
+        "Must identify buyer as Marlene A Melendez Niccum or entity taking title",
+        "Must include earnest money deposit amount and holder",
+        "Must include closing date and contingency dates"
       ],
       "reasons_needed": [
         {
-          "reason": "Primary residence occupancy must be certified for eligibility determination",
-          "reason_type": "eligibility"
-        },
-        {
-          "reason": "Occupancy type affects LTV limits, reserve requirements, and documentation rules",
-          "reason_type": "guideline_requirement"
-        }
-      ],
-      "document_type": "Occupancy Certification",
-      "severity": "SOFT-STOP",
-      "status": "needed",
-      "tags": [
-        "crosscutting"
-      ],
-      "source_module": "01"
-    },
-    {
-      "document_id": "CC-004",
-      "document_name": "Purchase Contract",
-      "document_category": "Cross-Cutting",
-      "borrower_name": "Marlene A Melendez Niccum",
-      "priority": "P1",
-      "specifications": [
-        "Must be fully executed with all parties' signatures",
-        "Must show purchase price consistent with loan scenario ($1,020,000 implied from 73.9% LTV)",
-        "Must identify subject property address in California",
-        "Must include all addenda, amendments, and counteroffers",
-        "Must show closing date, earnest money deposit, and financing contingencies",
-        "Must identify buyer name matching borrower on loan application"
-      ],
-      "reasons_needed": [
-        {
-          "reason": "Purchase transaction requires executed purchase contract to establish terms",
+          "reason": "Purchase transaction requires executed contract to verify purchase price, parties, and terms",
           "reason_type": "transaction_type"
         },
         {
-          "reason": "Contract validates purchase price for LTV calculation and arms-length verification",
-          "reason_type": "document_validation"
+          "reason": "Contract validates LTV calculation: $753,750 loan amount / $1,020,000 purchase price = 73.9% LTV",
+          "reason_type": "eligibility_validation"
         }
       ],
+      "borrower_name": "Marlene A Melendez Niccum",
+      "source_step": "STEP_01_CROSSCUTTING",
       "document_type": "Purchase Contract",
       "severity": "SOFT-STOP",
       "status": "needed",
@@ -522,44 +496,84 @@
       "source_module": "01"
     },
     {
-      "document_type": "Personal Bank Statements",
-      "document_category": "Income",
+      "document_type": "Verification of Mortgage",
+      "category": "credit",
+      "priority": "P1",
       "borrower": "Marlene A Melendez Niccum",
       "specifications": [
-        "Must include 12 consecutive months of statements as required by Flex Select program",
-        "Must include all pages of each monthly statement",
-        "Must show account holder name matching borrower identity",
-        "Must show financial institution name and account number or partial account number",
-        "Must show beginning and ending balances for each statement period",
-        "Must show all deposits clearly for income calculation review",
-        "Must be from personal checking or savings account used for business income transfers",
-        "Statements must be legible and complete without redactions",
-        "Must provide most recent 2 consecutive months of statements",
-        "Must include all pages of each statement (even if blank)",
-        "Must show borrower name as account holder",
-        "Must show financial institution name and logo",
-        "Must show account number (full or last 4 digits acceptable)",
-        "Must show beginning and ending balances for each month",
-        "Must show complete transaction history",
-        "Must be dated within 90 days of note date per NQMF guidelines",
-        "Must cover all accounts being used for funds to close",
-        "Must identify any deposits exceeding 50% of qualifying income for sourcing review"
+        "Must cover most recent 12 months of payment history",
+        "Must identify borrower name and property address for each mortgage held",
+        "Must show detailed payment history with dates and amounts",
+        "Must indicate any late payments (30/60/90/120 day delinquencies)",
+        "Must be from current mortgage servicer or reflected on credit report",
+        "Must support 0x30x12 housing history requirement if applicable"
       ],
       "reasons_needed": [
-        "Bank statement income documentation requires 12 consecutive months per program guidelines",
-        "Personal bank statements are required to calculate qualifying income using deposit analysis",
-        "Deposit pattern must support the qualifying income amount",
-        "Account ownership must be verified to match borrower on loan application",
-        "NQMF guidelines require assets dated within 90 days of note date",
-        "Must verify sufficient funds for down payment (26.1% at 73.9% LTV)",
-        "Must verify funds for closing costs and prepaid items",
-        "Must confirm account ownership matches borrower",
-        "Must support funds to close calculation for $753,750 purchase transaction",
-        "Large deposits may require additional sourcing documentation"
+        "Housing history verification required per NQM Funding guidelines for all programs",
+        "12-month 0x30 housing history required to verify no late mortgage payments",
+        "Mortgage payment history may satisfy tradeline requirement (24 month mortgage history with 0x30x12)",
+        "Late payments on existing mortgages may affect qualification or pricing",
+        "Required to confirm borrower meets housing history standards for Flex Select program"
       ],
-      "guideline_source": "NQMF Bank Statement Documentation - Calculating Qualifying Income",
-      "priority": "P1",
+      "guideline_reference": "NQM Funding Underwriting Guidelines - Housing History and Standard Tradelines sections",
+      "condition": "Required if borrower has existing mortgage(s) - if credit report shows complete 12-month mortgage payment history with no lates, separate verification may not be needed",
       "severity": "SOFT-STOP",
+      "document_category": "Credit",
+      "status": "needed",
+      "tags": [
+        "credit"
+      ],
+      "source_module": "04"
+    },
+    {
+      "document_type": "Bank Statement",
+      "borrower_name": "Marlene A Melendez Niccum",
+      "priority": "P1",
+      "specifications": [
+        "Must include 12 consecutive months of statements from primary personal bank account",
+        "Must include all pages of each monthly statement",
+        "Must show account holder name matching borrower name",
+        "Must show financial institution name and account number or partial account number",
+        "Must show beginning and ending balance for each month",
+        "Must show all deposits clearly for income calculation",
+        "Must identify transfers from business account(s) if applicable",
+        "Must be dated within the most recent 12 months prior to application date",
+        "Statements must be complete with no missing months",
+        "Must provide 2 most recent consecutive months of statements",
+        "Must include all pages of each statement",
+        "Must show borrower name as account holder",
+        "Must show financial institution name and logo",
+        "Must show account number (full or masked acceptable)",
+        "Must show beginning and ending balances for each month",
+        "Must show complete transaction history",
+        "Statements must be dated within 90 days of note date per NQMF guidelines",
+        "Must show sufficient verified funds for down payment, closing costs, prepaid items, and reserves",
+        "Large deposits exceeding 50% of qualifying income require sourcing documentation",
+        "Must document sufficient liquid reserves beyond funds needed for closing",
+        "Reserves calculated as months of PITIA (Principal, Interest, Taxes, Insurance, Association dues)",
+        "Bank statements provided for funds to close may satisfy reserve verification if sufficient balance remains post-closing",
+        "Must show assets are liquid and accessible (checking, savings, money market accounts)",
+        "Assets must be dated within 90 days of note date",
+        "Gift funds may NOT be used to meet reserve requirements per NQMF guidelines"
+      ],
+      "reasons_needed": [
+        "Bank Statement (12 Mo. Personal) income documentation type requires 12 consecutive months of personal bank statements",
+        "Qualifying income is calculated as sum of total eligible deposits divided by 12 months",
+        "Only transfers or deposits from business account(s) are considered eligible deposits per guidelines",
+        "Account ownership and deposit pattern must be verified to support qualifying income calculation",
+        "NQMF guidelines require assets be verified for down payment, closing costs, prepaid items, debt payoff, and reserves",
+        "Assets must be from acceptable sources per NQMF guidelines",
+        "Account ownership must be confirmed to borrower",
+        "73.9% LTV purchase requires verification of approximately 26.1% equity contribution",
+        "Reserve requirements must be supported by verified liquid assets",
+        "Reserve requirements apply based on loan program, occupancy, and property type",
+        "Post-closing liquidity demonstrates borrower's ability to manage mortgage payments",
+        "NQMF requires verification of reserves from acceptable asset sources",
+        "Primary residence purchase at 73.9% LTV may have reserve requirements per program matrix"
+      ],
+      "guideline_reference": "NQMF Bank Statement Income - CALCULATING QUALIFYING INCOME",
+      "severity": "SOFT-STOP",
+      "document_category": "Income",
       "status": "needed",
       "tags": [
         "income",
@@ -571,24 +585,27 @@
       "overlay_trace": []
     },
     {
-      "document_type": "Bank Statement Income Analysis",
-      "document_category": "Income",
-      "borrower": "Marlene A Melendez Niccum",
+      "document_type": "Profit and Loss",
+      "borrower_name": "Marlene A Melendez Niccum",
+      "priority": "P1",
       "specifications": [
-        "Must calculate total eligible deposits over 12-month period",
-        "Must identify and exclude ineligible deposits (transfers, refunds, loans, non-business deposits)",
-        "Must show monthly deposit totals and averaging calculation",
-        "Must identify qualifying income derived from bank statement review",
-        "Must note any large or unusual deposits requiring explanation"
+        "Must be prepared and signed by a CPA, EA, or PTIN licensed tax preparer",
+        "Must be dated within 120 days of loan closing",
+        "Must specify business expenses as a percentage of gross annual sales/revenue",
+        "Must cover the same 12-month period as the bank statements",
+        "The preparer must attest they have prepared or reviewed the borrower's most recent tax return",
+        "Minimum 20% expense ratio is required if using third-party expense statement option",
+        "Must include preparer's license number and contact information"
       ],
       "reasons_needed": [
-        "Qualifying income using Personal Bank Statement Documentation is calculated as total eligible deposits divided by 12 months per guidelines",
-        "Only transfers or deposits from business accounts are considered eligible deposits per NQMF guidelines",
-        "Income analysis documents the underwriting calculation methodology"
+        "P&L Statement is required to calculate expense ratio for 12-month bank statement program",
+        "Third-party P&L allows for expense ratio calculation other than default 50%",
+        "Guidelines require P&L to be signed and dated by CPA/EA or PTIN licensed tax preparer",
+        "Expense ratio determines net qualifying income from gross deposits"
       ],
-      "guideline_source": "NQMF Guidelines - Calculating Qualifying Income (Personal Bank Statements)",
-      "priority": "P1",
+      "guideline_reference": "NQMF Bank Statement Income - OPTION 2/OPTION 3 EXPENSE STATEMENT",
       "severity": "SOFT-STOP",
+      "document_category": "Income",
       "status": "needed",
       "tags": [
         "income"
@@ -596,50 +613,28 @@
       "source_module": "02"
     },
     {
-      "document_type": "Business License or CPA Letter",
-      "document_category": "Income",
-      "borrower": "Marlene A Melendez Niccum",
-      "specifications": [
-        "Must verify self-employment or business ownership status",
-        "Must show business name if applicable",
-        "Must show borrower's connection to the business",
-        "CPA letter must be signed by licensed CPA or tax preparer"
-      ],
-      "reasons_needed": [
-        "Bank statement income programs require verification of self-employment or business ownership",
-        "Business relationship must be verified to validate that deposits represent business income",
-        "A borrower is considered self-employed with 25% or more ownership interest in a business per NQMF guidelines"
-      ],
-      "guideline_source": "NQMF Self-Employment Income Guidelines",
-      "priority": "P1",
-      "severity": "SOFT-STOP",
-      "status": "needed",
-      "tags": [
-        "income"
-      ],
-      "source_module": "02"
-    },
-    {
-      "document_type": "Earnest Money Deposit Verification",
+      "document_type": "Verification of Deposit",
       "category": "Assets",
       "priority": "P1",
-      "borrower_name": "Marlene A Melendez Niccum",
+      "borrower_names": [
+        "Marlene A Melendez Niccum"
+      ],
       "specifications": [
-        "Must show EMD amount deposited per purchase contract",
-        "Must provide copy of cancelled check or bank statement showing withdrawal",
-        "Must show deposit into escrow/title company or seller's agent account",
-        "Must match EMD amount stated in purchase contract",
-        "Must show borrower as source of funds",
-        "If EMD came from account not used for other funds to close, must provide statement for that account"
+        "Must provide copy of cancelled check or wire confirmation for EMD",
+        "Must show EMD amount matches purchase contract",
+        "Must show funds sourced from borrower's verified account",
+        "Must include evidence EMD was deposited with escrow/title company",
+        "Copy of deposit receipt from escrow holder acceptable",
+        "If EMD from account not previously disclosed, must provide bank statement showing source"
       ],
       "reasons_needed": [
         "Purchase transaction requires verification of earnest money deposit",
-        "EMD amount will be credited toward funds to close at settlement",
-        "Must confirm EMD came from borrower's verified funds",
-        "Must reconcile EMD to purchase contract terms"
+        "EMD must be sourced to confirm acceptable origin of funds",
+        "EMD contributes to borrower's funds to close calculation",
+        "Title company must confirm receipt of deposit for settlement"
       ],
-      "guideline_reference": "NQMF Assets Section - Funds to Close",
-      "trigger_condition": "Purpose = Purchase",
+      "guideline_reference": "NQMF Guidelines - ASSETS section (funds to close verification)",
+      "overlay_applied": null,
       "severity": "SOFT-STOP",
       "document_category": "Assets",
       "status": "needed",
@@ -650,37 +645,32 @@
     },
     {
       "document_type": "Appraisal Report",
-      "form_type": "Form 1004",
+      "category": "property",
+      "priority": "P1",
       "specifications": [
-        "Must identify subject property address matching 123 Main Street, Anytown, CA from purchase contract",
-        "Must identify property type as Single Family Residence (SFR)",
-        "Must show appraised value supporting the purchase price and LTV calculation of 73.9%",
-        "Must be completed on FNMA Form 1004 (Uniform Residential Appraisal Report) for 1-unit property",
-        "Must be dated within 120 days of Note date to avoid recertification requirement",
+        "Must be completed on FNMA Form 1004 (Uniform Residential Appraisal Report) for 1-unit SFR property",
+        "Must identify subject property address and confirm property type as single-family residence",
+        "Must include appraised value to support LTV/CLTV calculation at 73.9%",
+        "Must be dated within 120 days of Note date; if exceeds 120 days, recertification will be required (max 365 days from Note date)",
         "Must include all pages, addenda, and appraiser certification",
-        "Must include interior and exterior photographs including front, rear, street scene, kitchen, bathrooms, and main living areas",
-        "Must include floor plan sketch with gross living area calculations",
-        "Must include street map showing subject and all comparable sales used",
-        "Must confirm property condition is C4 or better (C5/C6 not acceptable per guidelines)",
-        "Must confirm no health or safety issues, deferred maintenance, or structural concerns",
-        "Must confirm property meets minimum standards: year-round availability, kitchen, bathroom, heated by permanent source",
-        "Must confirm property usage represents highest and best use",
-        "Must disclose any repairs, adverse conditions, or inspection requirements",
-        "Must identify borrower/owner/occupant information and reconcile with loan file",
-        "Must include analysis of any prior sales of subject property within 3 years",
-        "Must include appraiser license/certification and E&O insurance confirmation"
+        "Must include street map showing location of subject property and all comparables used",
+        "Must include exterior building sketch with dimensions and floor plan sketch with gross living area calculations",
+        "Must include original color photographs: front view, street view, rear view, kitchen, all bathrooms, main living area",
+        "Must include comparable sales analysis with sales comparison approach completed",
+        "Must confirm property is in average or better condition (C4 or better rating)",
+        "Must disclose any repairs, adverse conditions, deferred maintenance, or health/safety issues",
+        "Must confirm property meets minimum property standards: year-round use, full kitchen/bathroom, no environmental hazards",
+        "Must include appraiser's license/certification and Errors & Omissions insurance confirmation",
+        "Must reconcile borrower/owner information with loan file"
       ],
       "reasons_needed": [
-        "Collateral valuation is required for underwriting all purchase transactions",
-        "LTV/CLTV eligibility of 73.9% depends on appraised value confirmation",
-        "Property type and unit count affect program eligibility under Flex Select",
-        "Form 1004 required for single-family residence per NQMF appraisal guidelines",
-        "Subject property identity must be consistent across loan file",
-        "Property condition must be verified as C4 or better per NQMF property condition requirements",
-        "NQMF requires properties meet minimum property standards for residential use"
+        "Collateral valuation is required for underwriting the $753,750 purchase loan",
+        "LTV/CLTV eligibility at 73.9% depends on verified appraised value",
+        "Property type and condition affect program eligibility under Flex Select guidelines",
+        "NQMF guidelines require Form 1004 for 1-unit residential properties",
+        "Subject property identity must be consistent across the loan file",
+        "Appraisal age requirements must be met per NQMF policy (120 days for currency, 365 days maximum)"
       ],
-      "priority": "P1",
-      "category": "property",
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -690,21 +680,22 @@
       "source_module": "05"
     },
     {
-      "document_type": "SSR / UCDP Findings",
+      "document_type": "UCDP SSR",
+      "category": "property",
+      "priority": "P1",
       "specifications": [
-        "Must be generated from Uniform Collateral Data Portal (UCDP) submission",
-        "Must show SSR Score of 2.5 or less for acceptable appraisal validation",
-        "Must identify subject property address matching appraisal",
-        "Must flag any data quality issues or value concerns requiring resolution",
-        "Must be dated concurrent with appraisal submission"
+        "Must include Submission Summary Report (SSR) from UCDP portal",
+        "Must show SSR Score - score of 2.5 or less required for appraisal acceptance per NQMF guidelines",
+        "Must identify subject property address matching appraisal report",
+        "Must confirm appraisal was submitted to UCDP portal",
+        "Must disclose any flags, warnings, or overvaluation indicators"
       ],
       "reasons_needed": [
-        "NQMF appraisal review process requires SSR Score of 2.5 or less as acceptable secondary product",
-        "UCDP submission validates appraisal data quality and supports collateral assessment",
-        "Required as standard appraisal review product per guidelines"
+        "NQMF Appraisal Review Process requires secondary appraisal product to support valuation",
+        "SSR Score of 2.5 or less is primary acceptable review product per guidelines",
+        "Validates appraisal data integrity and compliance with industry standards",
+        "Required to identify potential collateral risk issues before underwriting completion"
       ],
-      "priority": "P1",
-      "category": "property",
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -714,24 +705,24 @@
       "source_module": "05"
     },
     {
-      "document_type": "Flood Determination",
+      "document_type": "Flood Hazard Determination",
+      "category": "property",
+      "priority": "P1",
       "specifications": [
-        "Must be a FEMA Standard Flood Hazard Determination form",
-        "Must identify subject property address matching appraisal and purchase contract",
-        "Must clearly indicate flood zone designation (Zone A, V, or non-SFHA)",
-        "Must indicate whether property is in Special Flood Hazard Area (SFHA)",
-        "Must indicate whether property is in Coastal Barrier System (CBRS) or Otherwise Protected Area (OPA)",
-        "Must identify NFIP community participation status if in flood zone",
+        "Must be a FEMA-standard Life of Loan Flood Determination Certificate",
+        "Must identify subject property address accurately",
+        "Must indicate flood zone designation (Section B4)",
+        "Must indicate whether property is in Special Flood Hazard Area (SFHA) - Zone A or Zone V",
+        "Must indicate NFIP community participation status if in SFHA",
+        "Must indicate whether improvements are in the flood zone",
         "Must be issued by certified flood determination provider"
       ],
       "reasons_needed": [
-        "Flood zone determination is required on all transactions per NQMF guidelines",
-        "Determines whether flood insurance is required (mandatory for Zone A or V)",
-        "Properties in Flood Zone A or V must be in FEMA-participating community to be eligible",
-        "Required to comply with federal flood insurance requirements"
+        "Required to determine whether flood insurance is required for the subject property",
+        "Properties in SFHA (Zone A or V) require flood insurance per NQMF and federal requirements",
+        "Properties in Zone A or V must be in FEMA-participating community to be eligible for financing",
+        "Flood zone must be reconciled with appraisal report flood zone notation"
       ],
-      "priority": "P1",
-      "category": "property",
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -741,27 +732,30 @@
       "source_module": "05"
     },
     {
-      "document_type": "Property Insurance",
+      "document_type": "Hazard Insurance",
+      "category": "property",
+      "priority": "P1",
       "specifications": [
-        "Must be hazard/homeowners insurance policy, certificate of insurance, or binder",
-        "Named insured must include all borrowers holding title (Marlene A Melendez Niccum)",
-        "Property address must match subject property on note/security instrument",
-        "Must include standard mortgagee clause naming NQM Funding, LLC or its servicer",
-        "Coverage must be replacement cost basis (actual cash value not acceptable)",
-        "Must cover fire, lightning, windstorm, hail, explosion, smoke, aircraft, vehicles, riot/civil commotion",
+        "Must be hazard insurance policy protecting against fire and standard extended coverage perils",
+        "Must include coverage for: fire/lightning, explosion, windstorm (including named storms), hail, smoke, aircraft, vehicles, riot/civil commotion",
+        "Must provide replacement cost coverage (actual cash value policies not acceptable)",
+        "Must name all borrowers as insureds matching names on the note (Marlene A Melendez Niccum)",
+        "Must list property address matching the note/security instrument",
+        "Must include standard mortgagee clause naming NQM Funding, LLC (or assigns) as loss payee",
         "Must be effective for at least 60 days after funding date",
         "Must show policy number, insurance company name, agent information",
-        "Must show effective/expiration dates, premium amount, coverage amounts, and deductible",
-        "Must include notice of cancellation provisions for mortgagee"
+        "Must show effective and expiration dates of coverage",
+        "Must show premium amount and deductible",
+        "Must include coverage amount sufficient to cover replacement cost of improvements",
+        "Policy must require insurer to notify mortgagee before cancellation"
       ],
       "reasons_needed": [
-        "Hazard insurance is required on all properties to protect collateral per NQMF guidelines",
-        "Replacement cost coverage required - actual cash value not acceptable",
-        "Mortgagee clause required to protect lender's security interest",
-        "Coverage must be in place and effective through closing and beyond"
+        "Hazard insurance is required to protect collateral for the mortgage loan",
+        "NQMF guidelines require replacement cost coverage with specified perils",
+        "Mortgagee clause protects lender interest in the collateral",
+        "Evidence of insurance must be verified prior to closing",
+        "California property requires standard hazard coverage per guidelines"
       ],
-      "priority": "P1",
-      "category": "property",
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -772,82 +766,112 @@
     },
     {
       "document_type": "Title Commitment",
-      "category": "title",
       "priority": "P1",
-      "applies_to": "subject_property",
-      "specifications": [
-        "Must be issued by a title insurer licensed and authorized in California",
-        "Must identify borrower Marlene A Melendez Niccum as the proposed insured",
-        "Must identify subject property address with complete legal description",
-        "Must disclose all liens, judgments, easements, encumbrances, and title exceptions",
-        "Must show Schedule A with proposed vesting and lien position",
-        "Must show Schedule B with all title exceptions and requirements to be cleared",
-        "Must include 24-month chain of title history showing all transfers with dates, prices, and party names",
-        "Must be dated within 90 days of closing",
-        "Must indicate that final ALTA policy will be issued after funding",
-        "Must show title insurer name and effective date"
-      ],
-      "reasons_needed": [
-        "NQMF guidelines require title insurance policy covering the loan that is valid and binding",
-        "Underwriter must review title exceptions to confirm insurable interest and acceptable exceptions per guidelines",
-        "Chain of title must be reviewed for flipping activity or vesting inconsistencies per NQMF requirements",
-        "First lien position must be confirmed without exception to protect collateral",
-        "Liens, judgments, and tax liens that impact title must be identified for payoff or resolution prior to closing",
-        "Vesting must reconcile with borrower identity and transaction structure"
-      ],
-      "severity": "SOFT-STOP",
-      "document_category": "Title",
-      "status": "needed",
-      "tags": [
-        "title"
-      ],
-      "source_module": "06"
-    },
-    {
-      "document_type": "Vesting Deed",
-      "category": "title",
-      "priority": "P1",
-      "applies_to": "subject_property",
-      "specifications": [
-        "Must be recorded deed showing current ownership/vesting of subject property",
-        "Must identify seller as current vested owner with legal authority to convey",
-        "Must show complete legal description matching title commitment",
-        "Must show recording information (book, page, document number)",
-        "For purchase transactions, grant deed or warranty deed from seller transferring title to borrower at closing",
-        "Must reconcile with names on purchase contract"
-      ],
-      "reasons_needed": [
-        "NQMF guidelines require final title policy vesting to reflect borrower names per Vesting and Ownership requirements",
-        "Must confirm seller has valid ownership and authority to convey property",
-        "Vesting deed establishes chain of title and confirms property rights being transferred",
-        "Legal description on deed must match title commitment and appraisal for collateral verification"
-      ],
-      "severity": "SOFT-STOP",
-      "document_category": "Title",
-      "status": "needed",
-      "tags": [
-        "title"
-      ],
-      "source_module": "06"
-    },
-    {
-      "document_type": "Letter of Explanation - Large Deposit",
-      "document_category": "Income",
       "borrower": "Marlene A Melendez Niccum",
       "specifications": [
-        "Required if bank statements contain large or unusual deposits outside normal business income pattern",
-        "Must identify source of each large deposit",
-        "Must include supporting documentation for deposit source if applicable",
-        "Must be signed and dated by borrower"
+        "Must identify all borrowers and vested parties on the subject property",
+        "Must include subject property address and full legal description",
+        "Must disclose all liens, judgments, easements, encumbrances, and title exceptions",
+        "Must show title insurer name and commitment effective date",
+        "Must be dated within 90 days of closing or updated prior to closing",
+        "Must include 24-month chain of title history per NQM guidelines",
+        "Must confirm proposed lien position as first lien without exception",
+        "Must identify any requirements or conditions to be satisfied prior to policy issuance"
       ],
       "reasons_needed": [
-        "Large or unusual deposits may require sourcing and explanation to determine eligibility for income calculation",
-        "Non-business deposits must be excluded from qualifying income calculation per guidelines"
+        "Title must confirm ownership and insurable interest for the subject property",
+        "Chain of title must be reviewed for inconsistencies or flipping activity per NQM guidelines",
+        "All liens, judgments, and exceptions must be identified to ensure first lien position",
+        "Title exceptions must be reviewed against allowable exceptions per NQM guidelines",
+        "Vesting must reconcile with borrower identity and transaction structure"
       ],
-      "guideline_source": "NQMF Bank Statement Documentation Guidelines",
-      "priority": "P2",
-      "conditional": "Required only if large/unusual deposits are identified in bank statements",
+      "guideline_reference": "NQM Guidelines - Title Commitment Review: All files are to contain a 24-month title history; vesting history should be reviewed for inconsistencies or any indication of flipping activity",
       "severity": "SOFT-STOP",
+      "document_category": "Title",
+      "status": "needed",
+      "tags": [
+        "title"
+      ],
+      "source_module": "06"
+    },
+    {
+      "document_type": "Grant Deed",
+      "priority": "P1",
+      "borrower": "Marlene A Melendez Niccum",
+      "specifications": [
+        "Must be the recorded grant deed or warranty deed conveying title to the property",
+        "Must identify the grantee(s) matching the borrower name(s) on the loan application",
+        "Must include the full legal description of the subject property",
+        "Must show recording information (date, instrument number, county recorder)",
+        "Must reflect current ownership and vesting type (sole owner, joint tenants, etc.)",
+        "For purchase transaction: seller's vesting deed establishing seller's ownership required"
+      ],
+      "reasons_needed": [
+        "Deed confirms legal ownership of the property being purchased",
+        "Vesting must match borrower identity per loan application",
+        "Legal description must match title commitment and appraisal",
+        "For purchase: seller's ownership must be verified to convey clear title to buyer",
+        "Final title policy vesting should reflect the name(s) of the individual borrower(s) per NQM guidelines"
+      ],
+      "guideline_reference": "NQM Guidelines - Vesting: Final title policy vesting should reflect the name(s) of the individual borrower(s)",
+      "severity": "SOFT-STOP",
+      "document_category": "Title",
+      "status": "needed",
+      "tags": [
+        "title"
+      ],
+      "source_module": "06"
+    },
+    {
+      "document_id": "CC-004",
+      "document_name": "Occupancy Certification",
+      "document_category": "Cross-Cutting",
+      "priority": "P2",
+      "specifications": [
+        "Must certify borrower's intent to occupy property as primary residence",
+        "Must include borrower signature and date",
+        "Must reference subject property address",
+        "Must acknowledge occupancy within 60 days of closing and continuous occupancy for at least one year"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "Primary residence occupancy declared in loan scenario - certification required to confirm intent",
+          "reason_type": "occupancy_verification"
+        },
+        {
+          "reason": "Occupancy type determines LTV limits, reserve requirements, and program eligibility",
+          "reason_type": "eligibility_validation"
+        }
+      ],
+      "borrower_name": "Marlene A Melendez Niccum",
+      "source_step": "STEP_01_CROSSCUTTING",
+      "document_type": "Owner Occupancy Certification",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "tags": [
+        "crosscutting"
+      ],
+      "source_module": "01"
+    },
+    {
+      "document_type": "Verification of Employment",
+      "borrower_name": "Marlene A Melendez Niccum",
+      "priority": "P2",
+      "specifications": [
+        "Must be on CPA or tax preparer letterhead",
+        "Must confirm borrower's self-employment status and business ownership",
+        "Must confirm length of time in business (minimum 2 years typically required)",
+        "Must be signed and dated by the CPA or licensed tax preparer",
+        "Must include preparer's license credentials and contact information"
+      ],
+      "reasons_needed": [
+        "Self-employment history and business continuity must be verified",
+        "CPA letter supports legitimacy of business for bank statement income program",
+        "Business ownership percentage determines usable income calculation"
+      ],
+      "guideline_reference": "NQMF Self-Employment Income Requirements",
+      "severity": "SOFT-STOP",
+      "document_category": "Income",
       "status": "needed",
       "tags": [
         "income"
@@ -855,55 +879,51 @@
       "source_module": "02"
     },
     {
-      "document_type": "Reserve Verification Documentation",
-      "category": "Assets",
-      "priority": "P2",
+      "document_type": "LOE Source of Large Deposits",
       "borrower_name": "Marlene A Melendez Niccum",
+      "priority": "P2",
       "specifications": [
-        "Must show sufficient liquid assets to cover required reserve months",
-        "Reserve calculation based on PITIA (Principal, Interest, Taxes, Insurance, Association dues)",
-        "Must show assets from acceptable sources (bank accounts, liquid investment accounts)",
-        "Assets must be verified with statements dated within 90 days of note date",
-        "Must show account ownership in borrower's name",
-        "If using retirement accounts for reserves, must apply appropriate discount factor"
+        "Required only if bank statements contain large or unusual deposits",
+        "Must identify source of each large deposit",
+        "Must explain if deposit is business income, transfer, gift, loan, or other",
+        "Must be signed and dated by borrower",
+        "Supporting documentation for deposit source may be required"
       ],
       "reasons_needed": [
-        "NQMF program requires reserves based on risk factors (LTV, property type, occupancy)",
-        "Primary residence SFR at 73.9% LTV may require minimum reserve months",
-        "Bank statement income programs may have enhanced reserve requirements",
-        "Reserves demonstrate borrower's ability to withstand financial hardship"
+        "Large or unusual deposits may require sourcing per bank statement program guidelines",
+        "Transfers, refunds, loans, and non-business deposits must be excluded from income calculation",
+        "Only eligible deposits from business activity can be used to calculate qualifying income"
       ],
-      "guideline_reference": "NQMF Assets Section - Reserves",
-      "trigger_condition": "Standard reserve requirement for NQMF loan programs",
+      "guideline_reference": "NQMF Bank Statement Income - Deposit Analysis",
       "severity": "SOFT-STOP",
-      "document_category": "Assets",
+      "document_category": "Income",
       "status": "needed",
       "tags": [
-        "assets"
+        "income"
       ],
-      "source_module": "03"
+      "source_module": "02"
     }
   ],
   "stats": {
     "total_document_requests": 17,
     "hard_stop_documents": 0,
     "by_category": {
-      "Credit": 1,
+      "Credit": 2,
       "Cross-Cutting": 4,
       "Income": 4,
-      "Assets": 2,
+      "Assets": 1,
       "Property": 4,
       "Title": 2
     },
     "by_priority": {
       "P0": 1,
-      "P1": 14,
-      "P2": 2
+      "P1": 13,
+      "P2": 3
     },
     "by_status": {
       "needed": 17
     },
-    "elapsed_seconds": 451.0,
+    "elapsed_seconds": 490.6,
     "tool_calls": 89
   }
 }

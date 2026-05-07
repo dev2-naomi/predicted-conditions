@@ -1,0 +1,914 @@
+{
+  "scenario_summary": {
+    "program": "Flex Select",
+    "product_variant": "Conventional",
+    "purpose": "Purchase",
+    "occupancy": "OO",
+    "property": {
+      "address": "34 Executive Park, Suite 180",
+      "state": "CA",
+      "county": "Los Angeles",
+      "city": "Irvine",
+      "zip": "92614",
+      "units": 1,
+      "property_type": "SFR",
+      "year_built": 1959.0,
+      "rural_property": null
+    },
+    "numbers": {
+      "loan_amount": 753750,
+      "purchase_price": 1019959.4,
+      "appraised_value": 1019959.4,
+      "note_rate": 6.624,
+      "LTV": 73.9,
+      "CLTV": 73.9,
+      "DTI": 12
+    },
+    "loan_terms": {
+      "amortization_type": "Fixed",
+      "term_months": 360.0,
+      "interest_only": false,
+      "prepay_penalty": false,
+      "balloon": false,
+      "lien_priority": "First Lien"
+    },
+    "credit": {
+      "fico": 780,
+      "credit_scores": [],
+      "fico_source": "loan_profile",
+      "is_us_credit": null,
+      "mortgage_history_flags": [],
+      "credit_events": [
+        "none"
+      ],
+      "declarations": {
+        "BankruptcyIndicator": false,
+        "CitizenshipResidencyType": "USCitizen",
+        "FHASecondaryResidenceIndicator": false,
+        "HomeownerPastThreeYearsType": false,
+        "IntentToOccupyType": true,
+        "OutstandingJudgmentsIndicator": false,
+        "PartyToLawsuitIndicator": false,
+        "PresentlyDelinquentIndicator": false,
+        "PriorPropertyDeedInLieuConveyedIndicator": false,
+        "PriorPropertyForeclosureCompletedIndicator": false,
+        "PriorPropertyShortSaleCompletedIndicator": false,
+        "PropertyProposedCleanEnergyLienIndicator": false,
+        "UndisclosedBorrowedFundsIndicator": false,
+        "UndisclosedComakerOfNoteIndicator": false,
+        "UndisclosedCreditApplicationIndicator": false,
+        "UndisclosedMortgageApplicationIndicator": false
+      }
+    },
+    "borrowers": [
+      {
+        "name": "Marlene A Melendez Niccum",
+        "ssn": "569061935",
+        "dob": "1944-01-17",
+        "role": "primary",
+        "self_employed": null,
+        "citizenship": "US Citizen",
+        "military": false
+      }
+    ],
+    "income_profile": {
+      "income_types": [
+        "unknown"
+      ],
+      "primary_income_type": "unknown",
+      "income_doc_label": "Bank Stmts: 12 Mo. Personal",
+      "secondary_income": null,
+      "secondary_income_doc": null
+    },
+    "asset_profile": {
+      "has_bank_statements": true,
+      "has_large_deposit_flags": false,
+      "has_gift_indicators": false,
+      "has_reserves_indicators": true,
+      "months_reserves": 12,
+      "total_liquid_assets": null,
+      "total_investment_assets": null,
+      "total_retirement_assets": null
+    },
+    "reo_summary": {
+      "total_properties_owned": 0,
+      "total_lien_balance": null,
+      "subject_property_rental_income": null
+    },
+    "doc_profile": [
+      "bank_statement",
+      "loan_application",
+      "other",
+      "purchase_contract"
+    ],
+    "housing_expenses": {
+      "present": [],
+      "proposed": [
+        {
+          "type": "FirstMortgagePrincipalAndInterest",
+          "amount": 4825.85
+        },
+        {
+          "type": "HomeownersInsurance",
+          "amount": 74.92
+        },
+        {
+          "type": "RealEstateTax",
+          "amount": 1046.88
+        },
+        {
+          "type": "Other",
+          "amount": 0.0
+        }
+      ]
+    },
+    "cash_out_amount": null,
+    "channel": "Retail",
+    "loan_number": "2549004Z576VEJBK3N729201020352905",
+    "dscr_label": null,
+    "borrower_type": "Self-Employed",
+    "employers": [],
+    "residences": [
+      {
+        "address": "9314 Charlesworth Road",
+        "city": "Pico Rivera",
+        "state": "CA",
+        "zip": "90660",
+        "basis": "LivingRentFree",
+        "type": "Current",
+        "duration_months": 6.0,
+        "monthly_rent": null
+      },
+      {
+        "address": "737 North 4th Street",
+        "city": "Montebello",
+        "state": "CA",
+        "zip": "90640",
+        "basis": "Own",
+        "type": "Prior",
+        "duration_months": 84.0,
+        "monthly_rent": null
+      }
+    ],
+    "assets": [
+      {
+        "type": "SavingsAccount",
+        "value": 40727.78,
+        "account_id": "#3756",
+        "holder": "BofA (01/27)"
+      },
+      {
+        "type": "CheckingAccount",
+        "value": 675756.18,
+        "account_id": "#3873",
+        "holder": "Wells Fargo (02/25)"
+      },
+      {
+        "type": "CheckingAccount",
+        "value": 2000.14,
+        "account_id": "#5556",
+        "holder": "BofA (01/27)"
+      }
+    ],
+    "liabilities": [
+      {
+        "type": "Revolving",
+        "monthly_payment": 183.0,
+        "unpaid_balance": 7189.0,
+        "payoff_status": "false",
+        "holder": "WFBNA CARD",
+        "excluded": false,
+        "remaining_months": 40.0,
+        "account_id": "4147181611421946"
+      },
+      {
+        "type": "Installment",
+        "monthly_payment": 96.0,
+        "unpaid_balance": 7011.0,
+        "payoff_status": "false",
+        "holder": "AQUA FINANCE INC",
+        "excluded": false,
+        "remaining_months": 118.0,
+        "account_id": "910194226"
+      },
+      {
+        "type": "Revolving",
+        "monthly_payment": 41.0,
+        "unpaid_balance": 1020.0,
+        "payoff_status": "false",
+        "holder": "CITI",
+        "excluded": false,
+        "remaining_months": 25.0,
+        "account_id": "4100390733518464"
+      },
+      {
+        "type": "Revolving",
+        "monthly_payment": 46.0,
+        "unpaid_balance": 46.0,
+        "payoff_status": "false",
+        "holder": "BANK OF AMERICA",
+        "excluded": false,
+        "remaining_months": 1.0,
+        "account_id": "5524333231612210"
+      },
+      {
+        "type": "Revolving",
+        "monthly_payment": 23.0,
+        "unpaid_balance": 23.0,
+        "payoff_status": "false",
+        "holder": "BANK OF AMERICA",
+        "excluded": false,
+        "remaining_months": 1.0,
+        "account_id": "4400661978428073"
+      }
+    ],
+    "owned_properties": [],
+    "eligible_programs": [
+      "Flex Select",
+      "Flex Supreme"
+    ],
+    "ineligible_programs": [
+      "DSCR Multi (5-8 Units)",
+      "Foreign National",
+      "Investor DSCR",
+      "Super Jumbo",
+      "2nd Lien",
+      "DSCR Supreme Program",
+      "Investor DSCR No Ratio"
+    ],
+    "program_eligibility_detail": {
+      "2nd Lien": {
+        "status": "FAIL",
+        "passed_count": 12,
+        "failed_count": 1,
+        "failed_rules": [
+          {
+            "requirement": "Loantype",
+            "message": "LoanType must be Closed End Second for 2nd Lien program"
+          }
+        ]
+      },
+      "Select ITIN": {
+        "status": "FAIL",
+        "passed_count": 0,
+        "failed_count": 1,
+        "failed_rules": [
+          {
+            "requirement": "Citizenship",
+            "message": "US Citizens are not eligible for Select ITIN program."
+          }
+        ]
+      },
+      "Super Jumbo": {
+        "status": "FAIL",
+        "passed_count": 7,
+        "failed_count": 3,
+        "failed_rules": [
+          {
+            "requirement": "Min Loan Amount",
+            "message": "Loan amount $753,750 below minimum requirement $3,500,001"
+          },
+          {
+            "requirement": "Max Loan-To-Value (Matrix)",
+            "message": "Loan amount $753,750 below minimum $4,500,001 for FICO Score 780, Primary Residence, SFR"
+          },
+          {
+            "requirement": "Required Reserves",
+            "message": "Reserves 12 months does not meet requirement of 18 months PITIA. Note: Cash-Out proceeds may NOT be used."
+          }
+        ]
+      },
+      "Investor DSCR": {
+        "status": "FAIL",
+        "passed_count": 0,
+        "failed_count": 1,
+        "failed_rules": [
+          {
+            "requirement": "Income Documentation Type",
+            "message": "Income Doc Type \"Bank Stmts: 12 Mo. Personal\" is not a DSCR type - Investor DSCR requires a DSCR income documentation type - FAIL"
+          }
+        ]
+      },
+      "Foreign National": {
+        "status": "FAIL",
+        "passed_count": 7,
+        "failed_count": 2,
+        "failed_rules": [
+          {
+            "requirement": "Max Loan-To-Value (Matrix Evaluation)",
+            "message": "Occupancy 'Primary Residence' not eligible for Foreign National. Available: Investment Property, Second Home"
+          },
+          {
+            "requirement": "Borrower Eligibility - Foreign National",
+            "message": "US Citizens are not eligible for Foreign National program - FAIL"
+          }
+        ]
+      },
+      "Flex Select": {
+        "status": "PASS",
+        "passed_count": 12,
+        "failed_count": 0,
+        "failed_rules": []
+      },
+      "DSCR Supreme Program": {
+        "status": "FAIL",
+        "passed_count": 0,
+        "failed_count": 1,
+        "failed_rules": [
+          {
+            "requirement": "Income Documentation Type",
+            "message": "Income Doc Type \"Bank Stmts: 12 Mo. Personal\" is not a DSCR type - DSCR Supreme Program requires a DSCR income documentation type - FAIL"
+          }
+        ]
+      },
+      "Flex Supreme": {
+        "status": "PASS",
+        "passed_count": 12,
+        "failed_count": 0,
+        "failed_rules": []
+      },
+      "DSCR Multi (5-8 Units)": {
+        "status": "FAIL",
+        "passed_count": 0,
+        "failed_count": 1,
+        "failed_rules": [
+          {
+            "requirement": "Income Documentation Type",
+            "message": "Income Doc Type \"Bank Stmts: 12 Mo. Personal\" is not a DSCR type - DSCR Multi (5-8 Units) requires a DSCR income documentation type - FAIL"
+          }
+        ]
+      },
+      "Investor DSCR No Ratio": {
+        "status": "FAIL",
+        "passed_count": 0,
+        "failed_count": 1,
+        "failed_rules": [
+          {
+            "requirement": "Income Documentation Type",
+            "message": "Income Doc Type \"Bank Stmts: 12 Mo. Personal\" is not a DSCR type - Investor DSCR No Ratio requires a DSCR income documentation type - FAIL"
+          }
+        ]
+      }
+    },
+    "eligibility_extra": {
+      "ReservesMonths": 12,
+      "FirstTimeHomeBuyer": false
+    },
+    "is_fthb": false
+  },
+  "seen_conflicts": [],
+  "document_requests": [
+    {
+      "document_type": "Title Commitment",
+      "document_name": "Title Commitment / Preliminary Title Report",
+      "priority": "P0",
+      "category": "Title Documentation",
+      "specifications": [
+        "Must identify borrower Marlene Melendez Niccum as vested party",
+        "Must identify subject property address: 5109 Green Leaf Ct, Charlotte, NC 28226",
+        "Must include complete legal description of the property",
+        "Must disclose all liens, judgments, easements, exceptions, and title requirements",
+        "Must show qualified title insurer authorized in North Carolina",
+        "Must show effective date within acceptable recency window",
+        "Must include 24-month chain of title history as required by guidelines",
+        "Must confirm preliminary title indicates final policy will be issued after funding",
+        "Must verify property vesting aligns with borrower name and purchase transaction structure"
+      ],
+      "reasons_needed": [
+        "Title commitment confirms ownership, lien position, and insurable interest for underwriter review",
+        "Vesting and subject property identification must align with loan file for purchase transaction",
+        "Liens and title exceptions may affect closing conditions and loan approval",
+        "24-month title history required per guidelines to review for inconsistencies or flipping activity",
+        "Preliminary title ensures final title policy coverage will be available at funding"
+      ],
+      "requested_from": "Title Company / Settlement Agent",
+      "urgency": "Standard",
+      "compliance_notes": "Must be written on 2006 ALTA standard form or ALTA short form per guidelines. Title insurer must be duly authorized and licensed in North Carolina.",
+      "severity": "SOFT-STOP",
+      "document_category": "Title",
+      "status": "needed",
+      "tags": [
+        "title"
+      ],
+      "source_module": "06"
+    },
+    {
+      "document_type": "Grant Deed",
+      "document_name": "Current Vesting Deed / Grant Deed",
+      "priority": "P0",
+      "category": "Title Documentation",
+      "specifications": [
+        "Must show current property owner/grantor information",
+        "Must identify subject property address: 5109 Green Leaf Ct, Charlotte, NC 28226",
+        "Must include complete legal description matching title commitment",
+        "Must show date of current ownership acquisition",
+        "Must be recorded deed showing chain of title to current owner",
+        "Must confirm property ownership for purchase transaction structure"
+      ],
+      "reasons_needed": [
+        "Vesting deed confirms current property ownership and seller's ability to convey title",
+        "Legal description must match title commitment and loan documents for consistency",
+        "Current ownership verification required for purchase transaction underwriting",
+        "Establishes chain of title and ownership history for title review"
+      ],
+      "requested_from": "Title Company / County Records",
+      "urgency": "Standard",
+      "compliance_notes": "Must be properly recorded deed showing current vesting. Required as part of title commitment review process.",
+      "severity": "SOFT-STOP",
+      "document_category": "Title",
+      "status": "needed",
+      "tags": [
+        "title"
+      ],
+      "source_module": "06"
+    },
+    {
+      "document_request_id": "CROSS-001",
+      "document_type": "Government-Issued Photo ID",
+      "priority": "P1",
+      "specifications": [
+        "Must be current and unexpired government-issued photo identification",
+        "Must clearly show borrower's full name matching loan application",
+        "Must include photo for identity verification",
+        "Driver's license, state ID, or passport acceptable"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "Required for borrower identity verification per lending compliance standards",
+          "reason_type": "compliance_requirement"
+        },
+        {
+          "reason": "Must confirm borrower identity before processing credit, income, and asset documentation",
+          "reason_type": "document_validation"
+        }
+      ],
+      "expected_sources": [
+        "borrower"
+      ],
+      "applicable_borrowers": [
+        "primary"
+      ],
+      "acceptable_types": [
+        "Drivers License",
+        "Passport",
+        "Non-Driver ID",
+        "Permanent Resident Card",
+        "Social Security ID",
+        "Travel VISA"
+      ],
+      "severity": "SOFT-STOP",
+      "document_category": "Cross-Cutting",
+      "status": "needed",
+      "tags": [
+        "crosscutting"
+      ],
+      "source_module": "01"
+    },
+    {
+      "document_request_id": "CROSS-002",
+      "document_type": "IRS 4506-C Authorization",
+      "priority": "P1",
+      "specifications": [
+        "Must be fully executed and signed by borrower",
+        "Must authorize tax transcript request for income verification",
+        "Must cover tax years relevant to income documentation period",
+        "Must include borrower's current name and SSN"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "Required per Full Documentation guidelines for income verification",
+          "reason_type": "guideline_requirement"
+        },
+        {
+          "reason": "Mandatory for bank statement income documentation type under Flex Select program",
+          "reason_type": "program_requirement"
+        }
+      ],
+      "expected_sources": [
+        "borrower"
+      ],
+      "applicable_borrowers": [
+        "primary"
+      ],
+      "severity": "SOFT-STOP",
+      "document_category": "Cross-Cutting",
+      "status": "needed",
+      "tags": [
+        "crosscutting"
+      ],
+      "source_module": "01"
+    },
+    {
+      "document_request_id": "CROSS-004",
+      "document_type": "Purchase Contract",
+      "priority": "P1",
+      "specifications": [
+        "Must be fully executed purchase agreement for subject property",
+        "Must show purchase price of $1,020,000 matching loan scenario",
+        "Must include all parties, property address, and material terms",
+        "Must include any amendments or addenda"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "Required to verify purchase transaction details and purchase price",
+          "reason_type": "transaction_verification"
+        },
+        {
+          "reason": "Needed to confirm LTV calculation basis and property acquisition terms",
+          "reason_type": "underwriting_requirement"
+        }
+      ],
+      "expected_sources": [
+        "borrower",
+        "real_estate_agent"
+      ],
+      "applicable_borrowers": [
+        "primary"
+      ],
+      "severity": "SOFT-STOP",
+      "document_category": "Cross-Cutting",
+      "status": "needed",
+      "tags": [
+        "crosscutting"
+      ],
+      "source_module": "01"
+    },
+    {
+      "document_request_id": "CROSS-003",
+      "document_type": "Owner Occupancy Certification",
+      "priority": "P2",
+      "specifications": [
+        "Must clearly identify intended occupancy of subject property",
+        "Must be signed and dated by borrower",
+        "Must be consistent with loan program requirements",
+        "Must specify primary residence, second home, or investment property"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "Occupancy determination required for LTV limits, reserve requirements, and documentation standards",
+          "reason_type": "underwriting_requirement"
+        },
+        {
+          "reason": "Must confirm occupancy matches loan program eligibility and pricing assumptions",
+          "reason_type": "program_verification"
+        }
+      ],
+      "expected_sources": [
+        "borrower"
+      ],
+      "applicable_borrowers": [
+        "primary"
+      ],
+      "severity": "SOFT-STOP",
+      "document_category": "Cross-Cutting",
+      "status": "needed",
+      "tags": [
+        "crosscutting"
+      ],
+      "source_module": "01"
+    },
+    {
+      "document_type": "Credit Report",
+      "document_subtype": "Tri-Merge Credit Report",
+      "borrowers": [
+        "Marlene Melendez Niccum"
+      ],
+      "specifications": {
+        "report_type": "Tri-merge or Residential Mortgage Credit Report (RMCR)",
+        "bureaus_required": [
+          "Experian",
+          "TransUnion",
+          "Equifax"
+        ],
+        "content_requirements": [
+          "Merged credit information from all 3 major credit repositories",
+          "Credit scores for all borrowers",
+          "Complete tradeline details with payment history",
+          "All inquiries from past 90 days minimum",
+          "Public records search for each city of residence in last 2 years",
+          "Any disputes, fraud alerts, or HAWK alerts",
+          "Collections, charge-offs, and other derogatory items",
+          "Mortgage history if available on credit report"
+        ],
+        "recency_requirement": "Must be dated within allowed recency window per program guidelines",
+        "borrower_verification": "Must verify all borrowers on loan application"
+      },
+      "reasons_needed": [
+        "Credit score verification required to validate Flex Select program eligibility (660+ minimum)",
+        "Tradeline analysis needed to confirm standard tradeline requirements are met",
+        "Credit history review required to identify any credit events or seasoning requirements",
+        "Inquiry analysis needed to identify potential undisclosed debt within 90 days",
+        "Public records verification required per underwriting guidelines",
+        "Fraud alert and dispute identification required for proper credit assessment"
+      ],
+      "conditions": [
+        "Primary borrower FICO score must meet program minimum of 660",
+        "Credit report must show acceptable tradeline history per program guidelines",
+        "Any fraud alerts or disputes must be properly addressed and resolved"
+      ],
+      "urgency": "high",
+      "source": "NQMF Credit Guidelines - Credit Report section",
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Credit",
+      "status": "needed",
+      "tags": [
+        "credit"
+      ],
+      "source_module": "04"
+    },
+    {
+      "document_type": "Bank Statement",
+      "count": "24 months",
+      "specifications": [
+        "Must include 24 consecutive months of complete statements",
+        "Must include all pages for each statement",
+        "Must show account holder name matching borrower name (Marlene Melendez Niccum)",
+        "Must show financial institution name and account number or partial account number",
+        "Must show beginning and ending balances for each month",
+        "Must allow deposits to be reviewed and categorized per bank statement income guidelines",
+        "Must be from primary business operating accounts if self-employed income is being qualified",
+        {
+          "months_required": 2,
+          "must_include_all_pages": true,
+          "must_show_borrower_name": true,
+          "must_show_institution_name": true,
+          "must_show_account_number": true,
+          "must_show_beginning_ending_balances": true,
+          "must_show_transaction_history": true,
+          "must_be_recent_within_90_days": true,
+          "purpose_verification": [
+            "funds_to_close",
+            "asset_verification"
+          ]
+        }
+      ],
+      "reasons_needed": [
+        "Bank statement income qualification requires 24 months of consecutive statements per Flex Select program guidelines",
+        "Complete statements needed to calculate qualifying income using deposit analysis method",
+        "Account ownership must be verified to ensure income attribution to borrower",
+        "Deposit patterns must be analyzed to exclude non-qualifying deposits per program requirements",
+        "Assets must be verified for funds to close verification",
+        "Bank statements evidence sufficient funds from acceptable sources for down payment, closing costs, and prepaid items",
+        "Assets must be dated within 90 days of note date per guideline requirements",
+        "Account ownership must be confirmed for borrower funds"
+      ],
+      "priority": "P2",
+      "borrower": "primary",
+      "due_date": "initial_package",
+      "source": "income_qualification",
+      "severity": "SOFT-STOP",
+      "document_category": "Income",
+      "status": "needed",
+      "tags": [
+        "income",
+        "assets"
+      ],
+      "source_module": "02",
+      "evidence_found": [],
+      "guideline_trace": [],
+      "overlay_trace": []
+    },
+    {
+      "document_type": "Non QM Bank Statement Analysis Worksheet",
+      "count": "1",
+      "specifications": [
+        "Must analyze 24 months of bank statement deposits",
+        "Must categorize deposits as qualifying vs non-qualifying income",
+        "Must exclude transfers, refunds, loans, and non-business deposits per program guidelines",
+        "Must calculate monthly average qualifying income",
+        "Must identify and explain any large or irregular deposits",
+        "Must support income used for debt-to-income ratio calculation"
+      ],
+      "reasons_needed": [
+        "Bank statement income must be analyzed and calculated per program methodology",
+        "Qualifying income determination required for loan approval and debt ratio calculation",
+        "Large deposits may require additional sourcing or exclusion from income calculation"
+      ],
+      "priority": "P2",
+      "borrower": "primary",
+      "due_date": "underwriting",
+      "source": "income_qualification",
+      "severity": "SOFT-STOP",
+      "document_category": "Income",
+      "status": "needed",
+      "tags": [
+        "income"
+      ],
+      "source_module": "02"
+    },
+    {
+      "document_type": "LOE Source of Large Deposits",
+      "count": "as needed",
+      "specifications": [
+        "Must identify specific deposit amount and date",
+        "Must explain source of deposit",
+        "Must indicate whether deposit should be included in income calculation",
+        "Must be signed and dated by borrower",
+        "Required for any deposit exceeding typical business income pattern"
+      ],
+      "reasons_needed": [
+        "Large or unusual deposits in bank statements may indicate non-qualifying income sources",
+        "Income calculation accuracy requires proper categorization of all deposits",
+        "Underwriting review requires explanation of deposit patterns that deviate from normal business income"
+      ],
+      "priority": "P2",
+      "borrower": "primary",
+      "due_date": "conditional",
+      "source": "income_qualification",
+      "severity": "SOFT-STOP",
+      "document_category": "Income",
+      "status": "needed",
+      "tags": [
+        "income"
+      ],
+      "source_module": "02"
+    },
+    {
+      "doc_id": "ASSET_002",
+      "document_type": "Verification of Deposit",
+      "category": "assets",
+      "required": true,
+      "purpose": "Verify EMD for purchase transaction",
+      "applicant_names": [
+        "Marlene Melendez Niccum"
+      ],
+      "specifications": {
+        "must_show_deposit_amount": true,
+        "must_show_deposit_date": true,
+        "must_show_source_account": true,
+        "must_show_payee": true,
+        "acceptable_forms": [
+          "cancelled_check",
+          "withdrawal_slip",
+          "wire_confirmation",
+          "deposit_receipt"
+        ]
+      },
+      "reasons_needed": [
+        "Purchase transaction requires verification of earnest money deposit",
+        "EMD verification ensures proper credit toward funds to close",
+        "Documentation confirms borrower's financial commitment to transaction"
+      ],
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Assets",
+      "status": "needed",
+      "tags": [
+        "assets"
+      ],
+      "source_module": "03"
+    },
+    {
+      "document_type": "Appraisal Report",
+      "document_subtype": "Form 1004",
+      "required": true,
+      "specifications": [
+        "Must identify subject property at 1009 Washington Square, Philadelphia, PA 19107",
+        "Must identify property type as Single-Family Residence",
+        "Must show appraised value to support 73.9% LTV calculation on $753,750 loan amount",
+        "Must be dated within 365 days of Note date with recertification required if exceeds 120 days",
+        "Must include all pages and addenda including Form 1004",
+        "Must include street map showing location of subject property and all comparables used",
+        "Must include exterior building sketch with dimensions and floor plan sketch with gross living area calculations",
+        "Must include original color photographs of front, street, and rear views of subject property",
+        "Must include interior photos of kitchen, all bathrooms, main living area, any areas with physical deterioration, and any renovations/improvements",
+        "Must include analysis of all agreements of sale, options or listings for subject property current as of effective date",
+        "Must include analysis of all sales of subject property within 3 years prior to effective date",
+        "Must include completed Sales Comparison Approach section",
+        "Must include appraiser comments on any unfavorable conditions and how they impact market value",
+        "Must include Certification and Statement of Limiting Conditions signed by appraiser",
+        "Must reconcile borrower/owner/occupant information with loan file for consistency",
+        "Must disclose any repairs, adverse conditions, or inspection requirements",
+        "Must include comparable sales and appraiser certification"
+      ],
+      "reasons_needed": [
+        "Collateral valuation is required for underwriting of purchase transaction",
+        "LTV/CLTV eligibility of 73.9% depends on appraised value confirmation",
+        "Property type and condition must be validated for program eligibility",
+        "Subject property identity must be consistent across loan file",
+        "Market value opinion supports loan amount of $753,750",
+        "Primary residence use must be confirmed for occupancy requirements"
+      ],
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_type": "Flood Hazard Determination",
+      "document_subtype": "FEMA Certificate",
+      "required": true,
+      "specifications": [
+        "Must identify subject property at 1009 Washington Square, Philadelphia, PA 19107",
+        "Must establish whether property is located in Special Flood Hazard Area (SFHA)",
+        "Must indicate specific flood zone designation (A, V, or other)",
+        "Must confirm community participation in FEMA Program if in flood zone",
+        "Must be provided by Federal Emergency Management Agency (FEMA)",
+        "Certificate must include Section B4 'Flood Zone' field and Section B5 'No NFIP Map' designation",
+        "Must include Section D 'Determination' validation",
+        "Must be consistent with appraisal report flood zone disclosure"
+      ],
+      "reasons_needed": [
+        "Required to determine flood insurance requirements per NQMF guidelines",
+        "Must establish if property is in Special Flood Hazard Area requiring flood insurance",
+        "Flood zone determination affects insurance and closing requirements",
+        "FEMA determination is required baseline for all properties regardless of apparent zone"
+      ],
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_type": "Hazard Insurance",
+      "document_subtype": "Hazard Insurance Policy",
+      "required": true,
+      "specifications": [
+        "Named insured must include Marlene Melendez Niccum as shown on note",
+        "Property address must match 1009 Washington Square, Philadelphia, PA 19107",
+        "Policy must be effective for at least 60 days after funding date",
+        "Must provide replacement cost coverage (not actual cash value)",
+        "Must include standard mortgagee clause in favor of NQM Funding, LLC",
+        "Must include required perils: fire/lightning, explosion, windstorm, hail, smoke, aircraft, vehicles, riot/civil commotion",
+        "Must include extended coverage endorsement for wind, civil commotion, smoke, hail, and damages from aircraft/vehicle/explosion",
+        "Must provide policy number, insurance company name, agent information",
+        "Must show effective and expiration dates, premium amount, coverage amounts and deductible",
+        "Must include loss payee clause and be signed and dated by agent",
+        "Must require 60-day written notice to mortgagee before cancellation"
+      ],
+      "reasons_needed": [
+        "Property insurance protects lender's collateral interest in the property",
+        "Required to protect against loss from fire and standard extended coverage perils",
+        "Mortgagee clause ensures lender receives claim proceeds to protect loan balance",
+        "Replacement cost coverage ensures adequate rebuilding funds in case of total loss",
+        "Required for loan closing and ongoing loan servicing requirements"
+      ],
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_type": "UCDP SSR",
+      "document_subtype": "Fannie Mae SSR",
+      "required": true,
+      "specifications": [
+        "Must be generated for subject property at 1009 Washington Square, Philadelphia, PA 19107",
+        "Must provide risk assessment score and findings for appraisal review",
+        "SSR score of 2.5 or less satisfies appraisal review process requirements",
+        "Must identify any property risk factors or valuation concerns",
+        "Must be consistent with submitted appraisal report data",
+        "If SSR score exceeds 2.5, alternative review product may be required"
+      ],
+      "reasons_needed": [
+        "Required as part of appraisal review process per NQMF guidelines",
+        "Provides secondary validation of appraisal value and risk assessment",
+        "SSR score determines if additional appraisal review products are needed",
+        "Standard requirement for quality control and risk management"
+      ],
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    }
+  ],
+  "stats": {
+    "total_document_requests": 15,
+    "hard_stop_documents": 0,
+    "by_category": {
+      "Title": 2,
+      "Cross-Cutting": 4,
+      "Credit": 1,
+      "Income": 3,
+      "Assets": 1,
+      "Property": 4
+    },
+    "by_priority": {
+      "P0": 2,
+      "P1": 3,
+      "P2": 10
+    },
+    "by_status": {
+      "needed": 15
+    },
+    "elapsed_seconds": 441.5,
+    "tool_calls": 86
+  }
+}

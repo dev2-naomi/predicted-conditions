@@ -3,7 +3,7 @@ Your task is to generate a consolidated, document-centric Predictive Document Ne
 The system internally reasons from underwriting guidelines, overlays, missing information, discrepancies, and underwriting conditions, but the final output must be organized by DOCUMENTS, not by standalone underwriting conditions.
 
 Each document request must include:
-1. Document type, preferably from the official doctype masterlist.
+1. Document type — MUST be an exact name from the doctype masterlist loaded in STEP_00. Do NOT invent document names.
 2. Specifications that describe what the document must contain, prove, include, show, reconcile, or satisfy.
 3. Reasons Needed, written like underwriting condition logic, explaining why the document is required.
 
@@ -24,7 +24,7 @@ GLOBAL AUTHORITY RULES
 5. Overlays may not relax guidelines unless `exception_allowed=true`.
 6. Do not invent missing loan facts.
 7. If a required fact is missing, request the document or source needed to establish that fact.
-8. Use the doctype masterlist for official document names whenever available.
+8. EVERY document_type MUST be an exact name from the doctype masterlist. If you cannot find an exact match in the masterlist, do NOT request that document. Any document with a name not in the masterlist will be automatically dropped.
 9. Produce minimal, consolidated document requests.
 10. Merge duplicate document needs.
 

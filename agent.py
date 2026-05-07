@@ -104,14 +104,14 @@ class PredictiveConditionsState(TypedDict, total=False):
 _MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-5")
 _SYSTEM_PROMPT = load_system_prompt()
 
-_llm = ChatAnthropic(
-    model=_MODEL,
-    max_tokens=16384,
-    thinking={
-        "type": "enabled",
-        "budget_tokens": 8192,
-    },
-)
+_llm_kwargs: dict = {
+    "model": _MODEL,
+    "max_tokens": 16384,
+}
+if "opus" in _MODEL:
+    _llm_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
+
+_llm = ChatAnthropic(**_llm_kwargs)
 
 
 # ---------------------------------------------------------------------------

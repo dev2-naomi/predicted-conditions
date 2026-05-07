@@ -48,7 +48,7 @@ def generate_income_document_requests(
         document_requests: List of document request dicts conforming to the
                            standard document_request schema.
     """
-    normalize_all(document_requests, default_category="Income")
+    document_requests = normalize_all(document_requests, default_category="Income")
 
     for dr in document_requests:
         dr.setdefault("tags", [])

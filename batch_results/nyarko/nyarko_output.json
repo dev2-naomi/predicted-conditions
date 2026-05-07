@@ -1,0 +1,956 @@
+{
+  "scenario_summary": {
+    "program": "Investor DSCR",
+    "product_variant": "Conventional",
+    "purpose": "Purchase",
+    "occupancy": "NOO",
+    "property": {
+      "address": "1749 Mallory Lane, Suite 100",
+      "state": "TN",
+      "county": "Shelby",
+      "city": "Brentwood",
+      "zip": "37027",
+      "units": 1,
+      "property_type": "SFR",
+      "year_built": 1951.0,
+      "rural_property": null
+    },
+    "numbers": {
+      "loan_amount": 168000,
+      "purchase_price": 210000,
+      "appraised_value": 210000,
+      "note_rate": 7.249,
+      "LTV": 80,
+      "CLTV": 80,
+      "DTI": 0
+    },
+    "loan_terms": {
+      "amortization_type": "Fixed",
+      "term_months": 360.0,
+      "interest_only": false,
+      "prepay_penalty": true,
+      "balloon": false,
+      "lien_priority": "First Lien"
+    },
+    "credit": {
+      "fico": 800,
+      "credit_scores": [],
+      "fico_source": "loan_profile",
+      "is_us_credit": null,
+      "mortgage_history_flags": [],
+      "credit_events": [
+        "none"
+      ],
+      "declarations": {
+        "BankruptcyIndicator": false,
+        "CitizenshipResidencyType": "USCitizen",
+        "FHASecondaryResidenceIndicator": false,
+        "IntentToOccupyType": false,
+        "OutstandingJudgmentsIndicator": false,
+        "PartyToLawsuitIndicator": false,
+        "PresentlyDelinquentIndicator": false,
+        "PriorPropertyDeedInLieuConveyedIndicator": false,
+        "PriorPropertyForeclosureCompletedIndicator": false,
+        "PriorPropertyShortSaleCompletedIndicator": false,
+        "PriorPropertyTitleType": "Sole",
+        "PriorPropertyUsageType": "Investment",
+        "PropertyProposedCleanEnergyLienIndicator": false,
+        "UndisclosedBorrowedFundsIndicator": false,
+        "UndisclosedComakerOfNoteIndicator": false,
+        "UndisclosedCreditApplicationIndicator": false,
+        "UndisclosedMortgageApplicationIndicator": false
+      }
+    },
+    "borrowers": [
+      {
+        "name": "Emmanuel Nyarko",
+        "ssn": "122746632",
+        "dob": "1967-06-01",
+        "role": "primary",
+        "self_employed": null,
+        "citizenship": "US Citizen",
+        "military": false
+      }
+    ],
+    "income_profile": {
+      "income_types": [
+        "DSCR"
+      ],
+      "primary_income_type": "DSCR",
+      "income_doc_label": "DSCR / No Ratio DSCR",
+      "secondary_income": null,
+      "secondary_income_doc": null
+    },
+    "asset_profile": {
+      "has_bank_statements": true,
+      "has_large_deposit_flags": false,
+      "has_gift_indicators": false,
+      "has_reserves_indicators": true,
+      "months_reserves": 12,
+      "total_liquid_assets": null,
+      "total_investment_assets": null,
+      "total_retirement_assets": null
+    },
+    "reo_summary": {
+      "total_properties_owned": 2,
+      "total_lien_balance": null,
+      "subject_property_rental_income": null
+    },
+    "doc_profile": [
+      "bank_statement",
+      "appraisal",
+      "loan_application",
+      "compliance_notice",
+      "other"
+    ],
+    "housing_expenses": {
+      "present": [],
+      "proposed": [
+        {
+          "type": "FirstMortgagePrincipalAndInterest",
+          "amount": 1145.94
+        },
+        {
+          "type": "HomeownersInsurance",
+          "amount": 98.17
+        },
+        {
+          "type": "RealEstateTax",
+          "amount": 83.92
+        },
+        {
+          "type": "Other",
+          "amount": 0.0
+        }
+      ]
+    },
+    "cash_out_amount": null,
+    "channel": "Wholesale",
+    "loan_number": "2549004Z576VEJBK3N729201019741902",
+    "dscr_label": null,
+    "borrower_type": "Long Term Rentals",
+    "employers": [],
+    "residences": [
+      {
+        "address": "8 Wyeth Ln",
+        "city": "Hockessin",
+        "state": "DE",
+        "zip": "19707",
+        "basis": "Own",
+        "type": "Current",
+        "duration_months": 254.0,
+        "monthly_rent": null
+      }
+    ],
+    "assets": [
+      {
+        "type": "CheckingAccount",
+        "value": 12646.56,
+        "account_id": "-8700-1/28",
+        "holder": "Bank of America"
+      },
+      {
+        "type": "Stock",
+        "value": 125738.4,
+        "account_id": "-2928-1/31",
+        "holder": "Vanguard"
+      },
+      {
+        "type": "Stock",
+        "value": 43644.63,
+        "account_id": "-8432-1/30",
+        "holder": "JPMorgan"
+      },
+      {
+        "type": null,
+        "value": null,
+        "account_id": null,
+        "holder": null
+      },
+      {
+        "type": null,
+        "value": null,
+        "account_id": null,
+        "holder": null
+      }
+    ],
+    "liabilities": [
+      {
+        "type": "MortgageLoan",
+        "monthly_payment": 1730.0,
+        "unpaid_balance": 173000.0,
+        "payoff_status": "true",
+        "holder": "REEDY & COMPANY",
+        "excluded": false,
+        "remaining_months": null,
+        "account_id": "4701"
+      },
+      {
+        "type": "MortgageLoan",
+        "monthly_payment": 3081.0,
+        "unpaid_balance": 161601.0,
+        "payoff_status": "false",
+        "holder": "PNMAC",
+        "excluded": false,
+        "remaining_months": 125.0,
+        "account_id": "SSE0017006242920"
+      },
+      {
+        "type": "HELOC",
+        "monthly_payment": 872.0,
+        "unpaid_balance": 155904.0,
+        "payoff_status": "false",
+        "holder": "PNC BANK",
+        "excluded": false,
+        "remaining_months": 0.0,
+        "account_id": "4337600473760"
+      },
+      {
+        "type": "HELOC",
+        "monthly_payment": 270.0,
+        "unpaid_balance": 4949.0,
+        "payoff_status": "false",
+        "holder": "PNC BANK",
+        "excluded": false,
+        "remaining_months": 0.0,
+        "account_id": "4337500117155"
+      },
+      {
+        "type": "HELOC",
+        "monthly_payment": 211.0,
+        "unpaid_balance": 13357.0,
+        "payoff_status": "false",
+        "holder": "SERVICE FINANCE COMPAN",
+        "excluded": false,
+        "remaining_months": 98.0,
+        "account_id": "3988903"
+      },
+      {
+        "type": "Revolving",
+        "monthly_payment": 99.0,
+        "unpaid_balance": 62246.0,
+        "payoff_status": "false",
+        "holder": "CITICARDS CBNA",
+        "excluded": false,
+        "remaining_months": null,
+        "account_id": "5466160419974397"
+      },
+      {
+        "type": "Installment",
+        "monthly_payment": 146.0,
+        "unpaid_balance": 2714.0,
+        "payoff_status": "false",
+        "holder": "MOHELA/NAVIENT",
+        "excluded": false,
+        "remaining_months": 99.0,
+        "account_id": "5029350468982231"
+      },
+      {
+        "type": "Revolving",
+        "monthly_payment": 30.0,
+        "unpaid_balance": 123.0,
+        "payoff_status": "false",
+        "holder": "SYNCB/PPC",
+        "excluded": false,
+        "remaining_months": 99.0,
+        "account_id": "6044192115900219"
+      },
+      {
+        "type": "Revolving",
+        "monthly_payment": 25.0,
+        "unpaid_balance": 857.0,
+        "payoff_status": "false",
+        "holder": "CAPITAL ONE",
+        "excluded": false,
+        "remaining_months": null,
+        "account_id": "5178059941035546"
+      },
+      {
+        "type": "Installment",
+        "monthly_payment": 124.53,
+        "unpaid_balance": 12453.0,
+        "payoff_status": "false",
+        "holder": "US College Ave Student",
+        "excluded": false,
+        "remaining_months": null,
+        "account_id": "6333"
+      }
+    ],
+    "owned_properties": [
+      {
+        "address": "6884 Ensign Rd",
+        "value": 210000.0,
+        "lien_upb": 173000.0,
+        "rental_income": -1328.03,
+        "disposition": "Retain",
+        "is_subject": true,
+        "property_usage": "Investment",
+        "state": "TN",
+        "city": "Millington"
+      },
+      {
+        "address": "8 Wyeth Ln",
+        "value": 750000.0,
+        "lien_upb": 322454.0,
+        "rental_income": null,
+        "disposition": "Retain",
+        "is_subject": false,
+        "property_usage": "PrimaryResidence",
+        "state": "DE",
+        "city": "Hockessin"
+      }
+    ],
+    "eligible_programs": [
+      "Investor DSCR",
+      "DSCR Supreme"
+    ],
+    "ineligible_programs": [
+      "Flex Select",
+      "Flex Supreme",
+      "Foreign National",
+      "Super Jumbo",
+      "2nd Lien",
+      "Investor DSCR No Ratio"
+    ],
+    "program_eligibility_detail": {
+      "2nd Lien": {
+        "status": "FAIL",
+        "passed_count": 11,
+        "failed_count": 2,
+        "failed_rules": [
+          {
+            "requirement": "Loantype",
+            "message": "LoanType must be Closed End Second for 2nd Lien program"
+          },
+          {
+            "requirement": "Max Combined Loan-to-Value (Matrix)",
+            "message": "Combined Loan-to-Value 80% exceeds maximum 75% for DSCR Investment: FICO Score 720+, up to $350K"
+          }
+        ]
+      },
+      "Select ITIN": {
+        "status": "FAIL",
+        "passed_count": 0,
+        "failed_count": 1,
+        "failed_rules": [
+          {
+            "requirement": "Citizenship",
+            "message": "US Citizens are not eligible for Select ITIN program."
+          }
+        ]
+      },
+      "Super Jumbo": {
+        "status": "FAIL",
+        "passed_count": 6,
+        "failed_count": 3,
+        "failed_rules": [
+          {
+            "requirement": "Min Loan Amount",
+            "message": "Loan amount $168,000 below minimum requirement $3,500,001"
+          },
+          {
+            "requirement": "Max Loan-To-Value (Matrix)",
+            "message": "Occupancy 'Investment Property' not eligible. Available: Primary Residence"
+          },
+          {
+            "requirement": "Occupancy - Primary Only (1-Unit)",
+            "message": "Super Jumbo program only available for Primary (Owner Occupied) occupancy - Non-Owner Occupied not eligible"
+          }
+        ]
+      },
+      "Investor DSCR": {
+        "status": "PASS",
+        "passed_count": 10,
+        "failed_count": 0,
+        "failed_rules": []
+      },
+      "Foreign National": {
+        "status": "FAIL",
+        "passed_count": 9,
+        "failed_count": 2,
+        "failed_rules": [
+          {
+            "requirement": "Max Loan-To-Value (Matrix Evaluation)",
+            "message": "Loan-to-Value 80% exceeds matrix limit 70% for FICO Score 800, Investment Property, $168,000, DSCR 1.25"
+          },
+          {
+            "requirement": "Borrower Eligibility - Foreign National",
+            "message": "US Citizens are not eligible for Foreign National program - FAIL"
+          }
+        ]
+      },
+      "Flex Select": {
+        "status": "FAIL",
+        "passed_count": 11,
+        "failed_count": 1,
+        "failed_rules": [
+          {
+            "requirement": "Income Documentation Type",
+            "message": "DSCR income documentation is not eligible for Flex Select \u2014 use a DSCR program (e.g. DSCR Supreme, Investor DSCR) - FAIL"
+          }
+        ]
+      },
+      "DSCR Supreme": {
+        "status": "PASS",
+        "passed_count": 11,
+        "failed_count": 0,
+        "failed_rules": []
+      },
+      "Flex Supreme": {
+        "status": "FAIL",
+        "passed_count": 11,
+        "failed_count": 1,
+        "failed_rules": [
+          {
+            "requirement": "Income Documentation Type",
+            "message": "DSCR income documentation is not eligible for Flex Supreme \u2014 use a DSCR program (e.g. DSCR Supreme, Investor DSCR) - FAIL"
+          }
+        ]
+      },
+      "DSCR Multi (5-8 Units)": {
+        "status": "FAIL",
+        "passed_count": 0,
+        "failed_count": 1,
+        "failed_rules": [
+          {
+            "requirement": "Property",
+            "message": "DSCR Multi (5-8 Units): Only Residential 5-8 Units and Mixed Use 2-8 Units are eligible"
+          }
+        ]
+      },
+      "Investor DSCR No Ratio": {
+        "status": "FAIL",
+        "passed_count": 7,
+        "failed_count": 2,
+        "failed_rules": [
+          {
+            "requirement": "Max Loan-To-Value (Matrix)",
+            "message": "Loan-to-Value 80% exceeds maximum 75% for FICO Score 740, Loan up to $1M: 75% Purchase/R&T, 65% Cash-Out"
+          },
+          {
+            "requirement": "DSCR Tier",
+            "message": "DSCR tier \"DSCR > 1.15%\" is too high - No Ratio program requires DSCR < 0.75 - FAIL"
+          }
+        ]
+      }
+    },
+    "eligibility_extra": {
+      "ReservesMonths": 12,
+      "FirstTimeHomeBuyer": false
+    },
+    "is_fthb": false
+  },
+  "seen_conflicts": [],
+  "document_requests": [
+    {
+      "document_type": "Borrower Certification as to Business Purpose",
+      "description": "Business Purpose & Occupancy Affidavit declaring commercial business or investment purpose only",
+      "required": true,
+      "priority": "P1",
+      "reasoning": "Required for all DSCR investment property loans as this is classified as a business purpose transaction per NQMF guidelines",
+      "specifications": [
+        "Must identify borrower Emmanuel Nyarko",
+        "Must identify subject property at 1508 Berry Street, Nashville, TN 37206",
+        "Must declare property is for commercial business or investment purpose only",
+        "Must be signed and dated by borrower",
+        "Must confirm property will not be occupied by borrower or family members",
+        "Must be consistent with investment property occupancy type"
+      ],
+      "reasons_needed": [
+        "DSCR loans must be classified as business purpose transactions per NQMF guidelines",
+        "Investment properties require business purpose declaration to comply with non-TRID processing requirements",
+        "Occupancy and business purpose representations must be consistent for underwriting approval",
+        "Required compliance documentation for all business purpose loans per guideline section"
+      ],
+      "guideline_references": [
+        "INVESTMENT PROPERTY & BUSINESS PURPOSE LOANS section requiring Business Purpose & Occupancy Affidavit on all business purpose loans",
+        "DSCR loans must be business purpose and processed as non-TRID transactions"
+      ],
+      "severity": "SOFT-STOP",
+      "document_category": "Compliance",
+      "status": "needed",
+      "tags": [
+        "compliance"
+      ],
+      "source_module": "07"
+    },
+    {
+      "document_type": "Government-Issued Photo ID",
+      "category": "identity_verification",
+      "specifications": [
+        "Must be current and unexpired government-issued photo identification",
+        "Must clearly show borrower's full legal name matching loan application",
+        "Must include photograph for identity verification",
+        "Acceptable forms include driver's license, state ID, passport, or military ID"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "Identity verification required for all borrowers per standard lending practices",
+          "reason_type": "regulatory_requirement"
+        },
+        {
+          "reason": "Confirms borrower identity matches authorization documents and loan application",
+          "reason_type": "document_validation"
+        }
+      ],
+      "priority": "P2",
+      "urgency": "immediate",
+      "acceptable_types": [
+        "Drivers License",
+        "Passport",
+        "Non-Driver ID",
+        "Permanent Resident Card",
+        "Social Security ID",
+        "Travel VISA"
+      ],
+      "severity": "SOFT-STOP",
+      "document_category": "Cross-Cutting",
+      "status": "needed",
+      "tags": [
+        "crosscutting"
+      ],
+      "source_module": "01"
+    },
+    {
+      "document_type": "IRS 4506-C Authorization",
+      "category": "tax_authorization",
+      "specifications": [
+        "Must be fully executed and signed by borrower",
+        "Must authorize retrieval of tax transcripts for verification years",
+        "Must include borrower's current address and SSN",
+        "Must be dated within acceptable timeframe per guidelines"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "Required for all income documentation per Full Documentation guidelines",
+          "reason_type": "guideline_requirement"
+        },
+        {
+          "reason": "Enables verification of income reported on tax returns",
+          "reason_type": "income_verification"
+        }
+      ],
+      "priority": "P2",
+      "urgency": "immediate",
+      "severity": "SOFT-STOP",
+      "document_category": "Cross-Cutting",
+      "status": "needed",
+      "tags": [
+        "crosscutting"
+      ],
+      "source_module": "01"
+    },
+    {
+      "document_type": "Owner Occupancy Certification",
+      "category": "occupancy_verification",
+      "specifications": [
+        "Must clearly state intended occupancy as investment/non-owner occupied",
+        "Must be signed and dated by borrower",
+        "Must confirm borrower will not occupy property as primary residence",
+        "Must align with loan program selected (DSCR investment loan)"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "Investment property occupancy must be documented for DSCR loan program eligibility",
+          "reason_type": "program_eligibility"
+        },
+        {
+          "reason": "Confirms occupancy status matches loan terms and LTV requirements",
+          "reason_type": "loan_terms_verification"
+        }
+      ],
+      "priority": "P2",
+      "urgency": "immediate",
+      "severity": "SOFT-STOP",
+      "document_category": "Cross-Cutting",
+      "status": "needed",
+      "tags": [
+        "crosscutting"
+      ],
+      "source_module": "01"
+    },
+    {
+      "document_type": "Credit Report",
+      "document_subtype": "Tri-Merge Credit Report",
+      "specifications": [
+        "Must be tri-merge or Residential Mortgage Credit Report (RMCR)",
+        "Must provide merged credit information from 3 major national credit repositories (Experian, TransUnion, Equifax)",
+        "Must include all borrowers on the loan",
+        "Must show credit scores for all borrowers",
+        "Must include verification of all credit references provided on loan application",
+        "Must certify results of public record searches for each city where borrower has resided in last 2 years",
+        "Must be dated within allowed recency window per program requirements"
+      ],
+      "reasons_needed": [
+        "Credit score is required to validate program eligibility per NQMF Program Matrices",
+        "Tri-merge credit report is required for all borrowers with the exception of Foreign National Borrowers without US Credit",
+        "Credit report is needed to verify tradeline and credit history requirements",
+        "Required to identify any credit events, public records, inquiries, and mortgage payment history"
+      ],
+      "borrower_ids": [
+        "borrower_1"
+      ],
+      "property_address": "1234 Elm Street, Nashville, TN 37201",
+      "urgency": "high",
+      "conditional": false,
+      "overlay_source": null,
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Credit",
+      "status": "needed",
+      "tags": [
+        "credit"
+      ],
+      "source_module": "04"
+    },
+    {
+      "document_type": "Verification of Mortgage",
+      "document_subtype": "12-Month Payment History",
+      "specifications": [
+        "Must cover 12-month lookback period minimum",
+        "Must identify borrower and property/loan account",
+        "Must show detailed payment history including any late payments",
+        "Must be from acceptable source (servicer statement or credit report)",
+        "Must support housing history verification requirements"
+      ],
+      "reasons_needed": [
+        "Borrower has existing mortgage on investment property that requires payment history verification",
+        "Housing history verification is required for all programs per guidelines",
+        "Late payment history may affect qualification or pricing",
+        "Mortgage payment history must satisfy program requirements for existing mortgage obligations"
+      ],
+      "borrower_ids": [
+        "borrower_1"
+      ],
+      "property_address": "1234 Elm Street, Nashville, TN 37201",
+      "urgency": "medium",
+      "conditional": false,
+      "overlay_source": null,
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Credit",
+      "status": "needed",
+      "tags": [
+        "credit"
+      ],
+      "source_module": "04"
+    },
+    {
+      "document_type": "Rental Income Calculations Worksheet",
+      "specifications": [
+        "Must be included in or attached to the appraisal report",
+        "Must show estimated market rent for the subject property",
+        "Must identify the property address as 1408 Tremont Ave, Nashville, TN 37206",
+        "Must be completed by the appraiser",
+        "Must support rental income calculation for the subject property",
+        "Must be completed for subject property at 3118 West End Ave, Nashville, TN 37203",
+        "Must show market rent for both units in the 2-unit investment property",
+        "Must be completed by the appraiser as part of the appraisal process",
+        "Must align with rental income analysis used for DSCR calculation",
+        "Must demonstrate market rent reasonableness through comparable rental data"
+      ],
+      "reasons_needed": [
+        "DSCR loan requires rental income verification for debt service coverage ratio calculation",
+        "No Ratio DSCR program uses gross market rents from Form 1007 for qualifying",
+        "Market rent establishes the rental income potential of the investment property",
+        "Required for DSCR loan underwriting to determine property cash flow",
+        "DSCR calculation requires market rent support for investment property income",
+        "Guidelines require Form 1007 for all 1-4 unit investment properties when rental income is used for qualifying",
+        "Market rent validation is essential for debt service coverage ratio analysis"
+      ],
+      "priority": "P2",
+      "borrower_name": "Emmanuel Nyarko",
+      "property_address": "1408 Tremont Ave, Nashville, TN 37206",
+      "severity": "SOFT-STOP",
+      "document_category": "Income",
+      "status": "needed",
+      "tags": [
+        "income",
+        "property"
+      ],
+      "source_module": "02",
+      "evidence_found": [],
+      "guideline_trace": [],
+      "overlay_trace": []
+    },
+    {
+      "document_type": "Bank Statement",
+      "priority": "P2",
+      "specifications": [
+        "Must cover 2 months as required for DSCR loan",
+        "Must include all pages of statements",
+        "Must show borrower name Emmanuel Nyarko",
+        "Must show financial institution name and logo",
+        "Must show account number or masked account identifier",
+        "Must show beginning and ending balances for each month",
+        "Must show complete transaction history",
+        "Must be dated within 90 days of note date per NQMF guidelines",
+        "Must support funds to close calculation for $35,000 estimated closing costs",
+        "Must show sufficient liquid funds for closing and any reserve requirements"
+      ],
+      "reasons_needed": [
+        "Assets must be verified for funds to close on refinance transaction",
+        "NQMF guidelines require assets dated within 90 days of note date",
+        "Bank statements provide primary evidence of liquid funds availability",
+        "Account ownership must be confirmed to borrower Emmanuel Nyarko",
+        "Transaction history allows identification of any large deposits requiring sourcing",
+        "Supports verification of funds for estimated $35,000 closing costs"
+      ],
+      "timeframe": "2 months",
+      "overlay_impacts": [],
+      "guideline_citations": [
+        "ASSETS section: Assets must be dated within 90 days of note date",
+        "Loan files must evidence sufficient funds for closing costs and debt payoff"
+      ],
+      "severity": "SOFT-STOP",
+      "document_category": "Assets",
+      "status": "needed",
+      "tags": [
+        "assets"
+      ],
+      "source_module": "03"
+    },
+    {
+      "document_name": "Appraisal Report",
+      "document_type": "Appraisal Report",
+      "category": "Property",
+      "priority": "P2",
+      "specifications": [
+        "Must be completed using FNMA Form 1025 (Small Residential Income Property Appraisal Report for 2-4 Unit Residential Properties) as this is a 2-unit investment property",
+        "Must identify subject property address at 3118 West End Ave, Nashville, TN 37203",
+        "Must show appraised value to support LTV calculation for $168,000 loan amount",
+        "Must include market rent analysis to support DSCR calculation",
+        "Must be dated within 365 days of Note date with recertification required if exceeding 120 days",
+        "Must include full interior inspection of each unit",
+        "Must include street map showing location of subject property and all comparables",
+        "Must include exterior building sketch with dimensions and floor plan sketch",
+        "Must include original color photographs of front, street, and rear views of subject property",
+        "Must include interior photos of kitchen, all bathrooms, main living area in each unit",
+        "Must include analysis of all sales of subject property within 3 years prior to appraisal date",
+        "Must include completed Sales Comparison Approach section",
+        "Must include appraiser certification and statement of limiting conditions",
+        "Must include appraiser's errors and omissions insurance policy valid as of appraisal date"
+      ],
+      "reasons_needed": [
+        "Collateral valuation is required for underwriting DSCR refinance transaction",
+        "LTV eligibility depends on appraised value for $168,000 loan against estimated $210,000 property value",
+        "Market rent analysis is required to support DSCR calculation for investment property",
+        "Form 1025 is specifically required for 2-4 unit residential income properties per guidelines",
+        "Property identity must be consistent across loan file for compliance"
+      ],
+      "compliance_rationale": "NQMF guidelines require completed appraisal report on all loan transactions to assess adequacy of property as collateral. Form 1025 is mandated for 2-4 unit residential properties with market rent analysis required for DSCR loans.",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_name": "Flood Determination Certificate",
+      "document_type": "Flood Hazard Determination",
+      "category": "Property",
+      "priority": "P2",
+      "specifications": [
+        "Must be provided by Federal Emergency Management Agency (FEMA)",
+        "Must identify subject property at 3118 West End Ave, Nashville, TN 37203",
+        "Must accurately reflect flood zone designation",
+        "Must indicate whether property is in Special Flood Hazard Area (SFHA) zones A or V",
+        "Must show if property is in community participating in FEMA program",
+        "Must be consistent with flood zone information in appraisal report"
+      ],
+      "reasons_needed": [
+        "Determination of flood insurance requirement depends on FEMA flood zone designation",
+        "Required to establish whether property is in Special Flood Hazard Area requiring flood insurance",
+        "Compliance with federal flood insurance requirements"
+      ],
+      "compliance_rationale": "NQMF guidelines require determination whether subject property is in flood zone must be established by Flood Certificate provided by FEMA. Required for all transactions to determine flood insurance requirements.",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_name": "Property Insurance",
+      "document_type": "Hazard Insurance",
+      "category": "Property",
+      "priority": "P2",
+      "specifications": [
+        "Must name all persons holding title to subject property at 3118 West End Ave, Nashville, TN 37203 as named insured",
+        "Must provide adequate coverage for 2-unit investment property",
+        "Must include policy number, insurance company name, and agent information",
+        "Must show effective and expiration dates of coverage",
+        "Must include premium amount and deductible information",
+        "Must include loss payee clause naming NQM Funding, LLC as mortgagee",
+        "Must be maintained throughout duration of loan",
+        "Property address must agree with note/security instrument"
+      ],
+      "reasons_needed": [
+        "Property insurance protects lender's collateral interest in investment property",
+        "Required for all mortgage transactions to protect against property loss",
+        "Ensures borrower has adequate coverage for 2-unit rental property risks"
+      ],
+      "compliance_rationale": "NQMF guidelines require property insurance for all transactions. Individual property insurance policy must list all persons holding title as named insured with proper loss payee designation.",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_name": "SSR/UCDP Findings",
+      "document_type": "UCDP SSR",
+      "category": "Property",
+      "priority": "P2",
+      "specifications": [
+        "Must provide FNMA SSR Score of 2.5 or less as acceptable review product",
+        "Must support appraisal value for the transaction through secondary appraisal product",
+        "Must be completed for subject property at 3118 West End Ave, Nashville, TN 37203",
+        "Must validate appraisal findings and value conclusion"
+      ],
+      "reasons_needed": [
+        "Appraisal review process requires secondary appraisal product to support appraisal value",
+        "Risk management tool to validate appraised value reasonableness",
+        "Standard requirement for appraisal quality control"
+      ],
+      "compliance_rationale": "NQMF guidelines require appraisal review process with acceptable review products including FNMA SSR Score of 2.5 or less to support appraisal value for all transactions.",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_name": "1-4 Family Rider (Assignment of Rents)",
+      "document_type": "Deed of Trust",
+      "category": "Property",
+      "priority": "P2",
+      "specifications": [
+        "Must be FNMA Form 3170 (1-4 Family Rider - Assignment of Rents)",
+        "Must apply to investment property at 3118 West End Ave, Nashville, TN 37203",
+        "Must assign rental income rights to lender",
+        "Must be properly executed and recorded",
+        "Must provide lender with rights to collect rents in case of default"
+      ],
+      "reasons_needed": [
+        "Required for all investment properties to secure rental income stream",
+        "Provides lender protection and rights to rental income in event of borrower default",
+        "Standard requirement for investment property financing"
+      ],
+      "compliance_rationale": "NQMF guidelines specifically require 1-4 Family Rider (Assignment of Rents) FNMA Form 3170 for all Investment Properties to secure rental income rights.",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_type": "Title Commitment",
+      "specifications": [
+        "Must identify borrower Emmanuel Nyarko as owner/vested party",
+        "Must identify subject property address: 1621 N 6th St, Nashville, TN 37208",
+        "Must include complete legal description of the property",
+        "Must disclose all liens, judgments, easements, exceptions, and title requirements",
+        "Must show title insurer and effective date within 60 days",
+        "Must confirm clear and marketable title with proper vesting",
+        "Must show lien position for existing mortgage to be refinanced"
+      ],
+      "reasons_needed": [
+        "Underwriter must verify borrower ownership and vesting alignment with loan application",
+        "Property address and legal description must match appraisal and loan documents",
+        "Existing liens must be identified for proper payoff and lien position calculation",
+        "Title exceptions and requirements may affect closing conditions and loan approval",
+        "Insurable title is required for mortgage lending and title insurance coverage"
+      ],
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Title",
+      "status": "needed",
+      "tags": [
+        "title"
+      ],
+      "source_module": "06"
+    },
+    {
+      "document_type": "Grant Deed",
+      "specifications": [
+        "Must show Emmanuel Nyarko as current titleholder/grantee",
+        "Must identify the subject property: 1621 N 6th St, Nashville, TN 37208",
+        "Must include complete legal description matching title commitment",
+        "Must be properly executed with notarization and recording information",
+        "Must confirm individual ownership (not entity) as indicated in loan file"
+      ],
+      "reasons_needed": [
+        "Confirms borrower's legal ownership of the subject property",
+        "Vesting must align with borrower identity and loan application structure",
+        "Required to verify proper title chain and ownership history",
+        "Ensures borrower has authority to encumber the property with mortgage lien"
+      ],
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Title",
+      "status": "needed",
+      "tags": [
+        "title"
+      ],
+      "source_module": "06"
+    },
+    {
+      "document_type": "Payoff Statement",
+      "specifications": [
+        "Must identify existing mortgage servicer and account number",
+        "Must show exact payoff amount for existing mortgage on subject property",
+        "Must include good-through date (typically 30 days from statement date)",
+        "Must identify the subject property: 1621 N 6th St, Nashville, TN 37208",
+        "Must include per diem interest calculation if applicable",
+        "Must be dated within 30 days of closing"
+      ],
+      "reasons_needed": [
+        "Required for refinance transaction to pay off existing mortgage lien",
+        "Payoff amount is needed to calculate net loan proceeds and funds to close",
+        "Ensures proper lien release and clear title transfer at closing",
+        "Per diem calculation ensures accurate payoff amount through closing date"
+      ],
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "document_category": "Title",
+      "status": "needed",
+      "tags": [
+        "title"
+      ],
+      "source_module": "06"
+    }
+  ],
+  "stats": {
+    "total_document_requests": 16,
+    "hard_stop_documents": 0,
+    "by_category": {
+      "Compliance": 1,
+      "Cross-Cutting": 3,
+      "Credit": 2,
+      "Income": 1,
+      "Assets": 1,
+      "Property": 5,
+      "Title": 3
+    },
+    "by_priority": {
+      "P1": 1,
+      "P2": 15
+    },
+    "by_status": {
+      "needed": 16
+    },
+    "elapsed_seconds": 471.8,
+    "tool_calls": 89
+  }
+}

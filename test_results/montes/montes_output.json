@@ -98,14 +98,14 @@
       "subject_property_rental_income": null
     },
     "doc_profile": [
-      "bank_statement",
-      "1099",
-      "paystub",
       "purchase_contract",
-      "other",
+      "compliance_notice",
       "emd",
       "loan_application",
-      "compliance_notice"
+      "other",
+      "bank_statement",
+      "paystub",
+      "1099"
     ],
     "housing_expenses": {
       "present": [
@@ -678,26 +678,32 @@
   "document_requests": [
     {
       "document_type": "Credit Report",
-      "borrower": "Veronica Marie Montes",
-      "priority": "P0",
+      "description": "Tri-merge credit report or Residential Mortgage Credit Report (RMCR) for all borrowers",
+      "borrower_name": "Veronica Marie Montes",
       "specifications": [
-        "Must be a tri-merge credit report from all three bureaus (Equifax, Experian, TransUnion)",
-        "Must identify all borrowers on the loan application",
-        "Must show credit scores from each reporting bureau",
-        "Must show complete tradeline details including payment history, balances, and credit limits",
-        "Must show mortgage history if any existing mortgages are reported",
-        "Must display all inquiries within the past 120 days",
-        "Must show public records including judgments, liens, and bankruptcies if any",
-        "Must show any active disputes, collections, or charge-offs",
-        "Must show any fraud alerts or OFAC flags if present",
-        "Must be dated within 90 days of the note date"
+        "Must be a tri-merge report from all three major repositories (Experian, TransUnion, Equifax)",
+        "Must include credit scores from all reporting bureaus",
+        "Must show complete tradeline history with payment patterns",
+        "Must display all public records including judgments, liens, and bankruptcies",
+        "Must show all credit inquiries within the past 24 months",
+        "Must identify any disputed accounts or fraud alerts",
+        "Must show collections, charge-offs, and derogatory items",
+        "Must verify Social Security Number",
+        "Must certify public record searches for all residences in the last 2 years",
+        "Must be dated within program-allowed recency window",
+        "Must include housing/mortgage payment history if any mortgage tradelines exist"
       ],
       "reasons_needed": [
-        "Credit score is required to validate program eligibility for Flex Supreme program",
-        "Tradeline and credit history requirements must be reviewed to confirm minimum tradeline standards are met",
-        "Credit report is needed to identify any credit events, inquiries, disputes, or housing history",
-        "Report validates borrower identity and supports underwriting decision"
+        "Credit score is required to validate Flex Supreme program eligibility and pricing",
+        "Tradeline requirements must be verified: 3 tradelines reporting 12+ months OR 2 tradelines reporting 24+ months with activity in last 12 months",
+        "Credit report is required to identify any credit events, bankruptcies, foreclosures, or housing events",
+        "Must verify no derogatory mortgage history or housing events that would affect eligibility",
+        "Required to review inquiries and identify any potential undisclosed debts",
+        "Public record searches required to identify liens, judgments, or other encumbrances",
+        "NQMF guidelines mandate tri-merge or RMCR for all borrowers on the loan"
       ],
+      "priority": "P0",
+      "category": "credit",
       "severity": "SOFT-STOP",
       "document_category": "Credit",
       "status": "needed",
@@ -707,27 +713,70 @@
       "source_module": "04"
     },
     {
+      "document_type": "Appraisal Report",
+      "priority": "P0",
+      "specifications": [
+        "Must be completed on FNMA Form 1004 (Uniform Residential Appraisal Report) for single-family residence",
+        "Must identify subject property address matching the purchase contract and loan application",
+        "Must confirm property type as single-family residence (SFR) and unit count as 1",
+        "Must show appraised value supporting the $411,000 purchase price and 80% LTV calculation",
+        "Must be dated within 120 days of the Note date; if older than 120 days, Form 1004D recertification required",
+        "Must include all pages and addenda",
+        "Must include street map showing location of subject and all comparables",
+        "Must include exterior building sketch with dimensions and floor plan with GLA calculations",
+        "Must include original color photographs of front, street, and rear views of subject property",
+        "Must include interior photos of kitchen, all bathrooms, main living area, and any physical deterioration or renovations",
+        "Must include comparable sales analysis and appraiser certification",
+        "Must confirm property condition is average or better (C1-C4; C5/C6 not acceptable)",
+        "Must confirm no health or safety issues, structural deficiencies, or excessive deferred maintenance",
+        "Must confirm property meets minimum 400 sq ft requirement and contains full kitchen and bathroom",
+        "Must confirm property usage represents highest and best use",
+        "Must confirm property is accessible and available for year-round residential use",
+        "Must identify and comment on any adverse environmental or economic conditions",
+        "Must include analysis of any sales/listings of subject property within prior 3 years",
+        "Must include appraiser's license/certification in the state of California",
+        "Must include copy of appraiser's E&O Insurance Policy or AMC confirmation on file"
+      ],
+      "reasons_needed": [
+        "Collateral valuation required for underwriting per NQMF guidelines",
+        "LTV/CLTV eligibility depends on appraised value supporting $328,800 loan at 80% LTV",
+        "Property type and unit count must be verified for program eligibility",
+        "Property condition must meet NQMF minimum property standards (no fair/poor ratings)",
+        "Subject property identity must be consistent across all loan file documents",
+        "NQMF requires full interior inspection with specific photo requirements",
+        "Appraisal Independence Policy compliance required under Dodd-Frank"
+      ],
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_id": "CROSSCUT-001",
       "document_name": "Government-Issued Photo ID",
       "document_category": "Cross-Cutting",
-      "priority": "P1",
+      "applies_to_borrower": "Veronica Marie Montes",
       "specifications": [
-        "Must be valid, unexpired government-issued photo identification",
-        "Must show full legal name matching loan application (Veronica Marie Montes)",
-        "Must include photograph, date of birth, and expiration date",
-        "Acceptable forms: Driver's License, State ID, Passport, or Military ID"
+        "Must be unexpired government-issued photo identification",
+        "Must display full legal name matching loan application",
+        "Acceptable forms: State driver's license, state ID card, US passport, or permanent resident card",
+        "Must be legible with clear photo visible"
       ],
       "reasons_needed": [
         {
-          "reason": "Borrower identity must be verified before credit, title, and compliance documents can be relied upon.",
-          "reason_type": "identity_verification"
+          "reason": "Borrower identity verification required for all loan transactions per compliance requirements",
+          "reason_type": "compliance"
         },
         {
-          "reason": "Required for Patriot Act/CIP compliance and borrower authentication.",
-          "reason_type": "compliance"
+          "reason": "Name on ID must match loan application and all supporting documents",
+          "reason_type": "document_validation"
         }
       ],
-      "borrower_name": "Veronica Marie Montes",
-      "guideline_reference": "BORROWER ELIGIBILITY",
+      "priority": "P1",
+      "guideline_reference": "NQMF Identity Verification Requirements",
       "document_type": "Government-Issued Photo ID",
       "acceptable_types": [
         "Drivers License",
@@ -745,28 +794,29 @@
       "source_module": "01"
     },
     {
+      "document_id": "CROSSCUT-002",
       "document_name": "IRS Form 4506-C",
       "document_category": "Cross-Cutting",
-      "priority": "P1",
+      "applies_to_borrower": "Veronica Marie Montes",
       "specifications": [
         "Must be fully executed with borrower signature and date",
-        "Must include correct SSN for borrower Veronica Marie Montes",
-        "Must specify tax years 2023 and 2024 (12 months 1099 income verification)",
-        "Must include current subject property address: California SFR",
-        "Must authorize transcript request for Form 1099 income verification"
+        "Must include correct borrower SSN and current address",
+        "Must authorize IRS transcript retrieval for most recent 2 tax years",
+        "Must list correct property address as applicable",
+        "Form must be dated within 120 days of closing"
       ],
       "reasons_needed": [
         {
-          "reason": "Guidelines require fully executed and signed IRS Form-4506C for income verification.",
+          "reason": "IRS Form 4506-C required per NQMF Full Documentation guidelines for all income sources",
           "reason_type": "guideline_requirement"
         },
         {
-          "reason": "1099 income documentation program requires IRS transcript verification of reported income.",
-          "reason_type": "program_requirement"
+          "reason": "Tax transcript authorization enables verification of reported income against IRS records",
+          "reason_type": "income_validation"
         }
       ],
-      "borrower_name": "Veronica Marie Montes",
-      "guideline_reference": "FULL DOCUMENTATION",
+      "priority": "P1",
+      "guideline_reference": "NQMF Full Documentation - IRS Form 4506-C requirement",
       "document_type": "IRS 4506-C Authorization",
       "severity": "SOFT-STOP",
       "status": "needed",
@@ -776,30 +826,29 @@
       "source_module": "01"
     },
     {
-      "document_name": "Fully Executed Purchase Contract",
+      "document_id": "CROSSCUT-003",
+      "document_name": "Occupancy Certification",
       "document_category": "Cross-Cutting",
-      "priority": "P1",
+      "applies_to_borrower": "Veronica Marie Montes",
       "specifications": [
-        "Must be fully executed with all signatures from buyer (Veronica Marie Montes) and seller",
-        "Must show purchase price consistent with $411,000 (80% LTV on $328,800 loan)",
-        "Must identify subject property address in California",
-        "Must include all addenda, amendments, and counteroffers",
-        "Must show earnest money deposit amount and holder",
-        "Must include closing date and contingency deadlines"
+        "Must certify borrower's intended occupancy of subject property as primary residence",
+        "Must include borrower signature and date",
+        "Must acknowledge understanding of occupancy fraud penalties",
+        "Must be consistent with loan application declared occupancy type"
       ],
       "reasons_needed": [
         {
-          "reason": "Purchase transaction requires fully executed contract to establish sales price, terms, and LTV calculation basis.",
-          "reason_type": "transaction_type"
+          "reason": "Primary residence occupancy must be certified for LTV, pricing, and program eligibility determination",
+          "reason_type": "eligibility"
         },
         {
-          "reason": "Contract terms needed to verify occupancy intent and subject property identification.",
-          "reason_type": "eligibility_verification"
+          "reason": "Occupancy certification required to confirm consistency with Flex Supreme program requirements",
+          "reason_type": "program_compliance"
         }
       ],
-      "borrower_name": "Veronica Marie Montes",
-      "guideline_reference": "PROPERTY TYPES",
-      "document_type": "Purchase Contract",
+      "priority": "P1",
+      "guideline_reference": "NQMF Occupancy Requirements",
+      "document_type": "Owner Occupancy Certification",
       "severity": "SOFT-STOP",
       "status": "needed",
       "tags": [
@@ -808,22 +857,54 @@
       "source_module": "01"
     },
     {
-      "document_type": "1099",
-      "borrower": "Veronica Marie Montes",
+      "document_type": "Verification of Rent",
+      "description": "12-month rental payment history verification for current housing",
+      "borrower_name": "Veronica Marie Montes",
       "specifications": [
-        "Must include 1099 forms for the most recent two (2) consecutive full tax years",
-        "Must be from the same income source for both years",
-        "Must show borrower name matching loan application",
-        "Must show payer name and payer TIN",
-        "Must show gross income amount"
+        "Must cover minimum 12 months of rental payment history",
+        "Must identify borrower as tenant on the rental agreement or lease",
+        "Must show monthly payment amounts and due dates",
+        "Must document any late payments (30+ days) during the period",
+        "Must be signed by landlord/property manager with contact information",
+        "Must include property address of rental unit",
+        "Acceptable alternative: 12 months cancelled checks or bank statements showing rental payments to same payee"
       ],
       "reasons_needed": [
-        "1099 income requires verification from the same source covering the most recent two (2) full years per guidelines",
-        "Income continuity and stability must be established for qualification",
-        "1099 income filed as Schedule C or E requires source documentation"
+        "NQMF guidelines require verification of borrower's housing history for all programs",
+        "Housing history is required to assess borrower payment behavior for eligibility",
+        "12 month 0x30 housing/rental history may be required depending on program tier",
+        "Housing payment history not reporting on credit report requires separate VOR documentation",
+        "Acceptable housing history can serve as tradeline equivalent per guideline allowance"
       ],
       "priority": "P1",
-      "guideline_reference": "EMPLOYMENT - STABILITY AND CONTINUANCE OF SELF-EMPLOYMENT",
+      "category": "credit",
+      "condition": "Required if borrower is currently renting and housing history does not appear on credit report",
+      "severity": "SOFT-STOP",
+      "document_category": "Credit",
+      "status": "needed",
+      "tags": [
+        "credit"
+      ],
+      "source_module": "04"
+    },
+    {
+      "document_type": "Form 1099-NEC",
+      "borrower": "Veronica Marie Montes",
+      "priority": "P1",
+      "specifications": [
+        "Must include all 1099 forms received for the most recent 12-month period",
+        "Must show borrower name matching loan application",
+        "Must show payer name and EIN",
+        "Must show gross income amounts",
+        "May include 1099-MISC, 1099-NEC, or 1099-K as applicable to income source",
+        "Must cover period consistent with bank statement income period if used together"
+      ],
+      "reasons_needed": [
+        "1099 income program requires 1099 forms to document and verify independent contractor or self-employment income",
+        "Payer information required to verify legitimacy of income source",
+        "Income amounts on 1099s must reconcile with bank deposits and tax return reporting"
+      ],
+      "guideline_reference": "NQMF Full Documentation - 1099 Income Program (12 months)",
       "severity": "SOFT-STOP",
       "document_category": "Income",
       "status": "needed",
@@ -835,30 +916,30 @@
     {
       "document_type": "Form 1040",
       "borrower": "Veronica Marie Montes",
+      "priority": "P1",
       "specifications": [
-        "Must include complete personal tax returns for the most recent two (2) consecutive tax years",
-        "Must include all schedules and attachments",
-        "Must include Schedule C if filing self-employment income as sole proprietor",
-        "Must include Schedule E if reporting rental or partnership income",
+        "Must include complete personal tax return (Form 1040) for most recent tax year",
+        "Must include all schedules (Schedule C, Schedule E, Schedule SE as applicable)",
         "Must be signed and dated or include IRS transcript",
-        "Must show borrower name and SSN matching loan application",
-        "Must be included for each of the most recent two (2) tax years",
+        "Must show borrower name and SSN consistent with loan application",
+        "Must include all pages and attachments",
+        "Must support 1099 income declared on loan application",
+        "Must be included with Form 1040 for most recent tax year",
         "Must show business name and principal business activity",
         "Must show gross receipts and net profit/loss",
-        "Must be consistent with 1099 income reported",
-        "Must be part of complete tax return filing"
+        "Must show borrower as proprietor",
+        "Must support self-employment income calculation"
       ],
       "reasons_needed": [
-        "Self-employed borrowers must provide tax returns to calculate stable monthly income",
-        "1099 income filing as Schedule C or E requires full tax return review",
-        "Two years of returns required to verify income stability and continuance",
-        "All schedules required to properly calculate qualifying income",
-        "Schedule C is required to calculate net self-employment income",
-        "Business expenses must be deducted from gross 1099 income for qualification",
-        "Two years required to analyze income trend and stability"
+        "Tax returns required to verify 1099 income reported to IRS",
+        "Schedule C or other schedules needed to calculate net self-employment income",
+        "Income must be verified for stability and continuity per NQMF guidelines",
+        "Tax return income must reconcile with 1099 forms and bank statement deposits",
+        "Schedule C documents sole proprietor income from 1099 sources",
+        "Net profit calculation required for qualifying income determination",
+        "Business expenses and depreciation must be reviewed for add-backs per NQMF cash flow analysis"
       ],
-      "priority": "P1",
-      "guideline_reference": "FULL DOCUMENTATION",
+      "guideline_reference": "NQMF Full Documentation - Self-Employment Income requirements",
       "severity": "SOFT-STOP",
       "document_category": "Income",
       "status": "needed",
@@ -871,34 +952,8 @@
       "overlay_trace": []
     },
     {
-      "document_type": "Business Verification Letter",
-      "borrower": "Veronica Marie Montes",
-      "specifications": [
-        "Must be from a disinterested third party (CPA, regulatory agency, licensing bureau, or Secretary of State)",
-        "Must verify current existence of the business",
-        "Must be dated within 30 business days of closing",
-        "Must show business name consistent with loan file",
-        "Alternative: Secretary of State listing reflecting current year registration",
-        "Alternative: Evidence of receipt of business income within 30 days supported by invoices or bank statements showing business deposits"
-      ],
-      "reasons_needed": [
-        "Self-employment business existence must be independently verified through disinterested third party",
-        "Verification must be within 30 business days of closing per guidelines",
-        "Required to confirm borrower's self-employment status and business continuity"
-      ],
-      "priority": "P1",
-      "guideline_reference": "VERIFICATION OF SELF-EMPLOYMENT",
-      "severity": "SOFT-STOP",
-      "document_category": "Income",
-      "status": "needed",
-      "tags": [
-        "income"
-      ],
-      "source_module": "02"
-    },
-    {
       "document_type": "Bank Statement",
-      "borrower_name": "Veronica Marie Montes",
+      "borrower": "Veronica Marie Montes",
       "priority": "P1",
       "specifications": [
         "Must cover most recent 2 consecutive months",
@@ -906,48 +961,64 @@
         "Must show borrower name as account holder",
         "Must show financial institution name and logo",
         "Must show account number (full or masked)",
-        "Must show beginning and ending balance for each month",
+        "Must show beginning and ending balances for each month",
         "Must show complete transaction history",
         "Must be dated within 90 days of note date per NQMF guidelines",
-        "Must support funds to close calculation including 20% down payment, closing costs, and prepaids",
-        "Must identify any deposits exceeding 50% of qualifying income for potential sourcing"
+        "Must cover all accounts being used for funds to close and reserves",
+        "Any large deposits (typically exceeding 50% of monthly qualifying income) must be identified for sourcing",
+        "Must show verified liquid assets sufficient to cover required reserve months",
+        "Must identify acceptable asset sources per program guidelines",
+        "Must show account ownership by borrower",
+        "Must support required months of PITIA (Principal, Interest, Taxes, Insurance, Association dues)",
+        "Must exclude gift funds from reserve calculation per NQMF guidelines",
+        "Must be dated within 90 days of note date",
+        "Reserve calculation must account for all financed properties if applicable"
       ],
       "reasons_needed": [
-        "NQMF guidelines require assets dated within 90 days of note date to verify sufficient funds",
-        "Purchase transaction at 80% LTV requires verification of 20% down payment (~$82,200)",
-        "Closing costs and prepaid items must be verified from acceptable sources",
-        "Reserve requirements must be supported by verified asset balances",
-        "Account ownership must be confirmed to match borrower",
-        "Large deposits may require sourcing documentation"
+        "Assets must be verified for funds to close per NQMF guidelines requiring evidence of sufficient funds from acceptable sources for down payment, closing costs, prepaid items, and debt payoff",
+        "Reserves must be verified for DSCR/Non-QM purchase transactions",
+        "Account ownership must be confirmed to ensure borrower has legal access to funds",
+        "Transaction history required to identify large deposits that may need sourcing documentation",
+        "Balance verification supports funds to close calculation and reserve determination",
+        "Program requires reserves based on occupancy, property type, and loan characteristics",
+        "Reserve calculation must be supported by verified liquid assets",
+        "Non-QM/DSCR programs typically require 6-12 months reserves",
+        "Reserves provide risk mitigation for lender"
       ],
-      "guideline_reference": "NQMF Assets Section - Loan files must evidence sufficient funds from acceptable sources for down payment, closing costs, prepaid items, debt payoff, and applicable reserves",
+      "source_trigger": "Always required for funds to close verification",
+      "guideline_reference": "NQMF Assets Section - Assets must be dated within 90 days of note date",
       "severity": "SOFT-STOP",
       "document_category": "Assets",
       "status": "needed",
       "tags": [
         "assets"
       ],
-      "source_module": "03"
+      "source_module": "03",
+      "evidence_found": [],
+      "guideline_trace": [],
+      "overlay_trace": []
     },
     {
       "document_type": "Verification of Deposit",
-      "borrower_name": "Veronica Marie Montes",
+      "borrower": "Veronica Marie Montes",
       "priority": "P1",
       "specifications": [
-        "Must show EMD amount as stated in purchase contract",
-        "Must show canceled check front and back OR wire transfer confirmation",
-        "Must show funds originated from verified borrower account",
-        "Must match EMD amount listed on purchase agreement",
-        "Must show payee as escrow/title company or seller as applicable",
-        "Must provide paper trail from borrower account to deposit recipient"
+        "Must show EMD amount matching purchase contract",
+        "Must show date of deposit",
+        "Must show source account from which EMD was paid",
+        "Must include copy of cancelled check or wire confirmation",
+        "Must show escrow agent or title company receipt if deposited with third party",
+        "Must trace from borrower's verified bank account showing withdrawal",
+        "Must reconcile to purchase contract terms"
       ],
       "reasons_needed": [
         "Purchase transaction requires verification of earnest money deposit",
-        "EMD must be sourced to borrower's verified funds",
-        "EMD amount credited toward down payment must be documented",
-        "Paper trail required to confirm acceptable source of funds"
+        "EMD funds must be traced to acceptable source (borrower's verified account)",
+        "EMD amount credited toward funds to close must be documented",
+        "Ensures EMD was not sourced from unacceptable funds"
       ],
-      "guideline_reference": "NQMF Assets Section - Funds from acceptable sources for down payment",
+      "source_trigger": "Purpose = Purchase",
+      "guideline_reference": "NQMF Assets Section - Funds must be from acceptable sources for down payment",
       "severity": "SOFT-STOP",
       "document_category": "Assets",
       "status": "needed",
@@ -955,70 +1026,20 @@
         "assets"
       ],
       "source_module": "03"
-    },
-    {
-      "document_type": "Appraisal Report",
-      "form_type": "Form 1004",
-      "priority": "P1",
-      "specifications": [
-        "Must use FNMA Form 1004 (Uniform Residential Appraisal Report) for single-family residence",
-        "Must identify subject property address matching loan application",
-        "Must identify property type as single-family residence and confirm unit count",
-        "Must show appraised value supporting LTV/CLTV calculation",
-        "Must be dated within 120 days of Note date to avoid recertification requirement",
-        "Must include all pages, addenda, and certifications",
-        "Must include street map showing subject property and all comparables used",
-        "Must include exterior building sketch with dimensions and floor plan with GLA calculations",
-        "Must include original color photographs of front, street, and rear views of subject property",
-        "Must include interior photos of kitchen, all bathrooms, main living area, and any areas with deterioration or improvements",
-        "Must include comparable sales analysis with Sales Comparison Approach section completed",
-        "Must confirm property is in average or better condition (C1-C4 acceptable; C5/C6 ineligible)",
-        "Must confirm no fair or poor ratings and no health or safety issues",
-        "Must confirm property contains full kitchen and bathroom with minimum 400 sq ft",
-        "Must disclose any repairs, adverse conditions, or structural/deferred maintenance",
-        "Must include appraiser certification, statement of limiting conditions, and E&O insurance documentation",
-        "Must confirm property is designed and available for year-round residential use",
-        "Must confirm property represents highest and best use with no environmental hazards impacting marketability"
-      ],
-      "reasons_needed": [
-        "Collateral valuation is required for underwriting per NQMF guidelines",
-        "LTV/CLTV eligibility (80% LTV) depends on appraised value",
-        "Property type and condition must meet NQMF minimum property standards",
-        "Subject property identity must be consistent across the loan file",
-        "Appraisal must confirm property eligibility under Flex Supreme program",
-        "California property location requires verification of property characteristics"
-      ],
-      "guideline_references": [
-        "APPRAISAL REQUIREMENTS",
-        "APPRAISAL REQUIREMENTS 1-4 UNIT RESIDENTIAL",
-        "PROPERTY REQUIREMENTS",
-        "MINIMUM PROPERTY STANDARDS"
-      ],
-      "severity": "SOFT-STOP",
-      "document_category": "Property",
-      "status": "needed",
-      "tags": [
-        "property"
-      ],
-      "source_module": "05"
     },
     {
       "document_type": "UCDP SSR",
       "priority": "P1",
       "specifications": [
-        "Must provide FNMA SSR (Submission Summary Report) from UCDP upload",
-        "Must show SSR score of 2.5 or less for appraisal acceptance",
-        "Must identify subject property matching appraisal report",
-        "Must address any flags or warnings requiring resolution",
-        "If SSR score exceeds 2.5, alternative review product required (House Canary AVM, Clear Capital Desk Review, or Field Review)"
+        "Must reflect FNMA SSR Score of 2.5 or less per NQMF appraisal review process",
+        "Must correspond to the appraisal submitted for the subject property",
+        "Must identify subject property address matching appraisal and loan file",
+        "If SSR score exceeds 2.5, alternative review product required (CDA, AVM, or Field Review)"
       ],
       "reasons_needed": [
-        "NQMF Appraisal Review Process requires secondary appraisal product to support value",
-        "SSR score of 2.5 or less confirms appraisal validity without additional review products",
-        "Collateral risk assessment requires UCDP validation"
-      ],
-      "guideline_references": [
-        "APPRAISAL REVIEW PROCESS \u2013 1-4 UNIT RESIDENTIAL PROPERTIES"
+        "NQMF appraisal review process requires secondary appraisal product to support value",
+        "SSR score validates appraisal quality and value reasonableness",
+        "Standard collateral review requirement for 1-4 unit residential properties"
       ],
       "severity": "SOFT-STOP",
       "document_category": "Property",
@@ -1032,23 +1053,18 @@
       "document_type": "Flood Hazard Determination",
       "priority": "P1",
       "specifications": [
-        "Must be a Flood Certificate provided by FEMA-approved vendor",
-        "Must identify subject property address",
-        "Must indicate flood zone determination (Section B4 'Flood Zone' field)",
-        "Must indicate whether property is in Special Flood Hazard Area (SFHA) - Zone A or V",
-        "Must indicate NFIP community participation status if in flood zone",
-        "Must include Section B5 'No NFIP Map' indicator if applicable",
-        "Must include Section D 'Determination' confirming whether property is in FEMA flood zone containing letters A or V"
+        "Must be a Flood Certificate provided by FEMA-authorized vendor",
+        "Must identify subject property address matching loan file",
+        "Must clearly indicate flood zone designation in Section B4",
+        "Must indicate whether property is in Special Flood Hazard Area (SFHA) - Zone A or Zone V",
+        "Must align with flood zone indicated in appraisal report",
+        "Must include determination date and certification"
       ],
       "reasons_needed": [
-        "NQMF guidelines require flood determination to establish whether property is in SFHA",
-        "Flood insurance requirement depends on flood zone status per FEMA designation",
-        "Properties in Flood Zone A or V must be in FEMA-participating community for eligibility",
-        "Appraisal report must accurately reflect flood zone consistent with determination"
-      ],
-      "guideline_references": [
-        "FLOOD CERTIFICATE",
-        "FLOOD INSURANCE"
+        "NQMF requires flood zone determination for all properties",
+        "Determines whether flood insurance is required (mandatory for Zone A or V)",
+        "Appraisal flood zone designation must be verified against official FEMA determination",
+        "Properties in SFHA must be in FEMA-participating community to be eligible"
       ],
       "severity": "SOFT-STOP",
       "document_category": "Property",
@@ -1062,30 +1078,23 @@
       "document_type": "Hazard Insurance",
       "priority": "P1",
       "specifications": [
-        "Must be hazard insurance policy protecting against fire and standard extended coverage perils",
-        "Must include coverage for: fire/lightning, explosion, windstorm (including named storms), hail, smoke, aircraft, vehicles, riot/civil commotion",
-        "Must provide claims settled on replacement cost basis (actual cash value policies not acceptable)",
+        "Must provide hazard insurance protecting against fire and standard extended coverage perils",
+        "Extended coverage must include wind, civil commotion, smoke, hail, aircraft, vehicle, and explosion",
+        "Must provide coverage on replacement cost basis (actual cash value not acceptable)",
         "Must name all persons holding title to subject property as named insured",
-        "Must include standard or union mortgagee clause (loss payable clause not acceptable)",
-        "Must show policy effective for at least 60 days after date of funding",
-        "Must include policy number, loan number, insurance company name, agent information",
-        "Must show effective and expiration dates, premium amount, coverage amounts and deductible",
-        "Must confirm property address matches note/security instrument",
-        "Must include notice of cancellation provision requiring written notice to named insured and mortgagee before cancellation",
-        "Must be signed and dated by insurance agent"
+        "Must include standard mortgagee clause (loss payable clause not acceptable)",
+        "Must be effective for at least 60 days after date of funding",
+        "Must include policy number, loan number, coverage amounts, deductible, and premium",
+        "Must include policy effective and expiration dates",
+        "Must include insurance company name, agent information, and agent signature/date",
+        "Property address must match note/security instrument",
+        "Must require insurer notification to mortgagee before cancellation"
       ],
       "reasons_needed": [
-        "NQMF guidelines require hazard insurance on all properties to protect collateral",
-        "Coverage must meet minimum standards for fire and extended coverage endorsement",
-        "Replacement cost settlement basis required per guidelines",
-        "Mortgagee clause protects lender's security interest in collateral"
-      ],
-      "guideline_references": [
-        "HAZARD INSURANCE",
-        "MINIMUM HAZARD INSURANCE COVERAGE",
-        "EVIDENCE OF HAZARD INSURANCE",
-        "MORTGAGEE CLAUSE REQUIREMENTS BY PROPERTY TYPE",
-        "NAMED INSURED FOR PROPERTY AND FLOOD INSURANCE"
+        "NQMF requires hazard insurance on all properties to protect collateral",
+        "Replacement cost coverage required per guidelines (ACV not acceptable)",
+        "Mortgagee clause protects lender's interest in collateral",
+        "Coverage must be in place at closing and maintained throughout loan term"
       ],
       "severity": "SOFT-STOP",
       "document_category": "Property",
@@ -1097,27 +1106,26 @@
     },
     {
       "document_type": "Title Commitment",
-      "category": "Title",
+      "borrower_name": "Veronica Marie Montes",
       "priority": "P1",
       "specifications": [
-        "Must be issued by title insurer qualified to do business in California",
-        "Must identify borrower Veronica Marie Montes as buyer/proposed insured",
-        "Must identify subject property address and full legal description",
-        "Must contain 24-month chain of title history showing transfer dates, prices, and parties",
-        "Must disclose all liens, judgments, easements, encumbrances, and exceptions",
-        "Must list all title requirements that must be satisfied prior to closing",
-        "Must show effective date within acceptable recency window",
-        "Must indicate final title policy will be issued on 2006 ALTA standard form or acceptable equivalent",
-        "Must confirm first lien position for proposed mortgage"
+        "Must identify borrower/owner/vested parties matching Veronica Marie Montes",
+        "Must identify subject property address and legal description for the California SFR",
+        "Must disclose all liens, judgments, easements, exceptions, and title requirements",
+        "Must show title insurer name and effective date",
+        "Must be dated within acceptable recency window (current)",
+        "Must include 24-month chain of title history per NQMF requirements",
+        "Must show clear first lien position for the new mortgage",
+        "Title insurer must be qualified and licensed in California"
       ],
       "reasons_needed": [
-        "NQMF guidelines require title insurance policy covering the loan that is valid and binding",
-        "Title must confirm ownership and vesting aligns with borrower on loan application",
-        "24-month title history required to review for inconsistencies or flipping activity",
-        "Liens and exceptions must be evaluated for impact on lien position and property value",
-        "Title insurer must be duly authorized and licensed in California per guideline requirements",
-        "Underwriter must verify no adverse title conditions that would affect loan collateral"
+        "Title must confirm ownership and insurable interest before loan approval",
+        "Vesting on title must align with borrower name on loan application",
+        "Liens and exceptions must be reviewed for impact on first lien position",
+        "24-month title history required per NQMF guidelines to identify any flipping activity or transfer inconsistencies",
+        "Title exceptions must be reviewed to determine if they are allowable per guidelines"
       ],
+      "module": "title",
       "severity": "SOFT-STOP",
       "document_category": "Title",
       "status": "needed",
@@ -1128,23 +1136,22 @@
     },
     {
       "document_type": "Grant Deed",
-      "category": "Title",
+      "borrower_name": "Veronica Marie Montes",
       "priority": "P1",
       "specifications": [
-        "Must be recorded deed showing current ownership of subject property",
-        "Must show grantor (seller) as current owner of record",
-        "Must include full legal description of property",
-        "Must show manner of vesting (e.g., sole owner, joint tenants, tenants in common, community property)",
-        "Must be consistent with chain of title in title commitment",
-        "For purchase transaction: must confirm seller has clear title to convey"
+        "Must show current ownership/vesting of the property",
+        "Must identify property address and legal description matching subject property",
+        "Must show grantee name(s) that will match final title policy vesting",
+        "For purchase transaction: may be the deed conveying property to seller (to confirm seller has authority to convey)",
+        "Recorded deed preferred; if pending, preliminary deed to be recorded at closing acceptable"
       ],
       "reasons_needed": [
-        "NQMF guidelines require final title policy vesting to reflect borrower names",
-        "Vesting deed confirms seller ownership and authority to convey property",
-        "Vesting must be reviewed for consistency with transaction structure",
-        "Chain of title must be verified against deed to ensure no breaks or inconsistencies",
-        "Required to establish insurable interest and proper conveyance at closing"
+        "Confirms seller has clear title and authority to convey property in purchase transaction",
+        "Vesting must reconcile with borrower and transaction structure per NQMF guidelines",
+        "Final title policy vesting must reflect borrower name per NQMF requirements",
+        "Legal description must match between deed, title commitment, and appraisal"
       ],
+      "module": "title",
       "severity": "SOFT-STOP",
       "document_category": "Title",
       "status": "needed",
@@ -1154,52 +1161,23 @@
       "source_module": "06"
     },
     {
-      "document_name": "Occupancy Certification",
-      "document_category": "Cross-Cutting",
-      "priority": "P2",
-      "specifications": [
-        "Must be signed and dated by borrower Veronica Marie Montes",
-        "Must certify intent to occupy subject property as primary residence",
-        "Must acknowledge occupancy requirements and fraud penalties",
-        "Must be consistent with loan application and program selection (Flex Supreme)"
-      ],
-      "reasons_needed": [
-        {
-          "reason": "Primary residence occupancy must be certified to support program eligibility and LTV limits.",
-          "reason_type": "occupancy_verification"
-        },
-        {
-          "reason": "Occupancy type determines documentation requirements, reserve requirements, and pricing.",
-          "reason_type": "program_requirement"
-        }
-      ],
-      "borrower_name": "Veronica Marie Montes",
-      "guideline_reference": "OCCUPANCY TYPES",
-      "document_type": "Owner Occupancy Certification",
-      "severity": "SOFT-STOP",
-      "status": "needed",
-      "tags": [
-        "crosscutting"
-      ],
-      "source_module": "01"
-    },
-    {
       "document_type": "Profit and Loss",
       "borrower": "Veronica Marie Montes",
+      "priority": "P2",
       "specifications": [
-        "Must cover period from January 1 of current year through most recent month-end",
-        "Must show business name matching loan file",
-        "Must show gross receipts and itemized expenses",
-        "Must show net profit/loss",
-        "Should be signed and dated by borrower or prepared by CPA if required by overlay"
+        "Must be prepared and signed by CPA, EA, or licensed tax preparer with PTIN",
+        "Must be dated within 60 days of application",
+        "Must show business name consistent with tax returns",
+        "Must show gross revenue, expenses by category, and net profit",
+        "Must cover year-to-date period from January 1 to current date",
+        "Preparer must attest they have prepared borrower's most recent tax returns"
       ],
       "reasons_needed": [
-        "YTD P&L required to assess current year income trend for self-employed borrowers",
-        "Supports income stability and continuance determination",
-        "Allows comparison of current year performance to prior tax return years"
+        "P&L statement required to determine income stability and trending",
+        "YTD income must be compared to prior year to identify declining income patterns",
+        "NQMF guidelines require P&L to support self-employment income qualification"
       ],
-      "priority": "P2",
-      "guideline_reference": "FULL DOCUMENTATION - SELF-EMPLOYMENT",
+      "guideline_reference": "NQMF Self-Employment Income - P&L used to determine stability of income",
       "severity": "SOFT-STOP",
       "document_category": "Income",
       "status": "needed",
@@ -1209,53 +1187,50 @@
       "source_module": "02"
     },
     {
-      "document_type": "Reserve Calculation Worksheet",
-      "borrower_name": "Veronica Marie Montes",
+      "document_type": "Income LOE",
+      "borrower": "Veronica Marie Montes",
       "priority": "P2",
       "specifications": [
-        "Must calculate monthly PITIA (Principal, Interest, Taxes, Insurance, Association dues)",
-        "Must show required reserve months per Flex Supreme program guidelines",
-        "Must identify assets used for reserves",
-        "Must show sufficient verified balance to cover required reserve months",
-        "Must exclude gift funds from reserve calculation per NQMF guidelines",
-        "Must account for any other financed properties if applicable"
+        "Required only if income shows decline from prior year to current year",
+        "Must be signed and dated by borrower",
+        "Must explain reason for income decline",
+        "Must address whether decline is temporary or expected to continue"
       ],
       "reasons_needed": [
-        "Flex Supreme program requires reserves based on LTV and property characteristics",
-        "NQMF guidelines state gift funds may not be used to meet reserve requirements",
-        "Reserve calculation must be supported by verified assets",
-        "Primary residence purchase at 80% LTV requires minimum reserve verification"
+        "NQMF guidelines require signed written explanation for declining income",
+        "Declining income sources must be closely reviewed to determine usability for qualification",
+        "If income is declining, the lower income amount must be used rather than averaging"
       ],
-      "guideline_reference": "NQMF Assets Section - Applicable reserves must be verified from acceptable sources",
+      "guideline_reference": "NQMF Declining Income requirements",
       "severity": "SOFT-STOP",
-      "document_category": "Assets",
+      "document_category": "Income",
       "status": "needed",
       "tags": [
-        "assets"
+        "income"
       ],
-      "source_module": "03"
+      "source_module": "02"
     }
   ],
   "stats": {
-    "total_document_requests": 18,
+    "total_document_requests": 17,
     "hard_stop_documents": 0,
     "by_category": {
-      "Credit": 1,
-      "Cross-Cutting": 4,
-      "Income": 4,
-      "Assets": 3,
+      "Credit": 2,
       "Property": 4,
+      "Cross-Cutting": 3,
+      "Income": 4,
+      "Assets": 2,
       "Title": 2
     },
     "by_priority": {
-      "P0": 1,
-      "P1": 14,
-      "P2": 3
+      "P0": 2,
+      "P1": 13,
+      "P2": 2
     },
     "by_status": {
-      "needed": 18
+      "needed": 17
     },
-    "elapsed_seconds": 439.9,
-    "tool_calls": 89
+    "elapsed_seconds": 464.7,
+    "tool_calls": 93
   }
 }

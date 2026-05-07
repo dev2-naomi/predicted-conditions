@@ -77,7 +77,7 @@ def generate_crosscutting_document_requests(
         seen_conflicts: List of conflict dicts surfaced during cross-cutting
                         analysis (overlay conflicts, data contradictions, etc.).
     """
-    normalize_all(document_requests, default_category="Cross-Cutting")
+    document_requests = normalize_all(document_requests, default_category="Cross-Cutting")
 
     for dr in document_requests:
         dr.setdefault("tags", [])

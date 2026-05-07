@@ -1,0 +1,112 @@
+{
+  "total_loans": 5,
+  "total_elapsed_seconds": 2384.0,
+  "results": [
+    {
+      "loan": "aubrey",
+      "status": "OK",
+      "documents": 17,
+      "hard_stops": 0,
+      "by_category": {
+        "Credit": 2,
+        "Cross-Cutting": 3,
+        "Compliance": 1,
+        "Income": 3,
+        "Assets": 1,
+        "Property": 4,
+        "Title": 3
+      },
+      "by_priority": {
+        "P0": 1,
+        "P1": 16
+      },
+      "elapsed_s": 460.7,
+      "tool_calls": 82
+    },
+    {
+      "loan": "montes",
+      "status": "OK",
+      "documents": 17,
+      "hard_stops": 0,
+      "by_category": {
+        "Credit": 2,
+        "Property": 4,
+        "Cross-Cutting": 3,
+        "Income": 4,
+        "Assets": 2,
+        "Title": 2
+      },
+      "by_priority": {
+        "P0": 2,
+        "P1": 13,
+        "P2": 2
+      },
+      "elapsed_s": 464.7,
+      "tool_calls": 93
+    },
+    {
+      "loan": "niccum",
+      "status": "OK",
+      "documents": 17,
+      "hard_stops": 0,
+      "by_category": {
+        "Credit": 2,
+        "Cross-Cutting": 4,
+        "Income": 4,
+        "Assets": 1,
+        "Property": 4,
+        "Title": 2
+      },
+      "by_priority": {
+        "P0": 1,
+        "P1": 13,
+        "P2": 3
+      },
+      "elapsed_s": 490.6,
+      "tool_calls": 89
+    },
+    {
+      "loan": "nyarko",
+      "status": "OK",
+      "documents": 18,
+      "hard_stops": 0,
+      "by_category": {
+        "Credit": 2,
+        "Cross-Cutting": 4,
+        "Compliance": 1,
+        "Income": 3,
+        "Assets": 2,
+        "Property": 4,
+        "Title": 2
+      },
+      "by_priority": {
+        "P0": 1,
+        "P1": 15,
+        "P2": 2
+      },
+      "elapsed_s": 466.7,
+      "tool_calls": 82
+    },
+    {
+      "loan": "weingarten",
+      "status": "OK",
+      "documents": 16,
+      "hard_stops": 0,
+      "by_category": {
+        "Cross-Cutting": 3,
+        "Compliance": 1,
+        "Credit": 2,
+        "Income": 2,
+        "Assets": 1,
+        "Property": 4,
+        "Title": 3
+      },
+      "by_priority": {
+        "P0": 2,
+        "P1": 14
+      },
+      "elapsed_s": 501.3,
+      "tool_calls": 87
+    }
+  ]
+}

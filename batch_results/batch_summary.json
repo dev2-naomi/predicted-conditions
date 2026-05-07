@@ -1,0 +1,110 @@
+{
+  "total_loans": 5,
+  "total_elapsed_seconds": 2277.4,
+  "results": [
+    {
+      "loan": "aubrey",
+      "status": "OK",
+      "documents": 14,
+      "hard_stops": 0,
+      "by_category": {
+        "Income": 2,
+        "Title": 3,
+        "Cross-Cutting": 3,
+        "Compliance": 1,
+        "Credit": 1,
+        "Assets": 1,
+        "Property": 3
+      },
+      "by_priority": {
+        "P1": 5,
+        "P2": 9
+      },
+      "elapsed_s": 394.6,
+      "tool_calls": 87
+    },
+    {
+      "loan": "montes",
+      "status": "OK",
+      "documents": 12,
+      "hard_stops": 0,
+      "by_category": {
+        "Income": 3,
+        "Title": 2,
+        "Credit": 1,
+        "Cross-Cutting": 4,
+        "Assets": 2
+      },
+      "by_priority": {
+        "P0": 4,
+        "P1": 2,
+        "P2": 6
+      },
+      "elapsed_s": 456.9,
+      "tool_calls": 82
+    },
+    {
+      "loan": "niccum",
+      "status": "OK",
+      "documents": 15,
+      "hard_stops": 0,
+      "by_category": {
+        "Title": 2,
+        "Cross-Cutting": 4,
+        "Credit": 1,
+        "Income": 3,
+        "Assets": 1,
+        "Property": 4
+      },
+      "by_priority": {
+        "P0": 2,
+        "P1": 3,
+        "P2": 10
+      },
+      "elapsed_s": 441.5,
+      "tool_calls": 86
+    },
+    {
+      "loan": "nyarko",
+      "status": "OK",
+      "documents": 16,
+      "hard_stops": 0,
+      "by_category": {
+        "Compliance": 1,
+        "Cross-Cutting": 3,
+        "Credit": 2,
+        "Income": 1,
+        "Assets": 1,
+        "Property": 5,
+        "Title": 3
+      },
+      "by_priority": {
+        "P1": 1,
+        "P2": 15
+      },
+      "elapsed_s": 471.8,
+      "tool_calls": 89
+    },
+    {
+      "loan": "weingarten",
+      "status": "OK",
+      "documents": 16,
+      "hard_stops": 0,
+      "by_category": {
+        "Compliance": 1,
+        "Income": 3,
+        "Cross-Cutting": 3,
+        "Credit": 1,
+        "Assets": 1,
+        "Property": 4,
+        "Title": 3
+      },
+      "by_priority": {
+        "P1": 3,
+        "P2": 13
+      },
+      "elapsed_s": 512.7,
+      "tool_calls": 88
+    }
+  ]
+}

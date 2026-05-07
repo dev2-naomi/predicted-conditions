@@ -97,11 +97,11 @@
       "subject_property_rental_income": null
     },
     "doc_profile": [
+      "compliance_notice",
       "loan_application",
       "appraisal",
-      "bank_statement",
-      "compliance_notice",
-      "other"
+      "other",
+      "bank_statement"
     ],
     "housing_expenses": {
       "present": [],
@@ -446,28 +446,33 @@
       "document_type": "Credit Report",
       "category": "credit",
       "priority": "P0",
-      "borrower_scope": "all_borrowers",
+      "borrower_name": "Emmanuel Nyarko",
       "specifications": [
-        "Must be a tri-merge or Residential Mortgage Credit Report (RMCR) from Experian, TransUnion, and Equifax",
-        "Must include credit scores from all three bureaus",
-        "Must show complete tradeline details including payment history and account status",
-        "Must show mortgage history if any existing mortgages",
-        "Must include public record searches for each city where borrower resided in last 2 years",
-        "Must identify all inquiries, collections, charge-offs, disputes, and fraud alerts",
-        "Must be dated within 120 days of note date",
-        "Must verify borrower's Social Security number",
-        "Must certify all credit references provided on the loan application"
+        "Must be a tri-merge or Residential Mortgage Credit Report (RMCR) from all 3 major bureaus (Experian, TransUnion, Equifax)",
+        "Must include all borrowers on the loan",
+        "Must show credit scores from all reporting bureaus",
+        "Must include complete tradeline details with payment history",
+        "Must show mortgage payment history for any existing mortgages",
+        "Must include inquiries within past 90-120 days",
+        "Must show public records, disputes, collections, and charge-offs",
+        "Must certify results of public record searches for each city where borrower resided in last 2 years",
+        "Must verify all credit references provided on loan application",
+        "Must include valid SSN verification",
+        "Must be dated within 90 days of closing"
       ],
       "reasons_needed": [
-        "Credit score of 800 must be verified to confirm program eligibility for DSCR loan",
-        "Tradeline requirements (3 tradelines 12+ months OR 2 tradelines 24+ months) must be verified",
-        "Housing history and any existing mortgage payment history must be reviewed",
-        "Credit report is required to confirm absence of credit events (BK, FC, SS) for clean pricing",
-        "Public records and collections must be identified for eligibility determination",
-        "Tri-merge credit report is required per NQMF underwriting guidelines for all borrowers"
+        "Credit score is required to validate DSCR program eligibility and pricing tier",
+        "Tri-merge report required per NQMF guidelines for all borrowers on loan",
+        "Tradeline and credit history requirements must be reviewed for eligibility",
+        "Credit report needed to identify any credit events, housing events, inquiries, or disputes",
+        "Public record search required for cities of residence in last 2 years per guidelines",
+        "Mortgage payment history visible on credit report satisfies housing history requirement"
       ],
       "conditions": [],
-      "source_guideline": "NQMF Credit Report Requirements - Tri-merge RMCR required for all borrowers",
+      "source_guidelines": [
+        "NQMF Credit Report Requirements"
+      ],
+      "applicable_overlays": [],
       "severity": "SOFT-STOP",
       "document_category": "Credit",
       "status": "needed",
@@ -477,199 +482,155 @@
       "source_module": "04"
     },
     {
-      "document_type": "Appraisal Report",
-      "form_variant": "Form 1004",
-      "priority": "P0",
-      "specifications": [
-        "Must be FNMA Form 1004 (Uniform Residential Appraisal Report) for 1-unit SFR property",
-        "Must identify subject property address matching 2345 Investment Property Rd, Nashville, TN",
-        "Must identify property type as Single-Family Residence and confirm 1-unit count",
-        "Must show appraised value to support $210,000 purchase price and 80% LTV calculation",
-        "Must be dated within 120 days of Note date (or within 365 days with 1004D recertification)",
-        "Must include all pages and addenda including comparable sales grid",
-        "Must include street map showing location of subject and all comparables used",
-        "Must include exterior building sketch with dimensions and floor plan with GLA calculation",
-        "Must include original color photographs: front, street, rear views of subject property",
-        "Must include interior photos: kitchen, all bathrooms, main living area, any physical deterioration",
-        "Must confirm property condition is C4 or better (C5/C6 ineligible; C4 requires marketability evaluation for DSCR)",
-        "Must confirm property is free of deferred maintenance as required for DSCR properties",
-        "Must confirm no fair or poor ratings, no health or safety issues",
-        "Must confirm property has minimum 400 square feet and contains full kitchen and bathroom",
-        "Must disclose any repairs, adverse conditions, or environmental hazards impacting marketability",
-        "Must confirm property usage represents highest and best use",
-        "Must confirm property is accessible and available for year-round use",
-        "Must confirm residential or commercial zoning (rural properties not permitted)",
-        "Must include analysis of all sales of subject property within prior 3 years",
-        "Must include Certification and Statement of Limiting Conditions signed by appraiser",
-        "Must include appraiser license/certification valid for Tennessee"
-      ],
-      "reasons_needed": [
-        "Collateral valuation is required for underwriting all NQMF loans",
-        "LTV/CLTV eligibility (80% LTV) depends on appraised value confirmation",
-        "Property type and unit count affect DSCR program eligibility",
-        "Subject property identity must be consistent across the loan file",
-        "DSCR properties must be free of deferred maintenance per guidelines",
-        "Property condition C4 or better required; C5/C6 ineligible",
-        "Form 1004 is required form for 1-unit residential properties per NQMF guidelines"
-      ],
-      "condition_category": "collateral",
-      "expected_source": "Appraisal Management Company (AMC)",
-      "severity": "SOFT-STOP",
-      "document_category": "Property",
-      "status": "needed",
-      "tags": [
-        "property"
-      ],
-      "source_module": "05"
-    },
-    {
-      "document_id": "CROSS-001",
       "document_name": "Government-Issued Photo ID",
       "document_category": "Cross-Cutting",
-      "borrower_id": "borrower_1",
-      "borrower_name": "Emmanuel Nyarko",
+      "priority": "P1",
       "specifications": [
-        "Must be a valid, unexpired government-issued photo identification",
-        "Must show borrower full legal name matching loan application",
-        "Must include photo, date of birth, and expiration date",
-        "Acceptable forms: US Passport, State Driver License, State ID Card, Permanent Resident Card"
+        "Must be current and unexpired government-issued photo identification (driver's license, passport, or state ID)",
+        "Must display borrower's full legal name matching loan application",
+        "Must include photograph, date of birth, and signature",
+        "Must be legible with all four corners visible"
       ],
       "reasons_needed": [
         {
-          "reason": "Borrower identity must be verified before credit, title, and compliance documents can be validated",
+          "reason": "Borrower identity must be verified to validate all loan documents and authorizations",
           "reason_type": "identity_verification"
         },
         {
-          "reason": "Required for PATRIOT Act and CIP compliance",
-          "reason_type": "regulatory_compliance"
+          "reason": "Required for Patriot Act/CIP compliance and borrower authentication",
+          "reason_type": "compliance"
         }
       ],
-      "priority": "P1",
-      "source_module": "cross_cutting",
+      "borrower_name": "Emmanuel Nyarko",
+      "applies_to": "primary_borrower",
       "document_type": "Government-Issued Photo ID",
+      "acceptable_types": [
+        "Drivers License",
+        "Passport",
+        "Non-Driver ID",
+        "Permanent Resident Card",
+        "Social Security ID",
+        "Travel VISA"
+      ],
       "severity": "SOFT-STOP",
       "status": "needed",
       "tags": [
         "crosscutting"
-      ]
+      ],
+      "source_module": "01"
     },
     {
-      "document_id": "CROSS-002",
       "document_name": "IRS Form 4506-C",
       "document_category": "Cross-Cutting",
-      "borrower_id": "borrower_1",
-      "borrower_name": "Emmanuel Nyarko",
+      "priority": "P1",
       "specifications": [
-        "Must be fully executed with borrower wet or electronic signature",
-        "Must include correct borrower name, SSN, and current address",
-        "Must specify tax years for transcript request (most recent 2 years)",
-        "Must be dated within 120 days of closing"
+        "Must be fully executed with borrower signature and date",
+        "Must include correct borrower SSN and address history for applicable tax years",
+        "Must authorize release of tax transcripts for most recent 1-2 tax years as required by program",
+        "Must list correct lender/servicer information as transcript recipient"
       ],
       "reasons_needed": [
         {
-          "reason": "Required for all loan programs to authorize IRS tax transcript retrieval",
+          "reason": "Tax transcript authorization required per NQMF guidelines for income verification",
           "reason_type": "guideline_requirement"
         },
         {
-          "reason": "Enables verification of income sources and tax filing status even for DSCR loans",
-          "reason_type": "fraud_prevention"
+          "reason": "Enables IRS tax return transcript retrieval to validate declared income",
+          "reason_type": "income_validation"
         }
       ],
-      "priority": "P1",
-      "source_module": "cross_cutting",
-      "document_type": "IRS Form 4506-C",
+      "borrower_name": "Emmanuel Nyarko",
+      "applies_to": "primary_borrower",
+      "document_type": "IRS 4506-C Authorization",
       "severity": "SOFT-STOP",
       "status": "needed",
       "tags": [
         "crosscutting"
-      ]
+      ],
+      "source_module": "01"
     },
     {
-      "document_id": "CROSS-003",
       "document_name": "Occupancy Certification - Investment Property",
       "document_category": "Cross-Cutting",
-      "borrower_id": "borrower_1",
-      "borrower_name": "Emmanuel Nyarko",
+      "priority": "P1",
       "specifications": [
-        "Must certify property will be held as investment/rental property",
-        "Must confirm borrower will not occupy the subject property as primary residence or second home",
-        "Must be signed and dated by all borrowers",
-        "Must acknowledge investment property pricing and LTV restrictions apply"
+        "Must certify property will be held as investment/non-owner occupied",
+        "Must include borrower signature and date",
+        "Must confirm borrower does not intend to occupy the property as primary residence or second home",
+        "Must acknowledge investment property pricing and terms apply"
       ],
       "reasons_needed": [
         {
-          "reason": "Occupancy type is investment property which requires explicit certification for DSCR program eligibility",
+          "reason": "Investment property occupancy must be certified to confirm eligibility for Investor DSCR program",
           "reason_type": "program_eligibility"
         },
         {
-          "reason": "Investment occupancy affects LTV limits (80% max), reserve requirements, and DSCR qualification methodology",
-          "reason_type": "guideline_requirement"
+          "reason": "Occupancy type drives LTV limits, reserve requirements, and pricing tier",
+          "reason_type": "underwriting_requirement"
         }
       ],
-      "priority": "P1",
-      "source_module": "cross_cutting",
-      "document_type": "Occupancy Certification - Investment Property",
+      "borrower_name": "Emmanuel Nyarko",
+      "applies_to": "subject_property",
+      "document_type": "Owner Occupancy Certification",
       "severity": "SOFT-STOP",
       "status": "needed",
       "tags": [
         "crosscutting"
-      ]
+      ],
+      "source_module": "01"
     },
     {
-      "document_id": "CROSS-004",
-      "document_name": "Purchase Contract (Fully Executed)",
+      "document_name": "Purchase Contract",
       "document_category": "Cross-Cutting",
-      "borrower_id": "borrower_1",
-      "borrower_name": "Emmanuel Nyarko",
+      "priority": "P1",
       "specifications": [
-        "Must be fully executed with all buyer and seller signatures",
-        "Must include subject property address matching appraisal: Tennessee SFR",
-        "Must show purchase price consistent with loan amount ($168,000) and 80% LTV",
-        "Must include earnest money deposit amount and disposition",
-        "Must include all addenda, amendments, and counteroffers",
-        "Must show closing date and contingency deadlines"
+        "Must be fully executed with all signatures from buyer and seller",
+        "Must include subject property address matching loan application",
+        "Must show purchase price of $210,000 consistent with 80% LTV and $168,000 loan amount",
+        "Must include closing date, earnest money deposit amount, and any seller concessions",
+        "Must include all addenda and amendments"
       ],
       "reasons_needed": [
         {
           "reason": "Purchase transaction requires executed contract to validate purchase price, terms, and parties",
-          "reason_type": "transaction_type"
+          "reason_type": "transaction_validation"
         },
         {
-          "reason": "Contract terms must be reviewed for seller concessions, non-arm's length indicators, and assignment clauses",
-          "reason_type": "guideline_requirement"
+          "reason": "Contract needed to confirm arm's length transaction and identify any interested party contributions",
+          "reason_type": "compliance"
         }
       ],
-      "priority": "P1",
-      "source_module": "cross_cutting",
-      "document_type": "Purchase Contract (Fully Executed)",
+      "borrower_name": "Emmanuel Nyarko",
+      "applies_to": "transaction",
+      "document_type": "Purchase Contract",
       "severity": "SOFT-STOP",
       "status": "needed",
       "tags": [
         "crosscutting"
-      ]
+      ],
+      "source_module": "01"
     },
     {
-      "document_type": "Business Purpose Affidavit",
-      "priority": "P1",
+      "document_type": "Borrower Certification as to Business Purpose",
       "borrower": "Emmanuel Nyarko",
+      "priority": "P1",
       "specifications": [
-        "Must identify all borrowers on the loan (Emmanuel Nyarko)",
-        "Must identify the subject investment property in Tennessee",
-        "Must state that the property is for commercial business or investment purpose only",
+        "Must identify borrower Emmanuel Nyarko",
+        "Must identify subject investment property in Tennessee",
+        "Must state that the loan is for business/investment purpose only and is a non-TRID transaction",
+        "Must confirm property will NOT be occupied by borrower, any member of borrower's LLC, or any family member",
         "Must be signed and dated by all borrowers",
-        "Must confirm property will NOT be occupied by borrower, any LLC member, or family member",
-        "Must be consistent with investment/non-owner-occupied occupancy declaration",
-        "Must reconcile with 1003 application and occupancy certification"
+        "Must be consistent with Investment/NOO occupancy designation on 1003",
+        "Also referred to as 'Business Purpose & Occupancy Affidavit' per NQM guidelines"
       ],
       "reasons_needed": [
-        "Required on all DSCR loans per guideline: 'All DSCR loans must be Business Purpose and processed as non-TRID transactions'",
-        "Guidelines mandate: 'Business Purpose & Occupancy Affidavit is required on all Business Purpose loans'",
-        "Documents borrower attestation that funds are used solely for business/investment purposes",
-        "Confirms non-TRID transaction status for regulatory compliance",
-        "Property must not be occupied by borrower or family members per business purpose requirements"
+        "DSCR loans are required to be Business Purpose and processed as non-TRID transactions per NQM guidelines",
+        "Business Purpose & Occupancy Affidavit is required on ALL Business Purpose loans per guidelines",
+        "Confirms borrower declaration that property is for commercial business or investment purpose only",
+        "Required to validate non-owner-occupied investment status and compliance with Business Purpose loan requirements"
       ],
-      "trigger": "DSCR/Investor program type requires business purpose documentation",
-      "cross_cutting_dedup": "Occupancy Certification already requested in STEP_01 - Business Purpose Affidavit is separate requirement",
+      "source_guideline": "INVESTMENT PROPERTY & BUSINESS PURPOSE LOANS - 'Business Purpose & Occupancy Affidavit is required on all Business Purpose loans'",
+      "triggered_by": "DSCR investor program requires business purpose designation per NQM guidelines",
       "severity": "SOFT-STOP",
       "document_category": "Compliance",
       "status": "needed",
@@ -679,29 +640,31 @@
       "source_module": "07"
     },
     {
-      "document_type": "Mortgage Payment History",
+      "document_type": "Verification of Mortgage",
       "category": "credit",
       "priority": "P1",
-      "borrower_scope": "primary_borrower",
+      "borrower_name": "Emmanuel Nyarko",
       "specifications": [
-        "Must cover 12 months of payment history on all existing mortgages",
-        "Must show 0x30 payment history (no 30-day lates in past 12 months)",
-        "Must identify property address and mortgage servicer for each mortgage",
-        "Must show payment due dates and actual payment dates",
-        "May be satisfied by credit report if mortgage tradelines are fully reported",
-        "If credit report shows complete mortgage history with 0x30x12, no separate documentation required"
+        "Must cover 12-month lookback period for all existing mortgages",
+        "Must identify borrower name and property address for each mortgage",
+        "Must show payment due dates and payment received dates",
+        "Must indicate any late payments (30/60/90/120 days)",
+        "Must be from mortgage servicer statements or credit report mortgage tradeline detail",
+        "Must include account numbers and current balances"
       ],
       "reasons_needed": [
-        "Housing history verification is required for all NQMF programs",
-        "Mortgage payment history affects credit event determination and pricing",
-        "12-month 0x30 housing history is required for DSCR program eligibility",
-        "Any late payments may trigger additional seasoning requirements or pricing adjustments"
+        "Housing payment history required for DSCR program eligibility",
+        "Late mortgage payments affect qualification and pricing adjustments",
+        "Mortgage history establishes borrower payment pattern on investment properties",
+        "Required to verify no 1x120 housing event which would trigger additional seasoning requirements"
       ],
       "conditions": [
-        "Required only if borrower has existing mortgages (owned properties or liabilities showing mortgages)",
-        "May be waived if credit report shows complete 12-month mortgage history with 0x30 status"
+        "Only required if borrower has existing mortgages - verify from credit report tradelines"
       ],
-      "source_guideline": "NQMF Housing History Requirements - All programs require verification of borrower's housing history",
+      "source_guidelines": [
+        "NQMF Housing Events and Prior Bankruptcy"
+      ],
+      "applicable_overlays": [],
       "severity": "SOFT-STOP",
       "document_category": "Credit",
       "status": "needed",
@@ -711,66 +674,35 @@
       "source_module": "04"
     },
     {
-      "document_type": "Form 1007 Rent Schedule",
-      "category": "income",
-      "applies_to": "subject_property",
+      "document_type": "Rental Income Calculations Worksheet",
+      "borrower": "Emmanuel Nyarko",
+      "subject_property": true,
       "specifications": [
-        "Must be FNMA Form 1007 Single Family Comparable Rent Schedule",
-        "Must identify the subject property address matching the appraisal",
-        "Must include appraiser's opinion of market rent for the subject property",
-        "Must include analysis of comparable rental properties to support market rent estimate",
-        "Must be signed and dated by the appraiser",
-        "Must be completed in conjunction with the appraisal report"
+        "Must be completed on FNMA Form 1007 Single Family Comparable Rent Schedule",
+        "Must identify the subject property address matching the loan file",
+        "Must include appraiser's opinion of market rent",
+        "Must include comparable rental properties to support market rent determination",
+        "For purchase transaction, market rent from 1007 will be used for DSCR calculation",
+        "If property is tenant occupied, must reflect terms of current lease",
+        "Must be completed by appraiser as part of appraisal package",
+        "Must identify subject property address",
+        "Must show market rent for subject property",
+        "Must include comparable rental data to support market rent conclusion",
+        "Must align with DSCR ratio calculation using gross rental income",
+        "Must reflect terms of current lease if property is tenant-occupied at time of appraisal"
       ],
       "reasons_needed": [
-        "DSCR ratio calculation requires gross market rent from Form 1007 for purchase transactions",
-        "For purchase transactions, appraiser's opinion of market rent on Form 1007 establishes qualifying rental income",
-        "DSCR Ratio = Gross Rental Income / PITIA - Form 1007 provides the gross rental income component",
-        "Guideline requires 1007/1025 for all Investor DSCR purchase transactions"
+        "DSCR ratio calculation requires gross rental income documented via Form 1007 for purchase transactions",
+        "Investor DSCR program uses 75% of appraiser's opinion of market rent for qualifying",
+        "Market rent must be established to calculate DSCR ratio = Gross Rental Income / PITIA",
+        "Required for all 1-unit Investment Properties per FNMA Form 1007 guidelines",
+        "DSCR ratio calculation requires gross rental income documentation",
+        "Market rent support required for DSCR program qualification",
+        "Investor DSCR program requires rental income analysis for collateral support"
       ],
-      "guideline_reference": "DSCR RATIO / LONG TERM RENTALS - DSCR SUPREME AND INVESTOR DSCR",
+      "guideline_reference": "DSCR RATIO section - For all purchase transactions, gross market rents from the 1007/1025 will be used",
       "priority": "P1",
-      "borrower_name": null,
-      "severity": "SOFT-STOP",
-      "document_category": "Income",
-      "status": "needed",
-      "tags": [
-        "income"
-      ],
-      "source_module": "02"
-    },
-    {
-      "document_type": "Rent Loss Insurance",
-      "category": "income",
-      "applies_to": "subject_property",
-      "specifications": [
-        "Must provide rent loss coverage for the subject property",
-        "Coverage amount must equal at least 6 months of PITIA (Principal, Interest, Taxes, Insurance, Association dues)",
-        "Must identify the subject property address",
-        "Must show coverage effective date and expiration date",
-        "Must show the insurer name and policy number",
-        "Blanket policies covering the subject property are eligible",
-        "Policy must be in effect at closing",
-        "Must provide Rent Loss Insurance coverage for the subject property",
-        "Must equal at least 6 months of PITIA (Principal, Interest, Taxes, Insurance, Association dues)",
-        "Must name property address: 2345 Investment Property Rd, Nashville, TN",
-        "May be included as endorsement on hazard policy or as separate coverage",
-        "Must be in effect prior to closing",
-        "Must include lender as loss payee or additional insured as applicable"
-      ],
-      "reasons_needed": [
-        "DSCR guidelines require Rent Loss Insurance for the subject property equal to at least 6 months of PITIA",
-        "Rent loss coverage protects against income loss if property becomes vacant",
-        "Required per DSCR Supreme and Investor DSCR program requirements",
-        "Blanket policies are acceptable provided the subject property is covered",
-        "NQMF guidelines require Rent Loss Insurance for DSCR loans equal to at least 6 months PITIA",
-        "Protects against income loss if property becomes uninhabitable",
-        "DSCR qualification depends on rental income; coverage ensures debt service protection",
-        "Required per Investor DSCR Program Matrix unless waiver option elected"
-      ],
-      "guideline_reference": "RENT LOSS INSURANCE (DSCR)",
-      "priority": "P1",
-      "borrower_name": null,
+      "income_type": "DSCR_rental",
       "severity": "SOFT-STOP",
       "document_category": "Income",
       "status": "needed",
@@ -784,58 +716,127 @@
       "overlay_trace": []
     },
     {
-      "document_type": "Personal Bank Statements",
+      "document_type": "Hazard Insurance",
       "borrower": "Emmanuel Nyarko",
-      "priority": "P1",
+      "subject_property": true,
       "specifications": [
-        "Must provide most recent 2 consecutive months of statements",
-        "Must include all pages including blank pages",
-        "Must show borrower name as account holder",
-        "Must show financial institution name",
-        "Must show account number (full or masked acceptable)",
-        "Must show beginning and ending balances for each statement period",
-        "Must show complete transaction history",
-        "Must be dated within 90 days of note date per guideline requirements",
-        "Must cover all accounts being used for funds to close and reserves",
-        "Large deposits (exceeding 50% of qualifying income or unusual pattern) will require sourcing"
+        "Must provide rent loss/rental income insurance coverage for the subject property",
+        "Coverage must equal at least 6 months of PITIA (Principal, Interest, Taxes, Insurance, Association dues)",
+        "Must name the subject property address",
+        "Blanket policies covering the subject property are acceptable",
+        "Evidence of policy required at closing",
+        "Must provide hazard insurance protecting against fire and extended coverage perils",
+        "Extended coverage must include wind, civil commotion, smoke, hail, aircraft, vehicle, and explosion",
+        "Coverage must be on replacement cost basis (actual cash value not acceptable)",
+        "Must name all persons holding title as named insured",
+        "Must include standard mortgagee clause naming NQM Funding LLC",
+        "Policy must be effective for at least 60 days after funding date",
+        "Must show policy number, coverage amounts, deductible, premium, and effective dates",
+        "Must show property address matching loan file",
+        "Evidence may be policy, Certificate of Insurance, or insurance binder",
+        "Must provide rent loss coverage for subject property",
+        "Coverage must equal at least 6 months of PITIA",
+        "Blanket policies covering the subject property are eligible",
+        "Must identify subject property address",
+        "Must show coverage amount, policy number, and effective dates"
       ],
       "reasons_needed": [
-        "Required to verify sufficient funds for 20% down payment on $210,000 purchase ($42,000)",
-        "Required to verify funds for closing costs and prepaid items",
-        "Required to verify reserve requirements for DSCR investment property loan",
-        "Guidelines require assets be verified from acceptable sources",
-        "Account ownership must be confirmed to match borrower identity"
+        "DSCR program requires rent loss insurance coverage equal to at least 6 months of PITIA",
+        "Protects lender against loss of rental income during vacancy or tenant default",
+        "Required per Investor DSCR program guidelines unless waiver applies per program matrix",
+        "Hazard insurance required on all properties to protect collateral",
+        "Coverage ensures protection of lender's collateral interest",
+        "Mortgagee clause required for lender protection",
+        "Investment property requires adequate coverage for collateral protection",
+        "Required for all DSCR loans per Investor DSCR program guidelines",
+        "Protects rental income stream for investment property collateral",
+        "DSCR program matrix requires rent loss insurance unless waiver option exercised"
       ],
-      "guideline_reference": "ASSETS - Loan files must evidence sufficient funds from acceptable sources for down payment, closing costs, prepaid items, debt payoff, and applicable reserves",
-      "overlay_applied": null,
+      "guideline_reference": "RENT LOSS INSURANCE (DSCR) - Rent Loss Insurance for the subject property is required and must equal at least 6 months of PITIA",
+      "priority": "P1",
+      "income_type": "DSCR_rental",
+      "severity": "SOFT-STOP",
+      "document_category": "Income",
+      "status": "needed",
+      "tags": [
+        "income",
+        "property"
+      ],
+      "source_module": "02",
+      "evidence_found": [],
+      "guideline_trace": [],
+      "overlay_trace": []
+    },
+    {
+      "document_type": "Bank Statement",
+      "category": "Assets",
+      "applies_to": [
+        "Emmanuel Nyarko"
+      ],
+      "specifications": [
+        "Must provide most recent 2 consecutive months of statements",
+        "Must include all pages of each statement",
+        "Must show borrower name as account holder",
+        "Must show financial institution name and logo",
+        "Must show account number (full or masked)",
+        "Must show beginning and ending balances for each statement period",
+        "Must show complete transaction history",
+        "Must be dated within 90 days of note date",
+        "Must show sufficient funds to cover down payment, closing costs, prepaid items, and required reserves",
+        "Any deposits exceeding 50% of qualifying income or unusual deposits must be identifiable",
+        "Must document minimum required reserve months per DSCR program matrix",
+        "Investment property typically requires 6 months PITIA reserves",
+        "Reserves must be in liquid, accessible accounts (checking, savings, money market)",
+        "Reserve assets must be shown on bank statements dated within 90 days of note date",
+        "Must calculate PITIA (Principal, Interest, Taxes, Insurance, Association dues) for reserve determination",
+        "Reserves must be separate from and in addition to funds required for closing"
+      ],
+      "reasons_needed": [
+        "Assets must be verified for funds to close per NQMF guidelines",
+        "Account ownership must be confirmed to borrower",
+        "Sufficient funds must be documented for 20% down payment ($42,000 based on $210,000 purchase price at 80% LTV)",
+        "Reserves must be supported by verified liquid assets",
+        "Large deposits may require sourcing documentation if identified",
+        "DSCR investment property loans require reserve verification",
+        "Reserves provide risk mitigation for non-owner occupied properties",
+        "Program matrix specifies reserve requirements based on LTV, property type, and loan amount",
+        "Reserves must be documented as remaining after funds to close"
+      ],
+      "priority": "P1",
+      "guideline_reference": "NQMF Guidelines - ASSETS: Loan files must evidence sufficient funds from acceptable sources for down payment, closing costs, prepaid items, debt payoff, and applicable reserves",
       "severity": "SOFT-STOP",
       "document_category": "Assets",
       "status": "needed",
       "tags": [
         "assets"
       ],
-      "source_module": "03"
+      "source_module": "03",
+      "evidence_found": [],
+      "guideline_trace": [],
+      "overlay_trace": []
     },
     {
-      "document_type": "Earnest Money Deposit Verification",
-      "borrower": "Emmanuel Nyarko",
-      "priority": "P1",
+      "document_type": "Verification of Deposit",
+      "category": "Assets",
+      "applies_to": [
+        "Emmanuel Nyarko"
+      ],
       "specifications": [
-        "Must provide copy of earnest money deposit check (front and back) showing clearing",
-        "Must show EMD amount matching purchase contract",
-        "Must show EMD sourced from verified borrower account",
-        "Must provide bank statement showing withdrawal of EMD funds",
-        "If wire transfer used, must provide wire confirmation receipt",
-        "Must reconcile to escrow receipt or HUD settlement statement"
+        "Must provide copy of cancelled EMD check (front and back) OR wire transfer confirmation",
+        "Must show EMD amount matches purchase contract",
+        "Must show funds originated from borrower's verified account",
+        "Must include bank statement showing withdrawal of EMD funds",
+        "If EMD paid by check, must show check has cleared borrower's account",
+        "Must show payee as escrow/title company or seller as indicated in purchase contract"
       ],
       "reasons_needed": [
         "Purchase transaction requires verification of earnest money deposit",
-        "EMD must be traced to acceptable borrower funds source",
-        "Ensures EMD credited properly at closing toward down payment",
-        "Required for funds to close reconciliation"
+        "EMD funds must be sourced to borrower's verified assets",
+        "EMD amount applies toward funds to close calculation",
+        "Documentation creates audit trail for down payment sourcing"
       ],
-      "guideline_reference": "ASSETS - funds from acceptable sources for down payment",
-      "overlay_applied": null,
+      "priority": "P1",
+      "guideline_reference": "NQMF Guidelines - ASSETS: Funds must be verified from acceptable sources for down payment",
       "severity": "SOFT-STOP",
       "document_category": "Assets",
       "status": "needed",
@@ -845,24 +846,37 @@
       "source_module": "03"
     },
     {
-      "document_type": "SSR / UCDP Findings",
+      "document_type": "Appraisal Report",
+      "category": "Property",
       "priority": "P1",
       "specifications": [
-        "Must include Fannie Mae SSR (Submission Summary Report) for the appraisal",
-        "Must show SSR Score of 2.5 or less to satisfy appraisal review requirements",
-        "Must confirm successful UCDP submission with no critical warnings",
+        "Must be completed on FNMA Form 1004 (Uniform Residential Appraisal Report) for single-family residence",
         "Must identify subject property address matching loan file",
-        "Must reference the appraisal report document ID",
-        "If SSR score exceeds 2.5, alternative review product (CDA, Field Review, or Second Appraisal) may be required"
+        "Must identify property type as Single Family Residence and confirm unit count",
+        "Must show appraised value to support LTV/CLTV calculation at 80%",
+        "Must be dated within 120 days of Note date (or within 365 days with recertification)",
+        "Must include all pages, addenda, and appraiser certification",
+        "Must include interior and exterior photographs including front, rear, street view, kitchen, bathrooms, and main living areas",
+        "Must include street map showing subject and all comparables used",
+        "Must include exterior building sketch with dimensions and floor plan with GLA calculation",
+        "Must confirm property condition rating of C4 or better (C5/C6 not acceptable for DSCR)",
+        "Must confirm property is free of deferred maintenance as required for DSCR properties",
+        "Must confirm no health or safety issues or structural deficiencies",
+        "Must confirm property contains full kitchen and bathroom",
+        "Must confirm minimum 400 square feet",
+        "Must include analysis of comparable sales and market value support",
+        "Must disclose any repairs, adverse conditions, or inspection requirements",
+        "Must include Form 1007 Single Family Comparable Rent Schedule for investment property rental income support"
       ],
       "reasons_needed": [
-        "NQMF Appraisal Review Process requires secondary appraisal product to support value",
-        "SSR Score of 2.5 or less satisfies standard review requirement",
-        "UCDP submission validates appraisal data integrity and identifies potential issues",
-        "Ensures appraisal meets GSE data quality standards"
+        "Collateral valuation is required for underwriting all loan transactions",
+        "LTV/CLTV eligibility at 80% depends on appraised value confirmation",
+        "Property type and condition affect DSCR program eligibility",
+        "DSCR properties must be free of deferred maintenance per guidelines",
+        "Property condition C4 requires additional evaluation for marketability on DSCR loans",
+        "Form 1007 rent schedule required for all 1-unit Investment Properties per NQMF guidelines",
+        "Subject property identity must be consistent across the loan file"
       ],
-      "condition_category": "collateral",
-      "expected_source": "Appraisal Management Company (AMC) / UCDP Portal",
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -872,25 +886,20 @@
       "source_module": "05"
     },
     {
-      "document_type": "1-4 Family Rider",
-      "form_variant": "FNMA Form 3170",
+      "document_type": "UCDP SSR",
+      "category": "Property",
       "priority": "P1",
       "specifications": [
-        "Must be FNMA Form 3170 (1-4 Family Rider / Assignment of Rents)",
-        "Must identify subject property address: 2345 Investment Property Rd, Nashville, TN",
-        "Must be executed by all borrowers holding title",
-        "Must assign rents to lender as additional security for the mortgage",
-        "Must be recorded with the mortgage/deed of trust",
-        "Must include borrower's agreement to maintain property in rentable condition"
+        "Must include Submission Summary Report (SSR) from UCDP",
+        "SSR Score must be 2.5 or less for acceptance",
+        "Must be associated with the subject appraisal report",
+        "Must identify any flags or warnings requiring resolution"
       ],
       "reasons_needed": [
-        "NQMF guidelines require Form 3170 for all Investment Properties",
-        "Assignment of rents provides lender additional security for DSCR loans",
-        "Rental income from subject property is basis for DSCR qualification",
-        "Standard requirement for investment property collateral documentation"
+        "Appraisal Review Process requires secondary appraisal product to support value",
+        "FNMA SSR Score of 2.5 or less required per NQMF appraisal review guidelines",
+        "Standard collateral validation required for underwriting"
       ],
-      "condition_category": "collateral",
-      "expected_source": "Closing/Title Agent",
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -900,62 +909,22 @@
       "source_module": "05"
     },
     {
-      "document_type": "Flood Determination",
+      "document_type": "Flood Hazard Determination",
+      "category": "Property",
       "priority": "P1",
       "specifications": [
-        "Must be FEMA Standard Flood Hazard Determination Form (SFHDF)",
-        "Must identify subject property address: 2345 Investment Property Rd, Nashville, TN",
-        "Must clearly identify flood zone designation in Section B4",
-        "Must indicate whether property is in Special Flood Hazard Area (SFHA) - Zone A or Zone V",
-        "Must indicate NFIP community participation status if in SFHA",
-        "Must identify if Coastal Barrier Resources System (CBRS) or Otherwise Protected Area (OPA) applies",
-        "Must be issued by FEMA-certified flood determination vendor",
-        "Must include Life of Loan monitoring if applicable"
+        "Must be a FEMA Flood Certificate establishing flood zone status",
+        "Must identify subject property address",
+        "Must clearly indicate flood zone designation",
+        "Must indicate whether property is in Special Flood Hazard Area (SFHA) Zone A or V",
+        "Must indicate whether community participates in NFIP program if in SFHA"
       ],
       "reasons_needed": [
-        "NQMF requires Flood Certificate to determine if property is in flood zone",
-        "Flood zone determination required to establish flood insurance requirements",
-        "Properties in Flood Zone A or V require flood insurance and NFIP community participation",
-        "Appraisal report flood zone must be reconciled with official FEMA determination"
+        "Required for all loan transactions to determine flood insurance requirements",
+        "Properties in Flood Zone A or V require flood insurance",
+        "Properties in SFHA must be in NFIP-participating community for eligibility",
+        "Flood zone determination affects insurance requirements and loan eligibility"
       ],
-      "condition_category": "collateral",
-      "expected_source": "Flood Determination Vendor",
-      "severity": "SOFT-STOP",
-      "document_category": "Property",
-      "status": "needed",
-      "tags": [
-        "property"
-      ],
-      "source_module": "05"
-    },
-    {
-      "document_type": "Property Insurance",
-      "subcategory": "Hazard Insurance",
-      "priority": "P1",
-      "specifications": [
-        "Must protect against loss from fire and standard extended coverage perils",
-        "Must include coverage for: fire/lightning, explosion, windstorm (including named storms), hail, smoke, aircraft, vehicles, riot/civil commotion",
-        "Must provide claims settlement on replacement cost basis (actual cash value not acceptable)",
-        "Must name all persons holding title as named insured (Emmanuel Nyarko)",
-        "Must show property address: 2345 Investment Property Rd, Nashville, TN",
-        "Must include standard mortgagee clause (loss payable clause alone not acceptable)",
-        "Must show coverage amount adequate for replacement cost of improvements",
-        "Must be effective for at least 60 days after funding date",
-        "Must include policy number, insurance company name, agent information",
-        "Must include effective and expiration dates of coverage",
-        "Must include premium amount and deductible",
-        "Must be signed and dated by agent",
-        "Must require insurer to notify mortgagee before policy cancellation"
-      ],
-      "reasons_needed": [
-        "Hazard insurance required on all loans to protect collateral",
-        "Coverage must be replacement cost basis per NQMF guidelines",
-        "Mortgagee clause protects lender's security interest",
-        "Named insured must match title holders to ensure borrower rights",
-        "Required prior to closing to protect collateral from date of funding"
-      ],
-      "condition_category": "collateral",
-      "expected_source": "Borrower's Insurance Agent",
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -966,27 +935,28 @@
     },
     {
       "document_type": "Title Commitment",
-      "category": "Title",
       "priority": "P1",
-      "applies_to": "Subject Property",
       "specifications": [
-        "Must identify all vested owners matching borrower Emmanuel Nyarko or acceptable vesting entity",
-        "Must include subject property address and full legal description for Tennessee SFR",
-        "Must disclose all liens, judgments, easements, encumbrances, and title exceptions",
-        "Must show 24-month chain of title history per NQM guidelines",
+        "Must identify borrower Emmanuel Nyarko as proposed insured/buyer",
+        "Must identify subject property address and full legal description",
+        "Must disclose all liens, judgments, easements, exceptions, and title requirements",
         "Must show title insurer name, commitment number, and effective date",
-        "Must be dated within 90 days of closing or per investor tolerance",
-        "Must identify Schedule A requirements and Schedule B exceptions",
-        "Title insurer must be licensed and authorized in Tennessee"
+        "Must include 24-month chain of title history with transfer dates, prices, buyer/seller names",
+        "Must confirm proposed first lien position for NQM Funding",
+        "Title insurer must be licensed and authorized in Tennessee",
+        "Must be dated within acceptable recency window (typically 30-60 days of closing)"
       ],
       "reasons_needed": [
-        "Required to confirm ownership and insurable interest in subject property",
-        "Must verify clear first lien position for the new mortgage",
-        "24-month vesting history must be reviewed for inconsistencies or flipping activity per NQM guidelines",
-        "All liens, judgments, and exceptions affecting title must be identified and cleared prior to funding",
-        "Title exceptions must be evaluated against allowable exception criteria"
+        "Title must confirm clear ownership and insurable interest in the subject property",
+        "24-month chain of title required per guidelines to review for flipping activity or inconsistencies",
+        "All liens and exceptions must be reviewed to ensure first lien position without exception",
+        "Adverse credit impacting title must be identified and resolved prior to closing",
+        "Title commitment confirms property can be insured under acceptable ALTA policy form"
       ],
-      "source_trigger": "All transactions require title commitment for underwriting review",
+      "applicable_conditions": "All purchase transactions require title commitment review",
+      "borrower_names": [
+        "Emmanuel Nyarko"
+      ],
       "severity": "SOFT-STOP",
       "document_category": "Title",
       "status": "needed",
@@ -996,25 +966,25 @@
       "source_module": "06"
     },
     {
-      "document_type": "Vesting Deed",
-      "category": "Title",
+      "document_type": "Grant Deed",
       "priority": "P1",
-      "applies_to": "Subject Property",
       "specifications": [
-        "Must be recorded deed showing current ownership of subject property",
-        "Must identify grantor and grantee with vesting matching borrower name or entity",
-        "Must include full legal description matching title commitment",
-        "Must show recording information (book, page, instrument number, recording date)",
-        "Must reflect current vesting status (sole ownership, joint tenancy, tenants in common, etc.)",
-        "For purchase transaction, seller's vesting deed establishes chain of title"
+        "Must show current seller/owner name(s) as grantor",
+        "Must show legal description matching title commitment and appraisal",
+        "Must show subject property address",
+        "Must be recorded document or copy from title company",
+        "Vesting must reconcile with purchase contract seller information"
       ],
       "reasons_needed": [
-        "Required to confirm seller has clear title to convey to borrower at closing",
-        "Vesting must be reconciled with borrower identity and transaction structure",
-        "Legal description must match title commitment and appraisal",
-        "Supports 24-month chain of title review per NQM underwriting guidelines"
+        "Confirms current ownership of property and seller's authority to convey",
+        "Legal description must match across all loan documents for clear title",
+        "Vesting review required to identify any ownership inconsistencies",
+        "Required to verify seller on purchase contract has legal right to sell the property"
       ],
-      "source_trigger": "All transactions require vesting deed to confirm property ownership",
+      "applicable_conditions": "Purchase transaction - deed confirms seller ownership",
+      "borrower_names": [
+        "Emmanuel Nyarko"
+      ],
       "severity": "SOFT-STOP",
       "document_category": "Title",
       "status": "needed",
@@ -1024,29 +994,27 @@
       "source_module": "06"
     },
     {
-      "document_type": "Lease Agreement",
-      "category": "income",
-      "applies_to": "subject_property",
+      "document_type": "Rental Agreement",
+      "borrower": "Emmanuel Nyarko",
+      "subject_property": true,
       "specifications": [
-        "Must identify the subject property address",
-        "Must identify tenant name(s) and landlord/owner",
+        "Must identify subject property address",
+        "Must identify tenant name(s)",
+        "Must show lease term start and end dates",
         "Must show monthly rent amount",
-        "Must show lease term (start and end dates)",
-        "Must be fully executed (signed by all parties)",
-        "If property is currently tenant-occupied, 1007/1025 must reflect the terms of the current lease",
-        "Lease must have no less than 1 month remaining at time of closing if refinance - for purchase may be vacant",
-        "Single room occupancy or boarder leases are not permitted"
+        "Must be executed/signed by tenant and landlord",
+        "If property is tenant-occupied at time of purchase, lease is required",
+        "For purchase of vacant property, lease may be provided if tenant secured before closing"
       ],
       "reasons_needed": [
-        "If purchase property is tenant-occupied, lease agreement is required to document existing rental income",
-        "Lease terms must be reflected on Form 1007/1025 for tenant-occupied properties",
-        "For purchase transactions, property may be vacant - lease only required if tenant-occupied",
-        "Guideline states if property is currently tenant occupied, the 1007/1025 must reflect the terms of the lease"
+        "Per DSCR guidelines, if property is currently tenant occupied, the 1007/1025 must reflect the terms of the lease",
+        "Lease agreement supports rental income when property is leased",
+        "Lease terms must be verified to ensure property is not occupied by borrower, borrower's LLC members, or family members"
       ],
-      "guideline_reference": "DSCR RATIO - General Requirements",
+      "guideline_reference": "DSCR RATIO section - If the property is currently tenant occupied, the 1007/1025 must reflect the terms of the current lease",
       "priority": "P2",
-      "condition": "Required only if subject property is tenant-occupied at time of purchase",
-      "borrower_name": null,
+      "income_type": "DSCR_rental",
+      "condition_note": "Required if property is or will be tenant-occupied; for vacant purchase property, acceptable to proceed without lease",
       "severity": "SOFT-STOP",
       "document_category": "Income",
       "status": "needed",
@@ -1056,55 +1024,50 @@
       "source_module": "02"
     },
     {
-      "document_type": "Reserve Verification Documentation",
-      "borrower": "Emmanuel Nyarko",
+      "document_type": "Deed of Trust",
+      "category": "Property",
       "priority": "P2",
       "specifications": [
-        "Must show sufficient liquid assets remaining after funds to close",
-        "Must verify minimum reserve months required by DSCR program (typically 6-9 months PITIA)",
-        "Must show verified account balances supporting reserve calculation",
-        "Reserves must be in borrower name or joint with spouse",
-        "Investment property reserves calculated using full PITIA payment",
-        "Gift funds may NOT be used for reserve requirements per guidelines"
+        "Must be FNMA Form 3170 (Assignment of Rents)",
+        "Must be executed by all borrowers",
+        "Must identify subject property address",
+        "Must assign rental income rights to lender as additional security"
       ],
       "reasons_needed": [
-        "DSCR investment property loans require verified reserves post-closing",
-        "Reserve months vary by LTV, property type, and loan amount",
-        "Ensures borrower has adequate liquidity buffer for investment property obligations",
-        "Guidelines explicitly prohibit gift funds for reserves"
+        "Required for all Investment Properties per NQMF appraisal requirements",
+        "Provides lender with security interest in rental income",
+        "Standard collateral documentation for investment property loans"
       ],
-      "guideline_reference": "ASSETS - applicable reserves; GIFT FUNDS - Gift funds may not be used to meet reserve requirements",
-      "overlay_applied": null,
       "severity": "SOFT-STOP",
-      "document_category": "Assets",
+      "document_category": "Property",
       "status": "needed",
       "tags": [
-        "assets"
+        "property"
       ],
-      "source_module": "03"
+      "source_module": "05"
     }
   ],
   "stats": {
-    "total_document_requests": 20,
+    "total_document_requests": 18,
     "hard_stop_documents": 0,
     "by_category": {
       "Credit": 2,
-      "Property": 5,
       "Cross-Cutting": 4,
       "Compliance": 1,
       "Income": 3,
-      "Assets": 3,
+      "Assets": 2,
+      "Property": 4,
       "Title": 2
     },
     "by_priority": {
-      "P0": 2,
-      "P1": 16,
+      "P0": 1,
+      "P1": 15,
       "P2": 2
     },
     "by_status": {
-      "needed": 20
+      "needed": 18
     },
-    "elapsed_seconds": 514.4,
+    "elapsed_seconds": 466.7,
     "tool_calls": 82
   }
 }

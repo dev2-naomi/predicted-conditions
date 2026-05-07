@@ -97,10 +97,10 @@
       "subject_property_rental_income": null
     },
     "doc_profile": [
-      "compliance_notice",
-      "loan_application",
       "appraisal",
-      "other"
+      "other",
+      "compliance_notice",
+      "loan_application"
     ],
     "housing_expenses": {
       "present": [],
@@ -449,108 +449,33 @@
   "seen_conflicts": [],
   "document_requests": [
     {
-      "document_id": "XCUT-003",
-      "document_name": "Settlement Statement - Original Purchase",
-      "category": "transaction",
-      "priority": "P0",
-      "applies_to": [
-        "Subject Property"
-      ],
-      "specifications": [
-        "Must show original purchase date within 6 months of current transaction",
-        "Must confirm no mortgage financing was used to acquire subject property OR show only short-term/hard money financing",
-        "Must show original purchase price paid by borrower",
-        "Must document arm's-length transaction with unrelated seller",
-        "If short-term/hard money loan was used, copy of the note is required to verify terms"
-      ],
-      "reasons_needed": [
-        {
-          "reason": "Delayed Financing requires settlement statement from original purchase confirming transaction details",
-          "reason_type": "guideline_requirement"
-        },
-        {
-          "reason": "Must verify borrower's initial investment to establish maximum allowable loan amount",
-          "reason_type": "eligibility"
-        },
-        {
-          "reason": "Required to confirm original transaction was arm's-length per Delayed Financing rules",
-          "reason_type": "compliance"
-        }
-      ],
-      "guideline_reference": "DELAYED FINANCING",
-      "source_module": "cross_cutting",
-      "document_type": "Settlement Statement - Original Purchase",
-      "severity": "SOFT-STOP",
-      "document_category": "Cross-Cutting",
-      "status": "needed",
-      "tags": [
-        "crosscutting"
-      ]
-    },
-    {
-      "document_id": "XCUT-004",
-      "document_name": "Source of Funds - Original Purchase",
-      "category": "transaction",
-      "priority": "P0",
-      "applies_to": [
-        "Aubrey Banaga"
-      ],
-      "specifications": [
-        "Must document source of all funds used for original property acquisition",
-        "Acceptable sources: bank statements, personal loan documents, HELOC/loan on another property",
-        "Must show funds available prior to original purchase date",
-        "If HELOC or loan secured by other property was used, new loan proceeds must pay off/pay down that loan",
-        "Gift funds used for original purchase may NOT be reimbursed with new loan proceeds"
-      ],
-      "reasons_needed": [
-        {
-          "reason": "Delayed Financing requires documentation of source of funds used for original purchase",
-          "reason_type": "guideline_requirement"
-        },
-        {
-          "reason": "New loan amount limited to borrower's actual documented initial investment",
-          "reason_type": "eligibility"
-        },
-        {
-          "reason": "Must verify no gift fund reimbursement and proper payoff of acquisition financing",
-          "reason_type": "compliance"
-        }
-      ],
-      "guideline_reference": "DELAYED FINANCING",
-      "source_module": "cross_cutting",
-      "document_type": "Source of Funds - Original Purchase",
-      "severity": "SOFT-STOP",
-      "document_category": "Cross-Cutting",
-      "status": "needed",
-      "tags": [
-        "crosscutting"
-      ]
-    },
-    {
       "document_type": "Credit Report",
-      "category": "credit",
+      "document_category": "Credit",
       "priority": "P0",
+      "applies_to": "all_borrowers",
       "specifications": [
-        "Must be a tri-merge credit report or Residential Mortgage Credit Report (RMCR) from Experian, TransUnion, and Equifax",
+        "Must be a tri-merge or Residential Mortgage Credit Report (RMCR) from acceptable agencies (Experian, TransUnion, Equifax)",
         "Must include all borrowers on the loan",
-        "Must display credit scores from all three bureaus",
-        "Must show complete tradeline details including payment history, balances, and account status",
-        "Must include public records search for each city borrower resided in last 2 years",
-        "Must show inquiries, collections, charge-offs, disputes, and alerts if applicable",
-        "Must be dated within 120 days of note date",
-        "Must verify Social Security Number for all borrowers"
+        "Must verify Social Security number for all borrowers",
+        "Must show credit scores from all three bureaus",
+        "Must include complete tradeline details with payment history",
+        "Must show mortgage/housing payment history if available",
+        "Must include inquiries, public records, disputes, collections, charge-offs, and alerts",
+        "Must certify results of public record searches for each city where borrower resided in last 2 years",
+        "Must be dated within 120 days of closing"
       ],
       "reasons_needed": [
-        "Credit score of 800 must be verified to confirm DSCR program eligibility",
-        "Tradeline requirements must be reviewed (3 tradelines 12+ months or 2 tradelines 24+ months)",
-        "Housing history and mortgage payment history must be verified",
-        "Public records must be searched to identify any undisclosed credit events",
-        "Required per NQM guidelines for all borrowers on the loan"
+        "Credit score of 800 must be validated to confirm program eligibility for Investor DSCR",
+        "Tradeline and credit history requirements must be reviewed per NQMF guidelines",
+        "Credit report is needed to verify no adverse credit events, disputes, or derogatory items",
+        "Housing payment history on existing investment property mortgage must be reviewed",
+        "Required for all borrowers per NQMF underwriting guidelines"
       ],
       "conditions": [],
-      "guideline_reference": "NQM Credit Report Requirements - Page 44",
+      "source_references": [
+        "NQMF Guidelines - Credit Report Requirements"
+      ],
       "severity": "SOFT-STOP",
-      "document_category": "Credit",
       "status": "needed",
       "tags": [
         "credit"
@@ -558,112 +483,270 @@
       "source_module": "04"
     },
     {
-      "document_type": "Form 1007 Rent Schedule",
-      "category": "income",
-      "priority": "P0",
-      "applies_to": "subject_property",
+      "document_id": "CROSSCUT-001",
+      "document_name": "Government-Issued Photo ID",
+      "document_category": "Cross-Cutting",
+      "borrower_name": "Aubrey Banaga",
+      "priority": "P1",
       "specifications": [
-        "Must be FNMA Form 1007 Single Family Comparable Rent Schedule",
-        "Must identify the subject property address matching the loan file",
-        "Must include appraiser's opinion of market rent for the subject property",
-        "Must be completed by the licensed appraiser as part of the appraisal package",
-        "Must reflect current lease terms if the property is tenant-occupied",
-        "Market rent opinion must account for the property type and local rental market conditions"
+        "Must be a valid, unexpired government-issued photo identification",
+        "Must show borrower's full legal name matching the loan application",
+        "Must include photograph, date of birth, and expiration date",
+        "Acceptable forms: U.S. Driver's License, U.S. Passport, State ID Card, Military ID"
       ],
       "reasons_needed": [
-        "DSCR ratio calculation requires gross rental income from Form 1007 to compute DSCR = Gross Rental Income / PITIA",
-        "Investor DSCR program requires 1007/1025 for all refinance transactions to establish market rent",
-        "For Delayed Financing refinance, 1007 validates rental income used in DSCR qualification",
-        "Guideline states: 'Refinance: FNMA 1007/1025 required' for Long Term Rentals on DSCR"
+        {
+          "reason": "Borrower identity must be verified before any loan documents can be validated",
+          "reason_type": "compliance"
+        },
+        {
+          "reason": "Photo ID required to confirm borrower identity matches across all loan file documents",
+          "reason_type": "document_validation"
+        }
       ],
-      "guideline_reference": "DSCR Guidelines - Long Term Rentals, Rental Income Requirements",
-      "loan_context": {
-        "loan_program": "Investor DSCR",
-        "transaction_type": "Refinance - Delayed Financing",
-        "property_type": "SFR",
-        "occupancy": "Investment Property"
-      },
+      "document_type": "Government-Issued Photo ID",
+      "acceptable_types": [
+        "Drivers License",
+        "Passport",
+        "Non-Driver ID",
+        "Permanent Resident Card",
+        "Social Security ID",
+        "Travel VISA"
+      ],
       "severity": "SOFT-STOP",
-      "document_category": "Income",
       "status": "needed",
       "tags": [
-        "income"
+        "crosscutting"
       ],
-      "source_module": "02"
+      "source_module": "01"
     },
     {
-      "document_type": "Lease Agreement",
-      "category": "income",
-      "priority": "P0",
+      "document_id": "CROSSCUT-002",
+      "document_name": "IRS Form 4506-C",
+      "document_category": "Cross-Cutting",
+      "borrower_name": "Aubrey Banaga",
+      "priority": "P1",
+      "specifications": [
+        "Must be fully executed with borrower signature and date",
+        "Must include correct borrower name, SSN, and current address",
+        "Must specify tax years for transcript request (most recent 2-4 years as applicable)",
+        "Must be signed within 120 days of closing"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "NQMF Guidelines require a fully executed and signed IRS Form-4506C for all documentation types",
+          "reason_type": "guideline_requirement"
+        },
+        {
+          "reason": "Tax transcript authorization required for income verification and fraud prevention",
+          "reason_type": "compliance"
+        }
+      ],
+      "document_type": "IRS 4506-C Authorization",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "tags": [
+        "crosscutting"
+      ],
+      "source_module": "01"
+    },
+    {
+      "document_id": "CROSSCUT-003",
+      "document_name": "Occupancy Certification - Investment Property",
+      "document_category": "Cross-Cutting",
+      "borrower_name": "Aubrey Banaga",
+      "priority": "P1",
+      "specifications": [
+        "Must certify subject property will be held as investment/non-owner-occupied",
+        "Must confirm borrower will not occupy the property as primary or secondary residence",
+        "Must confirm property will not be occupied by any family member or LLC member per DSCR guidelines",
+        "Must include borrower signature and date",
+        "Must document borrower's current primary residence address",
+        "Must provide proof of ownership (mortgage statement, deed) OR active lease agreement if renting",
+        "For rent-free arrangements, must provide rent-free letter from property owner",
+        "Primary residence should be in different geographic location from subject property OR demonstrate superior general appeal/location compared to subject"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "DSCR program requires property cannot be occupied by borrower(s), any member of the borrower's LLC, or any family member",
+          "reason_type": "program_requirement"
+        },
+        {
+          "reason": "Occupancy status drives LTV limits, reserve requirements, and documentation rules",
+          "reason_type": "eligibility"
+        },
+        {
+          "reason": "DSCR guidelines require borrowers who own a Primary Residence must provide proof of ownership or evidence they are living in a property owned or rented by their spouse/domestic partner",
+          "reason_type": "guideline_requirement"
+        },
+        {
+          "reason": "Primary residence documentation required to confirm borrower will not occupy investment property",
+          "reason_type": "occupancy_validation"
+        }
+      ],
+      "document_type": "Owner Occupancy Certification",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "tags": [
+        "crosscutting"
+      ],
+      "source_module": "01",
+      "evidence_found": [],
+      "guideline_trace": [],
+      "overlay_trace": []
+    },
+    {
+      "document_type": "Borrower Certification as to Business Purpose",
+      "category": "Compliance",
+      "borrower_name": "Aubrey Banaga",
+      "property_address": "California",
+      "specifications": [
+        "Must identify borrower Aubrey Banaga",
+        "Must identify subject property address",
+        "Must affirm business/investment purpose for refinance",
+        "Must be signed and dated by borrower",
+        "Must confirm property is not and will not be owner-occupied",
+        "Must be consistent with investment property occupancy declaration on 1003",
+        "Must state the loan proceeds are for business/investment purposes"
+      ],
+      "reasons_needed": [
+        "DSCR Investor program is a business-purpose loan product requiring affirmation of non-owner-occupied investment intent",
+        "Business purpose affidavit confirms loan is exempt from consumer lending regulations (TRID/ATR)",
+        "Required to document that the refinance is for investment property and business purposes consistent with DSCR program requirements",
+        "Occupancy and business purpose representations must be consistent and documented for compliance"
+      ],
+      "priority": "P1",
+      "cure_path": "Borrower must sign and date Business Purpose Affidavit affirming investment/business purpose",
+      "severity": "SOFT-STOP",
+      "document_category": "Compliance",
+      "status": "needed",
+      "tags": [
+        "compliance"
+      ],
+      "source_module": "07"
+    },
+    {
+      "document_type": "Verification of Mortgage",
+      "document_category": "Credit",
+      "priority": "P1",
       "applies_to": "subject_property",
       "specifications": [
-        "Must be a fully executed lease agreement for the subject property",
+        "Must cover 12-month lookback period for existing mortgage on subject property",
+        "Must identify borrower name and property address",
+        "Must show monthly payment amounts and due dates",
+        "Must show payment status for each month (on-time, late, delinquent)",
+        "Must identify any late payments with number of days late (30/60/90+)",
+        "Must be from current mortgage servicer or credit report tradeline",
+        "Must support 0x30 payment history requirement for rate/term refinance"
+      ],
+      "reasons_needed": [
+        "Housing history verification is required for all programs per NQMF guidelines",
+        "Payment history on existing mortgage affects refinance eligibility",
+        "Late payments on current mortgage may affect qualification or pricing adjustments",
+        "DSCR refinance programs typically require clean mortgage payment history",
+        "Verifies borrower's track record of meeting housing obligations"
+      ],
+      "conditions": [],
+      "source_references": [
+        "NQMF Guidelines - Housing History Requirements"
+      ],
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "tags": [
+        "credit"
+      ],
+      "source_module": "04"
+    },
+    {
+      "document_type": "Rental Income Calculations Worksheet",
+      "category": "income",
+      "priority": "P1",
+      "borrower_scope": "property",
+      "specifications": [
+        "Must be FNMA Form 1007 for single-family or Form 1025 for 2-4 units",
         "Must identify the subject property address",
-        "Must identify tenant name(s) and lease term dates",
-        "Must show monthly rental amount",
-        "Must have at least 1 month remaining at time of closing, OR if month-to-month, provide signed extension letter or evidence of rental continuance",
-        "Must be signed by both landlord/property owner and tenant(s)",
-        "Single room occupancy or boarder leases are not permitted"
+        "Must include appraiser's opinion of market rent",
+        "Must reflect terms of current lease if property is tenant-occupied",
+        "Must be completed by the appraiser as part of the appraisal engagement",
+        "Must support DSCR ratio calculation using gross rental income"
       ],
       "reasons_needed": [
-        "DSCR refinance transactions require the property to be leased - vacant property not eligible unless Delayed Financing exception applies",
-        "Lease agreement validates tenant occupancy and rental income being received",
-        "Guideline states: 'Executed lease with no less than 1 month remaining at the time of closing for all units in the subject property'",
-        "For Delayed Financing, if property is currently leased, lease documentation supports DSCR calculation",
-        "If property is vacant under Delayed Financing exception, evidence property is listed for rent required instead"
+        "DSCR ratio calculation requires market rent documentation via Form 1007/1025",
+        "Guidelines require FNMA 1007/1025 for all DSCR refinance transactions",
+        "Monthly gross rents are used to determine DSCR = Gross Rental Income / PITIA"
       ],
-      "guideline_reference": "DSCR Guidelines - Long Term Rentals, Lease and Occupancy Requirements",
-      "loan_context": {
-        "loan_program": "Investor DSCR",
-        "transaction_type": "Refinance - Delayed Financing",
-        "property_type": "SFR",
-        "occupancy": "Investment Property"
-      },
-      "conditional_note": "If property is currently vacant under Delayed Financing exception, provide evidence property is listed for rent in lieu of executed lease",
+      "guideline_reference": "LONG TERM RENTALS \u2013 DSCR SUPREME AND INVESTOR DSCR: FNMA 1007/1025 required for refinance",
+      "status": "needed",
       "severity": "SOFT-STOP",
       "document_category": "Income",
-      "status": "needed",
       "tags": [
         "income"
       ],
       "source_module": "02"
     },
     {
-      "document_type": "Rent Loss Insurance",
+      "document_type": "Rental Agreement",
       "category": "income",
-      "priority": "P0",
-      "applies_to": "subject_property",
+      "priority": "P1",
+      "borrower_scope": "property",
       "specifications": [
-        "Must provide rent loss/rental income coverage for the subject property",
-        "Coverage amount must equal at least 6 months of PITIA (Principal, Interest, Taxes, Insurance, Association dues)",
-        "Policy must name the subject property address",
-        "Blanket policies covering the subject property are eligible if they meet coverage requirements",
-        "Must be in effect at time of closing",
-        "Must provide rent loss coverage for subject investment property",
-        "Must name subject property address",
-        "Must be current and effective through closing and beyond",
-        "Blanket policies covering the subject property are eligible",
-        "Must include policy number, coverage limits, and effective dates"
+        "Must be fully executed lease agreement for the subject property",
+        "Must have no less than 1 month remaining at time of closing",
+        "Must identify tenant name and lease terms",
+        "Must show monthly rent amount",
+        "Must identify property address matching the subject property",
+        "If month-to-month tenancy, must provide signed extension letter or bank statements to support rent deposits"
       ],
       "reasons_needed": [
-        "DSCR program requires Rent Loss Insurance to protect against income loss if property becomes uninhabitable or unrentable",
-        "Guideline states: 'Rent Loss Insurance for the subject property is required and must equal at least 6 months of PITIA'",
-        "Coverage protects lender's collateral and income stream used for DSCR qualification",
-        "Required for Investor DSCR program per program matrix requirements",
-        "Rent Loss Insurance is required for all DSCR loans per NQMF Investor DSCR guidelines",
-        "Coverage must equal minimum 6 months PITIA as specified in program requirements",
-        "Protects lender interest in rental income stream supporting DSCR qualification"
+        "All DSCR refinance transactions require the property to be leased per guidelines",
+        "Lease agreement confirms tenant occupancy status and rental income amount",
+        "Guidelines state vacant property on refinance is not eligible for DSCR loans",
+        "1007/1025 must reflect terms of current lease if property is tenant-occupied"
       ],
-      "guideline_reference": "DSCR Guidelines - Rent Loss Insurance (DSCR)",
-      "loan_context": {
-        "loan_program": "Investor DSCR",
-        "transaction_type": "Refinance - Delayed Financing",
-        "property_type": "SFR",
-        "occupancy": "Investment Property"
-      },
+      "guideline_reference": "DSCR RATIO - All refinance transactions require the property to be leased. Vacant property is not eligible.",
+      "status": "needed",
       "severity": "SOFT-STOP",
       "document_category": "Income",
+      "tags": [
+        "income"
+      ],
+      "source_module": "02"
+    },
+    {
+      "document_type": "Hazard Insurance",
+      "category": "income",
+      "priority": "P1",
+      "borrower_scope": "property",
+      "specifications": [
+        "Must provide rent loss insurance coverage for the subject property",
+        "Must equal at least 6 months of PITIA",
+        "Blanket policies covering the subject property are acceptable",
+        "Must identify the subject property address",
+        "Must show coverage amount and policy effective dates",
+        "Must be hazard insurance policy covering fire and standard extended coverage perils",
+        "Extended coverage must include: wind, civil commotion, smoke, hail, aircraft, vehicle, explosion",
+        "Must provide replacement cost coverage (actual cash value not acceptable)",
+        "Must name all persons holding title as named insured",
+        "Must include standard mortgagee clause (loss payable clause not acceptable)",
+        "Must include NQM Funding, LLC as mortgagee with correct address",
+        "Must show property address matching subject property",
+        "Must show effective date and policy must be effective for at least 60 days after funding",
+        "Must show coverage amount, deductible, and premium",
+        "Must require insurer to notify mortgagee before cancellation",
+        "Policy number and insurance company name must be clearly indicated"
+      ],
+      "reasons_needed": [
+        "Rent Loss Insurance is required for DSCR loans per NQMF guidelines",
+        "Coverage must equal at least 6 months of PITIA to protect rental income stream",
+        "Required to ensure continued debt service coverage in case of tenant vacancy",
+        "Hazard insurance is required to protect collateral against loss or damage",
+        "Investment property requires adequate property insurance coverage",
+        "Mortgagee clause protects lender's interest in the collateral"
+      ],
+      "guideline_reference": "RENT LOSS INSURANCE (DSCR): Rent Loss Insurance for the subject property is required and must equal at least 6 months of PITIA",
       "status": "needed",
+      "severity": "SOFT-STOP",
+      "document_category": "Income",
       "tags": [
         "income",
         "property"
@@ -674,71 +757,162 @@
       "overlay_trace": []
     },
     {
-      "document_type": "Personal Bank Statements",
-      "priority": "P0",
+      "document_type": "Bank Statement",
       "borrower": "Aubrey Banaga",
+      "priority": "P1",
       "specifications": [
-        "Must cover most recent 2 months",
-        "Must include all pages of each statement",
+        "Must cover most recent 2 months (60 days)",
+        "Must include all pages even if blank",
         "Must show borrower name as account holder",
-        "Must show financial institution name",
-        "Must show account number (full or masked)",
-        "Must show beginning and ending balances for each month",
+        "Must show financial institution name and logo",
+        "Must show account number (full or last 4 digits acceptable)",
+        "Must show beginning and ending balances for each statement period",
         "Must show complete transaction history",
+        "Must be dated within 90 days of note date per NQMF guidelines",
+        "Must cover all accounts being used for funds to close and reserves",
+        "Large deposits (typically 25% or more of monthly qualifying income or inconsistent with account history) must be identified for potential sourcing",
+        "Must show sufficient verified balance to cover required months of PITIA reserves",
+        "Must identify acceptable asset source (checking, savings, money market accounts)",
+        "Must show account ownership matching borrower name",
         "Must be dated within 90 days of note date",
-        "Statements for all accounts being used for funds to close and reserves"
+        "Investment property DSCR loans typically require 6+ months PITIA reserves",
+        "If reserves held in multiple accounts, all accounts must be documented",
+        "Balance must be liquid and accessible (not subject to withdrawal penalties affecting availability)"
       ],
       "reasons_needed": [
-        "Required to verify sufficient funds for closing costs and prepaid items",
-        "Required to verify reserves for investment property DSCR loan",
-        "Assets must be dated within 90 days of note date per guideline",
-        "Account ownership must be confirmed to match borrower",
-        "Transaction history needed to identify any large deposits requiring sourcing"
+        "Assets must be verified for funds to close including closing costs and prepaid items per NQMF guidelines",
+        "Reserve requirements must be supported by verified liquid assets",
+        "Account ownership must be confirmed to match borrower on loan application",
+        "Transaction history required to identify any large deposits requiring additional documentation",
+        "NQMF requires assets dated within 90 days of note date",
+        "DSCR investment property loans require reserves based on program requirements and risk factors",
+        "Reserve calculation must be supported by verified assets showing sufficient liquidity",
+        "Reserves provide evidence of borrower's ability to manage property expenses if rental income is interrupted",
+        "Investment property loans have heightened reserve requirements compared to owner-occupied"
       ],
-      "guideline_reference": "ASSETS - Loan files must evidence sufficient funds from acceptable sources for closing costs, prepaid items, and applicable reserves",
-      "overlay_applied": null,
+      "conditions_text": null,
+      "overlay_trace": [],
       "severity": "SOFT-STOP",
       "document_category": "Assets",
       "status": "needed",
       "tags": [
         "assets"
       ],
-      "source_module": "03"
+      "source_module": "03",
+      "evidence_found": [],
+      "guideline_trace": []
     },
     {
       "document_type": "Appraisal Report",
       "category": "Property",
-      "priority": "P0",
+      "priority": "P1",
       "specifications": [
-        "Must be FNMA Form 1004 (Uniform Residential Appraisal Report) for single-family residence",
-        "Must identify subject property address matching loan file",
-        "Must identify property type as SFR and confirm 1-unit count",
-        "Must show appraised value supporting 65% LTV calculation",
-        "Must be dated within 120 days of Note date; if older, Appraisal Update (1004D) required before 365 days",
-        "Must include all pages, addenda, and exhibits",
-        "Must include street map showing subject and all comparables",
-        "Must include exterior building sketch with dimensions and gross living area calculation",
-        "Must include color photographs: front, rear, street view, kitchen, all bathrooms, main living area",
-        "Must include interior photos of any physical deterioration or renovations",
-        "Must confirm property condition is Average or better (C4 or better; C5/C6 not acceptable)",
-        "Must confirm no health or safety issues, structural deferred maintenance, or fair/poor ratings",
-        "Must confirm property meets minimum standards: year-round use, heated, full kitchen and bathroom, minimum 400 sqft",
-        "Must include analysis of any sales/transfers of subject in past 3 years (Delayed Financing relevance)",
-        "Must include comparable sales and appraiser certification",
-        "Must disclose any adverse conditions, repairs required, or environmental hazards",
-        "Must include appraiser's license/certification number",
-        "Must be submitted in MISMO XML format with color photos"
+        "Must be FNMA Form 1004 for 1-unit single family residence",
+        "Must identify subject property address matching 123 Main St, San Diego, CA",
+        "Must identify property type as single-family residence and unit count as 1",
+        "Must show appraised value supporting the $625,000 value and 65% LTV calculation",
+        "Must be dated within 365 days of Note date; recertification required if over 120 days",
+        "Must include all pages, addenda, and appraiser certification",
+        "Must include street map showing location of subject and all comparables",
+        "Must include exterior building sketch with dimensions and floor plan",
+        "Must include original color photographs of front, street, rear views, kitchen, bathrooms, main living area",
+        "Must include comparable sales analysis and sales comparison approach",
+        "Must confirm property condition is C4 or better (C5/C6 not acceptable)",
+        "Must confirm property meets minimum standards: average or better condition, no health/safety violations",
+        "Must confirm property is not rural (rural properties not permitted)",
+        "Must confirm minimum 400 square feet with full kitchen and bathroom",
+        "Must disclose any repairs, adverse conditions, or inspection requirements",
+        "Must include appraiser's state license/certification number",
+        "Must include copy of appraiser's E&O insurance policy"
       ],
       "reasons_needed": [
-        "Collateral valuation is required for all loan transactions per NQMF guidelines",
-        "LTV/CLTV eligibility at 65% depends on appraised value confirmation",
-        "Property type and unit count affect DSCR program eligibility",
-        "Property condition must be verified for DSCR properties (expected free of deferred maintenance)",
-        "Investment property requires property eligibility confirmation",
-        "Subject property identity must be consistent across the loan file",
-        "Delayed Financing requires analysis of recent acquisition and value support"
+        "Collateral valuation is required for underwriting all mortgage transactions",
+        "LTV/CLTV eligibility depends on appraised value confirmation",
+        "Property type and unit count affect program eligibility for Investor DSCR",
+        "DSCR properties are expected to be free of deferred maintenance per guidelines",
+        "Property condition C4 requires evaluation for marketability and acceptance on DSCR loans",
+        "Subject property identity must be consistent across the loan file"
       ],
-      "conditions": [],
+      "applicable_overlays": [],
+      "source_reference": "NQMF Guidelines - Appraisal Requirements 1-4 Unit Residential",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_type": "UCDP SSR",
+      "category": "Property",
+      "priority": "P1",
+      "specifications": [
+        "Must be submitted through UCDP (Uniform Collateral Data Portal)",
+        "SSR score must be 2.5 or less for acceptable appraisal review",
+        "Must reference the subject property appraisal report",
+        "Must identify any flags, warnings, or data quality issues",
+        "If SSR score exceeds 2.5, alternative review product required (AVM, desk review, or field review)"
+      ],
+      "reasons_needed": [
+        "Appraisal review process requires secondary appraisal product to support value",
+        "FNMA SSR score of 2.5 or less satisfies the appraisal review requirement",
+        "Required to validate appraisal quality and data consistency"
+      ],
+      "applicable_overlays": [],
+      "source_reference": "NQMF Guidelines - Appraisal Review Process",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_type": "Deed of Trust",
+      "category": "Property",
+      "priority": "P1",
+      "specifications": [
+        "Must be FNMA Form 3170 (Assignment of Rents)",
+        "Must identify subject investment property address",
+        "Must be executed by all borrowers on title",
+        "Must assign rental income/rents to the lender as additional security"
+      ],
+      "reasons_needed": [
+        "Required for all investment properties per NQMF appraisal requirements",
+        "Provides lender with assignment of rents as additional collateral security",
+        "Subject property is an investment/non-owner-occupied property"
+      ],
+      "applicable_overlays": [],
+      "source_reference": "NQMF Guidelines - Appraisal Requirements 1-4 Unit Residential",
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05"
+    },
+    {
+      "document_type": "Flood Hazard Determination",
+      "category": "Property",
+      "priority": "P1",
+      "specifications": [
+        "Must be a FEMA Flood Certificate (Life of Loan flood determination)",
+        "Must identify subject property address",
+        "Must indicate flood zone designation (Zone A, V, or non-SFHA)",
+        "Must indicate if property is in Special Flood Hazard Area (SFHA)",
+        "Must indicate if property is in Coastal Barrier System (CBRS) or Otherwise Protected Area (OPA)",
+        "Must be provided by FEMA-approved flood determination vendor"
+      ],
+      "reasons_needed": [
+        "Determination of flood zone is required to establish flood insurance requirements",
+        "Properties in Zone A or V require flood insurance and must be in FEMA participating community",
+        "Appraisal flood zone must reconcile with flood certificate determination"
+      ],
+      "applicable_overlays": [],
+      "source_reference": "NQMF Guidelines - Flood Certificate",
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -750,25 +924,30 @@
     {
       "document_type": "Title Commitment",
       "category": "Title",
-      "priority": "P0",
+      "priority": "P1",
       "specifications": [
-        "Must be issued by a licensed title insurer qualified in California",
-        "Must identify all vested owners matching borrower Aubrey Banaga",
-        "Must identify subject property by full address and legal description",
+        "Must identify borrower Aubrey Banaga as owner/vested party",
+        "Must identify subject property address and legal description matching appraisal",
+        "Must disclose all liens, judgments, easements, exceptions, and title requirements",
+        "Must show title insurer duly authorized in California",
         "Must include 24-month chain of title history per NQMF guidelines",
-        "Must disclose all liens, judgments, easements, and title exceptions",
-        "Must show title insurer name and effective date",
-        "Must be dated within 90 days of closing",
-        "Must indicate final policy will be issued on ALTA 2006 standard form",
-        "Must show clear path to first lien position for new mortgage"
+        "Must be dated within acceptable recency window",
+        "Effective date must be within 90 days of closing",
+        "Must confirm first lien position can be achieved after payoff of existing mortgage"
       ],
       "reasons_needed": [
-        "NQMF guidelines require all files contain 24-month title history from acceptable source",
-        "Title must confirm ownership and vesting align with loan file for Aubrey Banaga",
-        "Lien position verification required - must ensure first lien position for new mortgage",
-        "Title exceptions must be reviewed against allowable exceptions per NQMF guidelines",
-        "Any judgments or liens affecting title must be identified for payoff or resolution at closing",
-        "Transfer history must be reviewed for inconsistencies or flipping activity per guidelines"
+        "Title must confirm ownership and insurable interest per NQMF Title Insurance requirements",
+        "Chain of title review required to verify vesting history and identify any flipping activity",
+        "All exceptions must be reviewed against NQMF allowable title exceptions list",
+        "Existing liens must be cleared or paid at closing for refinance transactions",
+        "First lien position must be confirmed without exception"
+      ],
+      "trigger": "All loans require title commitment review",
+      "related_guidelines": [
+        "TITLE INSURANCE",
+        "TITLE COMMITMENT REVIEW",
+        "CHAIN OF TITLE",
+        "TITLE EXCEPTIONS"
       ],
       "severity": "SOFT-STOP",
       "document_category": "Title",
@@ -779,23 +958,26 @@
       "source_module": "06"
     },
     {
-      "document_type": "Vesting Deed",
+      "document_type": "Grant Deed",
       "category": "Title",
-      "priority": "P0",
+      "priority": "P1",
       "specifications": [
-        "Must be recorded deed showing current ownership of subject property",
-        "Must identify grantor(s) and grantee(s) with full legal names",
-        "Must show vesting name matching borrower Aubrey Banaga",
+        "Must show current vesting in borrower Aubrey Banaga's name",
         "Must include complete legal description of subject property",
-        "Must show recording information (date, book, page, instrument number)",
-        "Must reflect manner of title holding (sole ownership, joint tenants, etc.)"
+        "Must be recorded deed (Grant Deed, Warranty Deed, or equivalent)",
+        "Must reconcile with title commitment vesting information",
+        "Recording information must be legible and complete"
       ],
       "reasons_needed": [
-        "NQMF guidelines require vesting verification - final title policy vesting must reflect borrower names",
-        "Vesting must be verified to confirm borrower has legal authority to encumber property",
-        "Ownership confirmation required to ensure borrower on loan matches title holder",
-        "Legal description from deed must match title commitment and appraisal",
-        "Required to verify chain of title and ownership transfer for Delayed Financing transaction"
+        "NQMF requires final title policy vesting to reflect borrower name",
+        "Vesting must align with loan application and title commitment",
+        "Property ownership must be confirmed for collateral security",
+        "Deed type affects property rights and title insurance coverage"
+      ],
+      "trigger": "All loans require vesting verification",
+      "related_guidelines": [
+        "VESTING",
+        "CHAIN OF TITLE"
       ],
       "severity": "SOFT-STOP",
       "document_category": "Title",
@@ -808,24 +990,27 @@
     {
       "document_type": "Payoff Statement",
       "category": "Title",
-      "priority": "P0",
+      "priority": "P1",
       "specifications": [
-        "Must identify creditor/servicer name and contact information",
-        "Must include loan/account number for existing lien",
-        "Must show current payoff amount including principal, interest, and fees",
-        "Must show good-through date (payoff valid date)",
-        "Must include per diem interest amount",
+        "Must identify current lender/servicer of existing mortgage being refinanced",
+        "Must include loan/account number",
+        "Must show total payoff amount including principal, interest, and fees",
+        "Must include good-through date (valid at least through anticipated closing)",
+        "Must include per diem interest amount for payoff calculation",
         "Must identify subject property address securing the existing lien",
-        "Must be dated within 30 days of closing",
-        "Must include wire instructions for payoff disbursement"
+        "Must include wire instructions or payoff remittance address"
       ],
       "reasons_needed": [
-        "Delayed Financing refinance requires payoff of any existing liens to establish first lien position",
-        "NQMF guidelines require existing liens be paid or subordinated for refinance transactions",
-        "Payoff amount required to calculate accurate funds to close and loan proceeds",
-        "Servicer verification needed to ensure payoff reaches correct creditor",
-        "Per diem required to calculate final payoff amount at closing date",
-        "Title must ensure clear first lien position after existing debt payoff"
+        "Refinance transaction requires payoff of existing first lien mortgage",
+        "Payoff amount required to calculate loan proceeds and verify lien position",
+        "NQMF guidelines require existing liens affecting title to be paid at closing",
+        "Title company must disburse payoff directly to existing lender at closing",
+        "Good-through date ensures accurate funds calculation for closing"
+      ],
+      "trigger": "Refinance transaction - existing mortgage must be paid off",
+      "related_guidelines": [
+        "JUDGMENTS, LIENS AND IRS TAX REPAYMENT PLANS",
+        "TEXAS HOME EQUITY - PAYOFF OF DEBT"
       ],
       "severity": "SOFT-STOP",
       "document_category": "Title",
@@ -834,323 +1019,28 @@
         "title"
       ],
       "source_module": "06"
-    },
-    {
-      "document_id": "XCUT-001",
-      "document_name": "Government-Issued Photo ID",
-      "category": "identity",
-      "priority": "P1",
-      "applies_to": [
-        "Aubrey Banaga"
-      ],
-      "specifications": [
-        "Must be current and unexpired government-issued photo identification",
-        "Must show borrower full legal name matching loan application",
-        "Acceptable forms: Driver's License, Passport, State ID, or Military ID",
-        "Must be legible with clear photo visible"
-      ],
-      "reasons_needed": [
-        {
-          "reason": "Borrower identity verification is required for all loan transactions",
-          "reason_type": "compliance"
-        },
-        {
-          "reason": "Name on ID must match loan application, title, and authorization documents",
-          "reason_type": "document_validation"
-        }
-      ],
-      "guideline_reference": "BORROWER ELIGIBILITY",
-      "source_module": "cross_cutting",
-      "document_type": "Government-Issued Photo ID",
-      "severity": "SOFT-STOP",
-      "document_category": "Cross-Cutting",
-      "status": "needed",
-      "tags": [
-        "crosscutting"
-      ]
-    },
-    {
-      "document_id": "XCUT-002",
-      "document_name": "IRS Form 4506-C",
-      "category": "authorization",
-      "priority": "P1",
-      "applies_to": [
-        "Aubrey Banaga"
-      ],
-      "specifications": [
-        "Must be fully executed with borrower signature and date",
-        "Must include correct borrower name, SSN, and current address",
-        "Must specify tax years for transcript authorization (most recent 2 years minimum)",
-        "Must match subject property address for investment property"
-      ],
-      "reasons_needed": [
-        {
-          "reason": "IRS tax transcript authorization is required per FULL DOCUMENTATION guidelines",
-          "reason_type": "guideline_requirement"
-        },
-        {
-          "reason": "Required for verification of income sources and tax filing status",
-          "reason_type": "compliance"
-        }
-      ],
-      "guideline_reference": "FULL DOCUMENTATION",
-      "source_module": "cross_cutting",
-      "document_type": "IRS Form 4506-C",
-      "severity": "SOFT-STOP",
-      "document_category": "Cross-Cutting",
-      "status": "needed",
-      "tags": [
-        "crosscutting"
-      ]
-    },
-    {
-      "document_type": "Business Purpose Affidavit",
-      "category": "Compliance",
-      "borrower_name": "Aubrey Banaga",
-      "priority": "P1",
-      "specifications": [
-        "Must identify all borrowers by legal name",
-        "Must identify subject property address",
-        "Must declare property is for business/investment purpose only",
-        "Must declare property will not be occupied by borrower, any member of borrower's LLC, or any family member",
-        "Must be signed and dated by all borrowers",
-        "Must include occupancy certification component per NQMF Business Purpose & Occupancy Affidavit form",
-        "Must be consistent with 1003 occupancy declaration and appraisal report",
-        "Must confirm non-TRID transaction status for DSCR loan"
-      ],
-      "reasons_needed": [
-        "Business Purpose & Occupancy Affidavit is required on all Business Purpose loans per NQMF guidelines",
-        "Investment properties and all DSCR loans must be Business Purpose and processed as non-TRID transactions",
-        "Confirms borrower representation that property will not be owner-occupied",
-        "Required for investor DSCR program compliance and non-TRID designation",
-        "Documents borrower's intent and commitment to business purpose use"
-      ],
-      "severity": "SOFT-STOP",
-      "document_category": "Compliance",
-      "status": "needed",
-      "tags": [
-        "compliance"
-      ],
-      "source_module": "07"
-    },
-    {
-      "document_type": "Mortgage Payment History",
-      "category": "credit",
-      "priority": "P1",
-      "specifications": [
-        "Must cover most recent 12 months of payment history",
-        "Must identify borrower name and property address",
-        "Must show each monthly payment status (current, 30-day late, 60-day late, etc.)",
-        "Must be sourced from credit report or loan servicer statement",
-        "Must support 0x30x12 payment history requirement if applicable",
-        "Must identify all mortgages including subject property and any other owned properties"
-      ],
-      "reasons_needed": [
-        "Borrower owns investment property indicating existing mortgage obligations",
-        "Housing history verification required per NQM guidelines for all programs",
-        "Mortgage lates within lookback period may affect eligibility or pricing",
-        "12-month 0x30 housing history may serve as tradeline qualification",
-        "Required to verify no housing events (120+ day late payments) exist"
-      ],
-      "conditions": [
-        "If mortgage history is fully reflected on tri-merge credit report with 0x30x12 status, separate verification may not be required"
-      ],
-      "guideline_reference": "NQM Housing History Requirements",
-      "severity": "SOFT-STOP",
-      "document_category": "Credit",
-      "status": "needed",
-      "tags": [
-        "credit"
-      ],
-      "source_module": "04"
-    },
-    {
-      "document_type": "Reserve Verification Documentation",
-      "priority": "P1",
-      "borrower": "Aubrey Banaga",
-      "specifications": [
-        "Must show sufficient verified liquid asset balance to cover required reserve months",
-        "Must identify acceptable asset source (checking, savings, money market)",
-        "Must show clear account ownership matching borrower name",
-        "Must support required months of PITIA based on DSCR investment property requirements",
-        "Reserve calculation must be supported by verified bank statement balances",
-        "If PITIA amount not yet finalized, estimated reserves should cover 6 months minimum for investment property"
-      ],
-      "reasons_needed": [
-        "Investment property loans typically require reserves based on property type and risk factors",
-        "DSCR program may have specific reserve requirements for non-owner occupied properties",
-        "Reserve calculation must be supported by documented verified liquid assets",
-        "Ensures borrower has financial cushion beyond funds needed at closing"
-      ],
-      "guideline_reference": "ASSETS - Sufficient funds from acceptable sources for applicable reserves",
-      "overlay_applied": null,
-      "severity": "SOFT-STOP",
-      "document_category": "Assets",
-      "status": "needed",
-      "tags": [
-        "assets"
-      ],
-      "source_module": "03"
-    },
-    {
-      "document_type": "SSR / UCDP Findings",
-      "category": "Property",
-      "priority": "P1",
-      "specifications": [
-        "Must be submitted through UCDP (Uniform Collateral Data Portal)",
-        "SSR Score must be 2.5 or less for acceptable appraisal review",
-        "Must identify subject property and match appraisal report",
-        "Must include submission status and any warnings or hard stops",
-        "Must be current and associated with the appraisal being used for underwriting"
-      ],
-      "reasons_needed": [
-        "Appraisal Review Process requires secondary product to support appraisal value",
-        "SSR Score of 2.5 or less is required per NQMF Appraisal Review Process guidelines",
-        "UCDP submission validates appraisal data quality and consistency"
-      ],
-      "conditions": [],
-      "severity": "SOFT-STOP",
-      "document_category": "Property",
-      "status": "needed",
-      "tags": [
-        "property"
-      ],
-      "source_module": "05"
-    },
-    {
-      "document_type": "Flood Determination",
-      "category": "Property",
-      "priority": "P1",
-      "specifications": [
-        "Must be a Flood Certificate provided by FEMA-certified vendor",
-        "Must identify subject property address",
-        "Must clearly indicate flood zone designation",
-        "Must show whether property is in Special Flood Hazard Area (SFHA) Zone A or V",
-        "Must indicate whether community participates in NFIP (National Flood Insurance Program)",
-        "Must show FEMA Map number and effective date",
-        "Must reconcile with flood zone indicated in appraisal report"
-      ],
-      "reasons_needed": [
-        "Flood zone determination is required per NQMF guidelines to establish flood insurance requirements",
-        "Properties in Flood Zone A or V require flood insurance and community NFIP participation",
-        "California properties may be in various flood zones requiring verification",
-        "Appraisal flood zone must be validated against official flood certificate"
-      ],
-      "conditions": [],
-      "severity": "SOFT-STOP",
-      "document_category": "Property",
-      "status": "needed",
-      "tags": [
-        "property"
-      ],
-      "source_module": "05"
-    },
-    {
-      "document_type": "Property Insurance",
-      "category": "Property",
-      "priority": "P1",
-      "specifications": [
-        "Must be hazard insurance policy protecting against fire and standard extended coverage perils",
-        "Extended coverage must include: wind, civil commotion, smoke, hail, aircraft, vehicle, explosion",
-        "Coverage must provide claims settlement on replacement cost basis (actual cash value not acceptable)",
-        "Policy must name all persons holding title to subject property as named insured",
-        "Must include standard or union mortgagee clause (loss payable clause not acceptable)",
-        "Mortgagee clause must list NQM Funding, LLC (or assignee) with correct address",
-        "Policy must be effective for at least 60 days after funding date",
-        "Evidence must include: policy number, loan number, insurance company name, agent information",
-        "Must show effective/expiration dates, premium amount, coverage amounts, and deductible",
-        "Policy must require insurer to notify mortgagee in writing before cancellation",
-        "Property address must match note/security instrument"
-      ],
-      "reasons_needed": [
-        "Hazard insurance is required for all properties to protect collateral",
-        "Investment property requires proper named insured and mortgagee clause documentation",
-        "Replacement cost coverage is required per NQMF guidelines",
-        "Mortgagee protection ensures lender interest in collateral"
-      ],
-      "conditions": [],
-      "severity": "SOFT-STOP",
-      "document_category": "Property",
-      "status": "needed",
-      "tags": [
-        "property"
-      ],
-      "source_module": "05"
-    },
-    {
-      "document_type": "1-4 Family Rider",
-      "category": "Property",
-      "priority": "P1",
-      "specifications": [
-        "Must be FNMA Form 3170 (1-4 Family Rider / Assignment of Rents)",
-        "Must identify subject investment property",
-        "Must be executed by all borrowers on title",
-        "Must assign rents to lender as additional security",
-        "Must be recorded with the security instrument"
-      ],
-      "reasons_needed": [
-        "1-4 Family Rider (Assignment of Rents) is required for all Investment Properties per NQMF appraisal requirements",
-        "Provides lender with security interest in rental income",
-        "Required for DSCR loan where rental income is the qualifying factor"
-      ],
-      "conditions": [],
-      "severity": "SOFT-STOP",
-      "document_category": "Property",
-      "status": "needed",
-      "tags": [
-        "property"
-      ],
-      "source_module": "05"
-    },
-    {
-      "document_type": "DSCR Compliance Agreement",
-      "category": "Compliance",
-      "borrower_name": "Aubrey Banaga",
-      "priority": "P2",
-      "specifications": [
-        "Must identify all borrowers by legal name",
-        "Must identify subject property address",
-        "Must contain borrower agreement to furnish current lease agreements upon request",
-        "Must acknowledge obligation to provide lease documentation to lender and successors/assigns",
-        "Must be signed and dated by all borrowers",
-        "NQMF Compliance Agreement \u2013 DSCR Loans form or equivalent acceptable"
-      ],
-      "reasons_needed": [
-        "Compliance Agreement \u2013 DSCR Loans or equivalent form is required per NQMF guidelines",
-        "Borrower agreement to furnish lease agreements ensures ongoing compliance monitoring capability",
-        "Required documentation for all DSCR loan programs",
-        "Establishes borrower obligation for post-closing rental documentation as needed"
-      ],
-      "severity": "SOFT-STOP",
-      "document_category": "Compliance",
-      "status": "needed",
-      "tags": [
-        "compliance"
-      ],
-      "source_module": "07"
     }
   ],
   "stats": {
-    "total_document_requests": 21,
+    "total_document_requests": 17,
     "hard_stop_documents": 0,
     "by_category": {
-      "Cross-Cutting": 4,
       "Credit": 2,
+      "Cross-Cutting": 3,
+      "Compliance": 1,
       "Income": 3,
-      "Assets": 2,
-      "Property": 5,
-      "Title": 3,
-      "Compliance": 2
+      "Assets": 1,
+      "Property": 4,
+      "Title": 3
     },
     "by_priority": {
-      "P0": 11,
-      "P1": 9,
-      "P2": 1
+      "P0": 1,
+      "P1": 16
     },
     "by_status": {
-      "needed": 21
+      "needed": 17
     },
-    "elapsed_seconds": 451.7,
-    "tool_calls": 90
+    "elapsed_seconds": 460.7,
+    "tool_calls": 82
   }
 }

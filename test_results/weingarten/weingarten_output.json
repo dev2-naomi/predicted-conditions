@@ -69,10 +69,10 @@
       "subject_property_rental_income": null
     },
     "doc_profile": [
-      "compliance_notice",
-      "loan_application",
       "appraisal",
-      "other"
+      "other",
+      "compliance_notice",
+      "loan_application"
     ],
     "housing_expenses": {
       "present": [],
@@ -235,32 +235,38 @@
   "seen_conflicts": [],
   "document_requests": [
     {
-      "document_id": "CROSS-001",
+      "document_id": "CC-001",
       "document_name": "Government-Issued Photo ID",
       "document_category": "Cross-Cutting",
       "priority": "P0",
       "specifications": [
-        "Must be current, unexpired government-issued photo identification",
-        "Must show borrower full legal name matching loan application",
-        "Must include photo, signature, and date of birth",
-        "Acceptable forms: Driver's license, passport, state ID, military ID",
-        "For entity borrowers: ID required for all signing members with 25%+ ownership"
+        "Must be current, unexpired government-issued photo identification for all borrowers",
+        "Must include full legal name matching loan application",
+        "Acceptable forms: Driver's License, Passport, State ID, or Permanent Resident Card",
+        "Must be legible with photo, signature, and identifying information clearly visible",
+        "For entity borrowers: ID required for all signatories and guarantors"
       ],
       "reasons_needed": [
         {
-          "reason": "Borrower identity verification required for all loan transactions per regulatory compliance",
+          "reason": "Borrower identity verification required per Patriot Act and NQMF underwriting requirements",
           "reason_type": "compliance"
         },
         {
-          "reason": "Name on ID must match loan documents, title, and entity documentation for DSCR Multi program",
+          "reason": "Identity must be confirmed before credit, title, and entity documentation can be verified",
           "reason_type": "document_validation"
         }
       ],
-      "applies_to_borrowers": [
-        "all"
-      ],
-      "guideline_reference": "NQMF Identity Verification Requirements",
+      "applicable_to": "all_borrowers",
+      "source_step": "STEP_01_CROSSCUTTING",
       "document_type": "Government-Issued Photo ID",
+      "acceptable_types": [
+        "Drivers License",
+        "Passport",
+        "Non-Driver ID",
+        "Permanent Resident Card",
+        "Social Security ID",
+        "Travel VISA"
+      ],
       "severity": "SOFT-STOP",
       "status": "needed",
       "tags": [
@@ -269,32 +275,30 @@
       "source_module": "01"
     },
     {
-      "document_id": "CROSS-002",
+      "document_id": "CC-002",
       "document_name": "IRS Form 4506-C",
       "document_category": "Cross-Cutting",
       "priority": "P0",
       "specifications": [
-        "Must be fully executed with borrower signature and date",
-        "Must include correct borrower SSN and current address",
-        "Must specify tax years to be transcripted (most recent 2 years minimum)",
-        "Must identify lender/servicer as authorized recipient",
-        "Form must be signed within 120 days of closing"
+        "Must be fully executed and signed by all borrowers",
+        "Must include correct SSN/ITIN for each borrower",
+        "Must reflect current subject property address or mailing address",
+        "Tax years requested must cover required look-back period per program",
+        "For DSCR Multi 5-8 Units: required for entity guarantor verification"
       ],
       "reasons_needed": [
         {
-          "reason": "Required for all NQMF loan programs per Full Documentation guidelines",
+          "reason": "IRS Form 4506-C required per NQMF Full Documentation guidelines for tax transcript authorization",
           "reason_type": "guideline_requirement"
         },
         {
-          "reason": "Enables IRS transcript verification to validate any tax return documentation if requested",
-          "reason_type": "compliance"
+          "reason": "Required to validate income representations and identify undisclosed liabilities or business interests",
+          "reason_type": "fraud_prevention"
         }
       ],
-      "applies_to_borrowers": [
-        "all"
-      ],
-      "guideline_reference": "FULL DOCUMENTATION - IRS Form-4506C required",
-      "document_type": "IRS Form 4506-C",
+      "applicable_to": "all_borrowers",
+      "source_step": "STEP_01_CROSSCUTTING",
+      "document_type": "IRS 4506-C Authorization",
       "severity": "SOFT-STOP",
       "status": "needed",
       "tags": [
@@ -303,68 +307,101 @@
       "source_module": "01"
     },
     {
-      "document_id": "CROSS-003",
-      "document_name": "Non-Owner Occupancy Certification / Investment Property Affidavit",
+      "document_id": "CC-004",
+      "document_name": "Entity Documentation Package",
       "document_category": "Cross-Cutting",
-      "priority": "P0",
+      "priority": "P1",
       "specifications": [
-        "Must certify subject property will NOT be occupied by borrower or family members",
-        "Must confirm property will be held for investment/rental purposes only",
-        "Must include borrower signature and date",
-        "Must acknowledge property cannot be occupied by any LLC member per DSCR guidelines",
-        "Must disclose borrower's current primary residence address"
+        "Articles of Organization/Incorporation with all amendments",
+        "Operating Agreement or Bylaws showing ownership percentages",
+        "Certificate of Good Standing from state of formation (within 90 days)",
+        "Resolution authorizing the transaction and identifying authorized signatories",
+        "Must confirm minimum 25% ownership for member whose credit score is used for qualifying",
+        "Foreign entity registration in New Jersey if entity formed out of state"
       ],
       "reasons_needed": [
         {
-          "reason": "DSCR program requires property cannot be occupied by borrower(s), any member of borrower's LLC, or any family member",
+          "reason": "DSCR guidelines require minimum 25% ownership for the member whose score is used for qualifying on entity-vested loans",
           "reason_type": "guideline_requirement"
         },
         {
-          "reason": "Non-owner-occupied status triggers DSCR Multi (5-8 Unit) program eligibility and LTV limits",
-          "reason_type": "program_eligibility"
+          "reason": "Entity authorization and vesting must be verified for title and closing document preparation",
+          "reason_type": "title_requirement"
         },
         {
-          "reason": "Investment property classification affects reserve requirements and documentation rules",
-          "reason_type": "underwriting_calculation"
+          "reason": "Investment property loans commonly vest in LLC; entity documentation validates legal capacity to transact",
+          "reason_type": "legal_compliance"
         }
       ],
-      "applies_to_borrowers": [
-        "all"
-      ],
-      "guideline_reference": "DSCR RATIO - Property cannot be occupied by borrower(s), any member of the borrower's LLC or any family member",
-      "document_type": "Non-Owner Occupancy Certification / Investment Property Affidavit",
+      "applicable_to": "entity_borrower",
+      "source_step": "STEP_01_CROSSCUTTING",
+      "document_type": "Trust Documents",
       "severity": "SOFT-STOP",
       "status": "needed",
       "tags": [
         "crosscutting"
       ],
       "source_module": "01"
+    },
+    {
+      "document_type": "Borrower Certification as to Business Purpose",
+      "category": "Compliance",
+      "borrower": "All Borrowers",
+      "priority": "P1",
+      "specifications": [
+        "Must identify all borrowers by full legal name",
+        "Must identify the subject property address (5-8 unit multi-family in New Jersey)",
+        "Must state that the loan is for business/investment purpose only",
+        "Must affirm that the property will NOT be occupied by the borrower, any member of the borrower's LLC, or any family member",
+        "Must be fully executed and signed by all borrowers",
+        "Must be dated within the loan process timeframe",
+        "Must be consistent with occupancy certification and 1003 declarations showing non-owner occupied/investment property",
+        "DSCR Compliance Agreement form (or equivalent) may also be required per lender guidelines"
+      ],
+      "reasons_needed": [
+        "Per NQMF guidelines: 'Business Purpose & Occupancy Affidavit is required on all Business Purpose loans'",
+        "Per NQMF guidelines: 'Investment properties and all DSCR loans must be Business Purpose and processed as non-TRID transactions'",
+        "Required to confirm borrower acknowledgment that this is a commercial/investment transaction",
+        "Required to affirm property will not be occupied by borrower or family members",
+        "Establishes non-TRID transaction status for regulatory compliance",
+        "Required before closing on DSCR wholesale/retail transactions"
+      ],
+      "source_guideline": "NQMF Investment Property & Business Purpose Loans / Business Purpose Forms",
+      "conditions_if_missing": "Loan cannot close as Business Purpose/non-TRID without executed Business Purpose & Occupancy Affidavit from all borrowers",
+      "severity": "SOFT-STOP",
+      "document_category": "Compliance",
+      "status": "needed",
+      "tags": [
+        "compliance"
+      ],
+      "source_module": "07"
     },
     {
       "document_type": "Credit Report",
-      "document_category": "Credit",
-      "priority": "P0",
-      "applies_to": "all_borrowers",
+      "category": "Credit",
+      "required": true,
+      "applies_to": "All Borrowers",
       "specifications": [
-        "Must be a tri-merge or Residential Mortgage Credit Report (RMCR) from Experian, TransUnion, and Equifax",
-        "Must include valid Social Security number verification for all borrowers",
-        "Must show credit scores from all three bureaus to determine qualifying score",
-        "Must include complete tradeline details with payment history and account status",
-        "Must show all inquiries, public records, disputes, collections, and charge-offs",
-        "Must certify results of public record searches for each city of residence in last 2 years",
-        "Must be dated within 120 days of closing",
-        "Must verify all credit references provided on loan application"
+        "Must be a tri-merge or Residential Mortgage Credit Report (RMCR) from all three bureaus (Experian, TransUnion, Equifax)",
+        "Must identify all borrowers on the loan with valid Social Security numbers",
+        "Must show credit scores from all reporting bureaus (minimum 2 scores required)",
+        "Must include complete tradeline details with payment history",
+        "Must show mortgage/housing payment history if available",
+        "Must include inquiries, public records, disputes, collections, charge-offs, and alerts",
+        "Must certify results of public record searches for each city where borrower resided in last 2 years",
+        "Must be dated within allowed recency window per program requirements"
       ],
       "reasons_needed": [
-        "NQMF guidelines require tri-merge credit report for all borrowers on the loan",
-        "Credit score of 784 must be verified to confirm program eligibility for DSCR Multi 5-8 Units",
-        "Tradeline requirements must be verified: 3 tradelines for 12+ months OR 2 tradelines for 24+ months with recent activity",
-        "Credit report needed to identify any credit events, housing events, or derogatory items",
-        "Required to verify no active bankruptcy, foreclosure, or short sale issues",
-        "Public records search required to verify borrower identity and residency history"
+        "Credit score is required to validate program eligibility (minimum FICO requirements per program matrix)",
+        "Tradeline requirements must be verified: 3 tradelines 12+ months OR 2 tradelines 24+ months with recent activity",
+        "Credit report is needed to identify any credit events, inquiries, disputes, collections, or public records",
+        "Housing/mortgage payment history must be reviewed to confirm 0x30x12 or 0x60x12 requirements",
+        "Required per NQMF guidelines for all borrowers on all loan programs"
       ],
-      "source_guideline": "NQMF Credit Report Requirements - Page 44",
+      "guideline_reference": "NQMF Guidelines - Credit Report section",
+      "priority": "P1",
       "severity": "SOFT-STOP",
+      "document_category": "Credit",
       "status": "needed",
       "tags": [
         "credit"
@@ -372,184 +409,74 @@
       "source_module": "04"
     },
     {
-      "document_id": "CROSS-004",
-      "document_name": "Primary Residence Verification",
-      "document_category": "Cross-Cutting",
-      "priority": "P1",
+      "document_type": "Verification of Mortgage",
+      "category": "Credit",
+      "required": true,
+      "applies_to": "All Borrowers with Existing Mortgages",
       "specifications": [
-        "Must document borrower's current primary residence address",
-        "Must provide proof of ownership (deed, mortgage statement) OR active lease agreement",
-        "Primary residence should be in different geographic location from subject property OR demonstrate superior appeal/location",
-        "If renting, lease must be current and active",
-        "Must support non-occupancy claim for subject investment property"
-      ],
-      "reasons_needed": [
-        {
-          "reason": "DSCR Housing History Verification requires borrowers who own a Primary Residence must provide proof of ownership",
-          "reason_type": "guideline_requirement"
-        },
-        {
-          "reason": "Primary residence documentation supports investment property occupancy classification",
-          "reason_type": "document_validation"
-        },
-        {
-          "reason": "Geographic separation or superior appeal of primary residence validates non-occupancy of subject",
-          "reason_type": "guideline_requirement"
-        }
-      ],
-      "applies_to_borrowers": [
-        "all"
-      ],
-      "guideline_reference": "HOUSING HISTORY VERIFICATION (DSCR ONLY) - Primary Residence requirements",
-      "document_type": "Primary Residence Verification",
-      "severity": "SOFT-STOP",
-      "status": "needed",
-      "tags": [
-        "crosscutting"
-      ],
-      "source_module": "01"
-    },
-    {
-      "document_type": "Business Purpose Affidavit",
-      "category": "Compliance",
-      "applies_to": "All Borrowers",
-      "priority": "P1",
-      "specifications": [
-        "Must be titled 'Business Purpose & Occupancy Affidavit' or equivalent form",
-        "Must identify all borrowers by full legal name",
-        "Must identify the subject property address: 5-8 unit residential property in New Jersey",
-        "Must declare the property is for commercial business or investment purpose only",
-        "Must affirm the property will not be occupied by borrower(s), any member of borrower's LLC, or any family member",
-        "Must be signed and dated by all borrowers",
-        "Must be consistent with non-owner occupied status declared on 1003 application",
-        "Must reconcile with DSCR Multi (5-8 Units) program occupancy requirements"
-      ],
-      "reasons_needed": [
-        "NQMF guidelines require Business Purpose & Occupancy Affidavit on all Business Purpose loans",
-        "All DSCR loans must be Business Purpose and processed as non-TRID transactions per guidelines",
-        "Investment property/DSCR loan requires borrower declaration that property is for investment purpose only",
-        "Affidavit confirms property will not be occupied by borrower or family members as required for DSCR eligibility",
-        "Required for non-TRID transaction compliance and regulatory documentation"
-      ],
-      "source_guideline": "NQMF Business Purpose Forms: Business Purpose & Occupancy Affidavit is required on all Business Purpose loans. All borrowers are required to sign to declare that the property is, or will be, for commercial business or investment purpose only.",
-      "trigger": "DSCR Multi (5-8 Units) program - all DSCR loans are business purpose loans requiring this affidavit",
-      "severity": "SOFT-STOP",
-      "document_category": "Compliance",
-      "status": "needed",
-      "tags": [
-        "compliance"
-      ],
-      "source_module": "07"
-    },
-    {
-      "document_type": "Compliance Agreement - DSCR Loans",
-      "category": "Compliance",
-      "applies_to": "All Borrowers",
-      "priority": "P1",
-      "specifications": [
-        "Must be titled 'Compliance Agreement \u2013 DSCR Loans' or equivalent acceptable form",
-        "Must identify all borrowers on the loan",
-        "Must identify the subject property address",
-        "Must document borrower(s) agreement to furnish the Lender and its successors/assigns with current copies of all Lease Agreements within a reasonable time upon request",
-        "Must be signed and dated by all borrowers",
-        "For correspondent transactions, must be provided at time of purchase; for retail/wholesale, executed at closing"
-      ],
-      "reasons_needed": [
-        "NQMF guidelines require Compliance Agreement \u2013 DSCR Loans or equivalent form on all DSCR transactions",
-        "Agreement ensures lender can request and receive current lease documentation post-closing",
-        "Required for ongoing servicing and investor compliance on DSCR loans",
-        "5-8 unit property requires lease documentation accessibility for all units"
-      ],
-      "source_guideline": "NQMF Business Purpose Forms: Compliance Agreement \u2013 DSCR Loans or equivalent form, is required. Form is borrower(s) agreement to furnish the Lender and its successors and/or assigns with current copies of all Lease Agreements within a reasonable time upon request.",
-      "trigger": "DSCR Multi (5-8 Units) program requires DSCR Compliance Agreement per guideline",
-      "severity": "SOFT-STOP",
-      "document_category": "Compliance",
-      "status": "needed",
-      "tags": [
-        "compliance"
-      ],
-      "source_module": "07"
-    },
-    {
-      "document_type": "Mortgage Payment History",
-      "document_category": "Credit",
-      "priority": "P1",
-      "applies_to": "subject_property",
-      "specifications": [
-        "Must cover minimum 12 months of payment history on existing mortgage being refinanced",
-        "Must show payment dates and amounts for each monthly payment",
-        "Must clearly identify any late payments (30, 60, 90, 120+ days)",
-        "Must identify the property address and loan account number",
-        "Must be from current mortgage servicer or reflected on credit report",
-        "Must demonstrate 0x30x12 payment history if relying on mortgage history for tradeline requirement",
-        "Must show current loan balance and payment status"
+        "Must cover minimum 12-month lookback period (24 months preferred)",
+        "Must show payment status for each month including any late payments (30/60/90/120 day)",
+        "Must identify borrower and property/loan account clearly",
+        "Must be from mortgage servicer or reflected on credit report",
+        "Must show current status and any modifications, forbearances, or delinquencies",
+        "Must support 0x30x12 housing history standard for standard eligibility",
+        "Must identify borrower name(s) matching loan application",
+        "Must identify servicer/lender name",
+        "Must identify loan/account number matching payoff statement",
+        "Must show property address matching subject property",
+        "Must show current unpaid principal balance",
+        "Must show monthly payment amount",
+        "Must be most recent statement (within 60 days)",
+        "Must show payment due date and payment history status"
       ],
       "reasons_needed": [
         "NQMF guidelines require verification of borrower's housing history for all programs",
-        "Cash-out refinance requires verification of acceptable payment history on existing mortgage",
-        "Housing history with 0x30x12 can satisfy tradeline requirements per NQMF guidelines",
-        "Late payments on existing mortgage may affect eligibility or pricing for cash-out refinance",
-        "Required to verify no housing events (120+ day late payments) within seasoning periods"
+        "Mortgage payment history is required to confirm no late payments in required lookback period",
+        "Late mortgage payments may affect qualification, pricing, or eligibility",
+        "Cash-out refinance requires clean mortgage payment history on subject property",
+        "24-month mortgage history with 0x30x12 can satisfy tradeline requirements per guidelines",
+        "Verifies existing mortgage obligation on subject property being refinanced",
+        "Confirms unpaid balance aligns with payoff statement for reconciliation",
+        "Payment history supports mortgage history verification for underwriting",
+        "Account number must match payoff statement to ensure correct lien payoff",
+        "Required to verify REO liability and housing expense for DSCR qualification"
       ],
-      "source_guideline": "NQMF Housing History Requirements",
-      "severity": "SOFT-STOP",
-      "status": "needed",
-      "tags": [
-        "credit"
-      ],
-      "source_module": "04"
-    },
-    {
-      "document_type": "Form 1025 Small Residential Income Property Appraisal Report",
-      "category": "income",
-      "borrower_scope": "all_borrowers",
-      "property_scope": "subject_property",
-      "specifications": [
-        "Must include Form 1025 as part of the appraisal for 5-8 unit property",
-        "Must reflect estimated market rent for all units",
-        "Must reflect terms of current lease if property is tenant-occupied",
-        "Must identify monthly gross rental income for DSCR calculation",
-        "Must account for any management fee reflected on appraisal when calculating qualifying rents",
-        "Market rents must be used for DSCR ratio calculation"
-      ],
-      "reasons_needed": [
-        "DSCR ratio calculation requires gross rental income divided by PITIA",
-        "Multi 5-8 unit rental income requirements specify use of lower of estimated market rent or lease agreement on refinance",
-        "Form 1025 is the applicable FNMA form for 5+ unit properties to document market rent",
-        "Management fees reflected on appraisal must be deducted from qualifying rents per NQMF guidelines"
-      ],
-      "guideline_reference": "NQMF Guidelines - MULTI 5-8 UNIT RENTAL INCOME REQUIREMENTS; DSCR RATIO section",
+      "guideline_reference": "NQMF Guidelines - Housing History, Tradeline Requirements sections",
       "priority": "P1",
       "severity": "SOFT-STOP",
-      "document_category": "Income",
+      "document_category": "Credit",
       "status": "needed",
       "tags": [
-        "income"
+        "credit",
+        "title"
       ],
-      "source_module": "02"
+      "source_module": "04",
+      "evidence_found": [],
+      "guideline_trace": [],
+      "overlay_trace": []
     },
     {
-      "document_type": "Lease Agreement",
+      "document_type": "Rental Agreement",
       "category": "income",
-      "borrower_scope": "all_borrowers",
-      "property_scope": "subject_property",
+      "borrower_scope": "property",
+      "priority": "P1",
       "specifications": [
-        "Must provide executed lease agreements for all occupied units in the 5-8 unit property",
-        "Must show tenant name and unit number for each lease",
+        "Must include executed lease agreements for all occupied units in subject property",
+        "Must show tenant name(s) and lease term for each unit",
         "Must show monthly rent amount for each unit",
-        "Must show lease term with no less than 1 month remaining at time of closing",
-        "For month-to-month tenancy, must provide signed extension letter or bank statements to support continuance",
-        "Must not be a single room occupancy or boarder lease arrangement",
-        "Lease terms must match what is reflected on Form 1025"
+        "Must have no less than 1 month remaining at time of closing OR provide evidence of month-to-month tenancy with continuance support",
+        "For month-to-month tenancy, must provide signed extension letter OR 2 months bank statements showing rent deposits",
+        "Must identify subject property address matching loan file",
+        "Single room occupancy or boarder leases are not permitted"
       ],
       "reasons_needed": [
-        "Refinance transactions on DSCR loans require property to be leased",
-        "Qualifying rents use lower of estimated market rent or lease agreement amount on refinance",
-        "Month-to-month tenancy requires evidence of continuance per NQMF guidelines",
-        "Single room occupancy and boarder leases are not permitted on DSCR loans"
+        "DSCR refinance transactions require property to be leased; vacant property is not eligible",
+        "Lease agreements verify current tenant occupancy and rental terms for DSCR calculation",
+        "Market rent comparison requires actual lease terms to determine lower of market rent vs. lease amount",
+        "Month-to-month leases require continuance evidence per guideline requirements"
       ],
-      "guideline_reference": "NQMF Guidelines - LONG TERM RENTALS \u2013 DSCR SUPREME AND INVESTOR DSCR; DSCR RATIO section",
-      "priority": "P1",
+      "guideline_reference": "NQMF DSCR Long Term Rentals - Lease and Occupancy Requirements",
+      "overlay_applied": false,
       "severity": "SOFT-STOP",
       "document_category": "Income",
       "status": "needed",
@@ -559,32 +486,48 @@
       "source_module": "02"
     },
     {
-      "document_type": "Rent Loss Insurance Evidence",
+      "document_type": "Hazard Insurance",
       "category": "income",
-      "borrower_scope": "all_borrowers",
-      "property_scope": "subject_property",
+      "borrower_scope": "property",
+      "priority": "P1",
       "specifications": [
         "Must provide evidence of rent loss insurance coverage for the subject property",
-        "Coverage must equal at least 6 months of PITIA",
-        "Policy must name the subject property address",
+        "Coverage must equal at least 6 months of PITIA (Principal, Interest, Taxes, Insurance, and Association dues)",
         "Blanket policies covering the subject property are eligible",
-        "Must be in effect at closing",
-        "Must cover the subject property",
-        "Coverage amount must equal at least 6 months of PITIA",
-        "Blanket policies covering subject property are acceptable",
-        "Must show named insured, property address, coverage amount, and effective dates",
-        "Must be signed and dated by agent"
+        "Must identify subject property address on declarations page or schedule",
+        "Policy must be in force at closing",
+        "Must provide hazard insurance coverage against fire and extended coverage perils",
+        "Required perils: fire/lightning, explosion, windstorm (including named storms), hail, smoke, aircraft, vehicles, riot/civil commotion",
+        "Must provide coverage on replacement cost basis (not actual cash value)",
+        "Must name all persons holding title as named insured",
+        "Must include standard or union mortgagee clause without contribution",
+        "Must show NQM Funding, LLC as mortgagee/loss payee",
+        "Must be effective for at least 60 days after funding date",
+        "Must provide policy number, coverage amounts, deductible, effective/expiration dates",
+        "Must include notice of cancellation provision for mortgagee notification",
+        "Coverage must be sufficient to cover all 5-8 units in the property",
+        "Required for DSCR loans per program guidelines",
+        "Must equal at least 6 months of PITIA",
+        "Must identify subject property address",
+        "Must show coverage amounts, effective dates, and named insured",
+        "May be waived per DSCR Supreme or Investor DSCR Program Matrix"
       ],
       "reasons_needed": [
-        "Rent loss insurance for subject property is required on DSCR loans per NQMF guidelines",
-        "Minimum coverage of 6 months PITIA is required to protect rental income stream",
-        "Ensures continuity of income if property becomes vacant",
-        "Rent Loss Insurance is required for all DSCR loans per NQMF guidelines",
-        "Minimum coverage of 6 months PITIA protects income stream",
-        "Ensures mortgage payment can continue if rental income is interrupted"
+        "DSCR program requires rent loss insurance to protect against income loss from vacancy or tenant default",
+        "Minimum 6 months PITIA coverage is mandatory per NQMF DSCR guidelines",
+        "Insurance coverage supports investment property income continuity",
+        "Hazard insurance required on all properties per NQMF guidelines",
+        "Multi-unit investment property requires comprehensive coverage for all units",
+        "Replacement cost coverage required - actual cash value not acceptable",
+        "Standard mortgagee clause protects lender interest in collateral",
+        "Loss payable clause ensures lender receives insurance proceeds",
+        "Rent Loss Insurance required for DSCR loans per NQMF guidelines",
+        "Protects against loss of rental income if property becomes uninhabitable",
+        "Coverage of 6 months PITIA required for investment property cash flow protection",
+        "DSCR loan program requirement for collateral protection"
       ],
-      "guideline_reference": "NQMF Guidelines - RENT LOSS INSURANCE (DSCR) section",
-      "priority": "P1",
+      "guideline_reference": "NQMF DSCR Rent Loss Insurance Requirements",
+      "overlay_applied": false,
       "severity": "SOFT-STOP",
       "document_category": "Income",
       "status": "needed",
@@ -598,134 +541,152 @@
       "overlay_trace": []
     },
     {
-      "document_type": "Personal Bank Statements",
-      "borrower_scope": "all_borrowers",
+      "document_type": "Bank Statement",
       "priority": "P1",
+      "applies_to": [
+        "all_borrowers"
+      ],
       "specifications": [
-        "Must cover most recent 2 months (60 days) of account activity",
-        "Must include all pages even if blank",
-        "Must show borrower name as account holder",
+        "Must provide most recent 2 consecutive months of complete bank statements",
+        "Must include all pages from each statement period",
+        "Must show borrower name and account holder information",
         "Must show financial institution name and logo",
-        "Must show account number (full or last 4 digits)",
+        "Must show full or masked account number",
         "Must show beginning and ending balances for each statement period",
         "Must show complete transaction history",
-        "Must be dated within 90 days of note date per NQMF guidelines",
-        "Statements for all accounts being used for closing costs and reserves required",
-        "Online statements acceptable if they contain all required elements"
+        "Must be dated within 90 days of note date per guideline requirements",
+        "Must support funds to close calculation including closing costs and prepaid items",
+        "Must support reserve verification - sufficient balance for required PITIA months",
+        "If any deposit exceeds 50% of qualifying income or appears unusual, source documentation will be required",
+        "Must demonstrate sufficient verified liquid assets to cover required months of PITIA reserves",
+        "Reserve calculation must include Principal, Interest, Taxes, Insurance, and Association dues (PITIA)",
+        "Asset accounts used for reserves must show clear ownership by borrower(s)",
+        "Investment and retirement accounts may be used for reserves with applicable discounting",
+        "Retirement account reserves do not need to be withdrawn - just verified as vested and accessible",
+        "For retirement accounts used as reserves, must verify vested status and withdrawal eligibility regardless of employment status",
+        "Must identify acceptable asset sources per program guidelines",
+        "DSCR Multi 5-8 Unit programs have specific reserve requirements per matrix - verify months required based on LTV and loan amount tiers",
+        "Must identify deposit date and exact amount requiring sourcing",
+        "Must identify and document source of funds with supporting documentation",
+        "Must show paper trail demonstrating transfer path into borrower's account",
+        "Acceptable sources include: payroll deposits, tax refunds, insurance proceeds, sale of assets, gifts (with proper gift documentation)",
+        "Must confirm funds are from acceptable sources under NQMF guidelines",
+        "If deposit is from sale of asset, provide bill of sale or settlement statement",
+        "If deposit is a transfer from another owned account, provide statements from both accounts showing transfer"
       ],
       "reasons_needed": [
-        "NQMF guidelines require assets dated within 90 days of note date",
-        "Cash-out refinance requires verification of funds for closing costs and prepaid items",
-        "Investment property on 5-8 unit multi-family requires reserve verification",
-        "Account ownership must be confirmed to match borrower on loan application",
-        "Transaction history required to identify any large deposits requiring sourcing"
+        "Assets must be dated within 90 days of note date per NQMF guidelines",
+        "Loan files must evidence sufficient funds from acceptable sources for closing costs, prepaid items, and applicable reserves",
+        "Cash-out refinance requires verification of funds for closing costs",
+        "DSCR Multi 5-8 Unit loans require reserve verification to meet program matrix requirements",
+        "Account ownership must be confirmed to ensure assets are accessible to borrower",
+        "Large deposits may require additional sourcing documentation",
+        "DSCR Multi 5-8 Unit loans require reserves based on program matrix requirements",
+        "Reserve requirements vary by LTV tier and loan amount - 70% LTV with high FICO typically requires 6-12 months PITIA",
+        "Cash-out refinance transactions have reserve requirements to demonstrate borrower financial stability",
+        "Investment property loans require reserves to cover potential vacancy or repair periods",
+        "Reserves ensure borrower can sustain property payments during income disruptions",
+        "Large deposits appearing on bank statements must be sourced to determine acceptability",
+        "Unverified or undocumented funds cannot be used for closing costs or reserves",
+        "Deposit sourcing ensures funds are not from prohibited sources (loan proceeds, undisclosed borrowing, etc.)",
+        "Clear audit trail protects both lender and borrower during underwriting review"
       ],
-      "guideline_reference": "NQMF ASSETS: Loan files must evidence sufficient funds from acceptable sources for down payment, closing costs, prepaid items, debt payoff, and applicable reserves",
-      "overlay_applied": null,
+      "guideline_reference": "NQMF Guidelines - ASSETS: Loan files must evidence sufficient funds from acceptable sources for down payment, closing costs, prepaid items, debt payoff, and applicable reserves. Assets must be dated within 90 days of the note date.",
       "severity": "SOFT-STOP",
       "document_category": "Assets",
       "status": "needed",
       "tags": [
         "assets"
       ],
-      "source_module": "03"
-    },
-    {
-      "document_type": "Reserve Verification Documentation",
-      "borrower_scope": "all_borrowers",
-      "priority": "P1",
-      "specifications": [
-        "Must show sufficient verified liquid assets to meet reserve requirement",
-        "Must cover minimum 6 months PITIA reserves for investment property 5-8 units",
-        "Bank statements showing current balances acceptable for reserve verification",
-        "Must identify account type and confirm funds are liquid/accessible",
-        "Must show borrower name matching loan application",
-        "Reserves calculation based on PITIA (Principal, Interest, Taxes, Insurance, Association dues)",
-        "Must be from acceptable asset sources per NQMF guidelines"
-      ],
-      "reasons_needed": [
-        "Investment property with 5-8 units requires reserve verification per NQMF guidelines",
-        "DSCR loans on multi-unit properties typically require 6+ months reserves",
-        "Non-owner-occupied properties have higher reserve requirements than primary residence",
-        "Reserves must come from verified liquid assets, not gift funds per NQMF guidelines",
-        "Cash-out refinance on investment property requires post-closing liquidity verification"
-      ],
-      "guideline_reference": "NQMF ASSETS: Loan files must evidence sufficient funds from acceptable sources for applicable reserves; GIFT FUNDS: Gift funds may not be used to meet reserve requirements",
-      "overlay_applied": null,
-      "severity": "SOFT-STOP",
-      "document_category": "Assets",
-      "status": "needed",
-      "tags": [
-        "assets"
-      ],
-      "source_module": "03"
+      "source_module": "03",
+      "evidence_found": [],
+      "guideline_trace": [],
+      "overlay_trace": []
     },
     {
       "document_type": "Appraisal Report",
       "category": "Property",
-      "description": "Multi 5-8 Unit Residential Appraisal Report (FHLMC Form 71A or 71B)",
+      "priority": "P1",
       "specifications": [
-        "Must be completed on FHLMC Form 71A or 71B (Narrative report acceptable for loan amounts $750,000+)",
-        "Must identify subject property address matching loan file",
-        "Must identify property as 5-8 unit multi-family residential",
-        "Must show appraised value to support LTV/CLTV calculation at 70%",
+        "Must be FHLMC Form 71A or 71B (for loan amounts < $750,000) for Multi 5-8 Unit properties",
+        "Must include narrative report format with full interior inspection of each unit",
+        "Must identify subject property address matching loan application",
+        "Must identify property type as Residential 5-8 Units with unit count",
+        "Must show appraised value to support LTV/CLTV calculation",
         "Must be dated within 365 days of Note date; recertification required if exceeds 120 days",
-        "Must include full interior inspection of each unit",
         "Must include rent roll for all units",
         "Must include Income and Expense Statement",
-        "Must include photos of subject including exterior/interior and street scene",
-        "Must include aerial photo of subject property",
+        "Must include photos of subject property exterior/interior and street scene",
+        "Must include aerial photo",
         "Must include sketch or floor plan of typical units",
-        "Must include location map",
-        "Must include appraiser's qualifications and license/certification",
-        "Must disclose property condition rating (C5/C6 ineligible; C4 requires marketability review)",
-        "Must confirm property is free of deferred maintenance per DSCR requirements",
-        "Must confirm no health or safety issues, structural deficiencies, or fair/poor ratings",
-        "Must confirm minimum 400 square feet per unit with full kitchen and bathroom in each",
+        "Must include map showing location of subject and comparables",
+        "Must include appraiser's qualifications and certifications",
+        "Must confirm property is in average or better condition (C1-C4; C5/C6 not acceptable)",
+        "Must confirm no structural deferred maintenance",
+        "Must confirm no health or safety violations",
+        "Must confirm minimum 400 square feet per unit",
+        "Must confirm each unit contains full kitchen and bathroom",
+        "Must confirm property is accessible and available for year-round use",
         "Must confirm property usage represents highest and best use",
-        "Must include comparable sales analysis with map showing location of comparables",
-        "Must include appraiser certification and statement of limiting conditions"
-      ],
-      "reasons_needed": [
-        "Collateral valuation is required for underwriting all loan transactions",
-        "LTV/CLTV eligibility at 70% depends on appraised value",
-        "Multi 5-8 unit properties require specific FHLMC appraisal forms per NQMF guidelines",
-        "DSCR loans require property to be free of deferred maintenance",
-        "Property condition must meet minimum standards for program eligibility",
-        "Rent roll and income/expense data support DSCR calculation methodology",
-        "Subject property identity must be consistent across all loan file documents"
-      ],
-      "priority": "P1",
-      "required": true,
-      "severity": "SOFT-STOP",
-      "document_category": "Property",
-      "status": "needed",
-      "tags": [
-        "property"
-      ],
-      "source_module": "05"
-    },
-    {
-      "document_type": "Commercial BPO / Field Review",
-      "category": "Property",
-      "description": "Commercial Broker Price Opinion or Field Review for Multi 5-8 Unit Property",
-      "specifications": [
+        "Must include comparable sales analysis with sales comparison approach",
+        "Must disclose any adverse environmental or economic factors",
+        "Must include analysis of all sales of subject property within past 3 years",
+        "Commercial Broker Price Opinion (BPO) required based on sales approach",
+        "Alternatively, Field Review is permitted for Residential 5-8 Units when available",
+        "May substitute with second full appraisal if two appraisals provided",
         "Must identify subject property address",
-        "Must be completed based on sales approach methodology",
-        "Must review appraised value reasonableness",
-        "Must be completed by independent licensed professional (different from original appraiser)",
-        "If BPO value is more than 10% below appraised value, BPO value will be used for LTV purposes",
-        "In Pennsylvania or North Carolina, a commercial evaluation product is required instead of BPO",
-        "Field Review is acceptable alternative when available for Residential 5-8 Units"
+        "Must review value reasonableness against appraised value",
+        "If BPO value is more than 10% below appraised value, BPO value is used for LTV purposes",
+        "In Pennsylvania or North Carolina, commercial evaluation product required instead of BPO"
       ],
       "reasons_needed": [
-        "NQMF Appraisal Review Process requires secondary appraisal product for Multi 5-8 Unit properties",
-        "Commercial BPO is required based on sales approach unless two full appraisals are provided",
-        "Value validation protects against collateral risk",
-        "10% tolerance rule may impact qualifying LTV"
+        "FHLMC 71A/71B with narrative report required per NQMF guidelines for Multi 5-8 Unit properties",
+        "Collateral valuation required to establish property value for DSCR loan underwriting",
+        "LTV at 70% requires accurate appraised value determination for eligibility",
+        "Cash-out refinance requires current market value confirmation",
+        "Investment property requires rent roll and income/expense analysis",
+        "Property condition (C4 or better) must be verified for DSCR eligibility",
+        "Multi-unit properties require comprehensive interior inspection of all units",
+        "DSCR properties must be free of deferred maintenance per guidelines",
+        "Appraisal review process for Multi 5-8 Unit properties requires secondary valuation product",
+        "Commercial BPO is standard requirement unless two full appraisals provided",
+        "Value variance exceeding 10% triggers use of lower BPO value for LTV calculation",
+        "Field Review acceptable alternative for Residential 5-8 Units"
       ],
+      "guideline_reference": "NQMF Guidelines - Appraisal Requirements Multi 5-8 Unit, Pages 92-98",
+      "applicable_parties": [
+        "subject_property"
+      ],
+      "severity": "SOFT-STOP",
+      "document_category": "Property",
+      "status": "needed",
+      "tags": [
+        "property"
+      ],
+      "source_module": "05",
+      "evidence_found": [],
+      "guideline_trace": [],
+      "overlay_trace": []
+    },
+    {
+      "document_type": "UCDP SSR",
+      "category": "Property",
       "priority": "P1",
-      "required": true,
+      "specifications": [
+        "Must be submitted through Uniform Collateral Data Portal (UCDP)",
+        "SSR Score of 2.5 or less preferred for appraisal review process",
+        "Must identify subject property and appraisal submission",
+        "Must show submission status and any flagged issues"
+      ],
+      "reasons_needed": [
+        "FNMA SSR Score is acceptable review product per appraisal review process",
+        "SSR Score of 2.5 or less supports collateral valuation",
+        "Standard appraisal submission requirement for loan file completeness"
+      ],
+      "guideline_reference": "NQMF Guidelines - Appraisal Review Process, Page 98",
+      "applicable_parties": [
+        "subject_property"
+      ],
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -735,25 +696,28 @@
       "source_module": "05"
     },
     {
-      "document_type": "Flood Determination",
+      "document_type": "Flood Hazard Determination",
       "category": "Property",
-      "description": "FEMA Flood Zone Certificate",
+      "priority": "P1",
       "specifications": [
-        "Must be issued by FEMA-authorized flood determination provider",
+        "Must be current FEMA Flood Certificate",
         "Must identify subject property address",
-        "Must indicate flood zone designation (Section B4)",
-        "Must indicate whether property is in Special Flood Hazard Area (SFHA - Zone A or V)",
-        "Must indicate community participation status in NFIP",
-        "Must be current and valid as of loan closing"
+        "Must indicate flood zone designation in Section B4",
+        "Must indicate if property is in Special Flood Hazard Area (SFHA - Zone A or V)",
+        "Must indicate if No NFIP Map applies (Section B5)",
+        "Must indicate determination result in Section D",
+        "Must be consistent with flood zone shown on appraisal report"
       ],
       "reasons_needed": [
-        "Required to determine if flood insurance is mandatory for the subject property",
-        "Properties in Flood Zone A or V require flood insurance per NQMF guidelines",
-        "Properties in SFHA must be in NFIP-participating community to be eligible",
-        "Appraisal report flood zone must be reconciled with flood certificate"
+        "Flood zone determination required per NQMF guidelines for all properties",
+        "Determines whether flood insurance is required",
+        "Properties in Flood Zone A or V require flood insurance and FEMA program participation",
+        "Appraisal report must accurately reflect flood zone per flood certificate"
       ],
-      "priority": "P1",
-      "required": true,
+      "guideline_reference": "NQMF Guidelines - Flood Certificate, Page 126",
+      "applicable_parties": [
+        "subject_property"
+      ],
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -763,29 +727,26 @@
       "source_module": "05"
     },
     {
-      "document_type": "Property Insurance",
+      "document_type": "Deed of Trust",
       "category": "Property",
-      "description": "Hazard Insurance Policy / Evidence of Insurance for 5-8 Unit Property",
+      "priority": "P1",
       "specifications": [
-        "Must provide coverage against fire, lightning, explosion, windstorm, hail, smoke, aircraft, vehicles, riot/civil commotion",
-        "Must provide replacement cost coverage (actual cash value not acceptable)",
-        "Named insured must include all persons holding title to subject property",
-        "Must include standard mortgagee clause (loss payable clause not acceptable)",
-        "Property address must match note/security instrument",
-        "Must be effective for at least 60 days after funding date",
-        "Must include policy number, coverage amounts, deductible, premium amount",
-        "Must include loss payee clause naming lender",
-        "Must be signed and dated by agent",
-        "Must include insurance company and agent contact information"
+        "FNMA Form 3170 or equivalent Assignment of Rents rider",
+        "Required for all Investment Properties",
+        "Must be attached to security instrument/mortgage",
+        "Must assign rental income rights to lender as additional security",
+        "Must identify subject property and all rental units"
       ],
       "reasons_needed": [
-        "Hazard insurance is required on all properties to protect collateral",
-        "Coverage must be replacement cost basis per NQMF requirements",
-        "Mortgagee clause ensures lender rights are protected",
-        "All title holders must be named insured to ensure borrower rights"
+        "Assignment of Rents required for all Investment Properties per NQMF guidelines",
+        "DSCR Multi 5-8 Unit is investment property requiring rental income assignment",
+        "Provides lender security interest in rental income stream",
+        "Standard requirement for investment property collateral documentation"
       ],
-      "priority": "P1",
-      "required": true,
+      "guideline_reference": "NQMF Guidelines - Appraisal Requirements 1-4 Unit Residential (applies to investment properties), Page 96",
+      "applicable_parties": [
+        "subject_property"
+      ],
       "severity": "SOFT-STOP",
       "document_category": "Property",
       "status": "needed",
@@ -798,28 +759,27 @@
       "document_type": "Title Commitment",
       "category": "Title",
       "priority": "P1",
+      "applies_to": "Subject Property",
       "specifications": [
-        "Must identify borrower(s) as owner/vested party matching loan application",
-        "Must identify subject property address: 5-8 unit residential property in New Jersey",
-        "Must include complete legal description of the property",
-        "Must disclose all existing liens, including the mortgage being refinanced",
-        "Must disclose all judgments, easements, encumbrances, and title exceptions",
-        "Must list all Schedule B requirements and exceptions",
-        "Must show title insurance company name and commitment effective date",
-        "Must be dated within 90 days of closing",
-        "Must confirm proposed lien position (first lien) after payoff of existing mortgage",
-        "Must reconcile vesting with borrower name(s) on loan application"
+        "Must identify borrower/owner/vested parties matching loan application",
+        "Must identify subject property address and legal description",
+        "Must include 24-month chain of title history showing all transfers with dates, prices, buyer/seller names",
+        "Must disclose all liens, judgments, easements, encumbrances, and title exceptions",
+        "Must show title insurer qualified to do business in New Jersey",
+        "Must show effective date within acceptable recency window",
+        "Must confirm first lien position for proposed mortgage",
+        "Must indicate final title policy will be issued after funding",
+        "Title policy must be 2006 ALTA standard form, ALTA short form, or state-approved equivalent"
       ],
       "reasons_needed": [
-        "Title must confirm ownership and insurable interest for underwriting approval",
-        "Vesting must match borrower identity on loan file for DSCR Multi refinance",
-        "All existing liens must be identified to verify payoff and new first lien position",
-        "Title exceptions and encumbrances may create closing conditions or affect insurability",
-        "Legal description must match property for 5-8 unit multi-family collateral",
-        "Cash-out refinance requires clear title path after existing lien payoff"
+        "Title must confirm ownership and vesting align with borrower on loan file",
+        "24-month title history required per NQMF guidelines to review for flipping activity or inconsistencies",
+        "Liens and exceptions must be reviewed to ensure first lien position without exception",
+        "Adverse credit impacting title must be identified for payoff or resolution prior to closing",
+        "Legal description must be verified against appraisal and deed",
+        "Title insurer must be duly authorized and licensed in New Jersey"
       ],
-      "applicable_overlays": [],
-      "condition_type": "Prior to Docs",
+      "condition_trigger": "Always required for all loan transactions",
       "severity": "SOFT-STOP",
       "document_category": "Title",
       "status": "needed",
@@ -829,27 +789,24 @@
       "source_module": "06"
     },
     {
-      "document_type": "Vesting Deed",
+      "document_type": "Grant Deed",
       "category": "Title",
       "priority": "P1",
+      "applies_to": "Subject Property",
       "specifications": [
-        "Must be the recorded deed showing current ownership of the subject property",
-        "Must identify all vested parties by full legal name",
-        "Must match borrower name(s) exactly or include chain of title explanation",
-        "Must include complete legal description matching title commitment",
-        "Must show recording information (book/page or instrument number, recording date)",
-        "Must reflect current vesting type (individual, joint tenants, tenants in common, etc.)",
-        "Must be the most recent deed in the chain of title"
+        "Must be recorded deed showing current ownership/vesting of subject property",
+        "Must identify all vested owners matching borrower(s) on loan application",
+        "Must show legal description matching title commitment and appraisal",
+        "Must show property address matching subject property",
+        "Must be most recent deed of record"
       ],
       "reasons_needed": [
-        "Confirms borrower is the legal owner of the 5-8 unit property being refinanced",
-        "Vesting must reconcile with title commitment and loan application",
-        "Required to verify ownership for DSCR Multi cash-out refinance eligibility",
-        "Legal description must match appraisal and title commitment for collateral verification",
-        "Underwriter must confirm borrower has authority to encumber the property"
+        "Vesting must be verified to confirm borrower has ownership interest in property being refinanced",
+        "Per NQMF guidelines, final title policy vesting must reflect name(s) of individual borrower(s)",
+        "Vesting deed confirms chain of title and ownership continuity",
+        "Legal description on deed must reconcile with title commitment for lien validity"
       ],
-      "applicable_overlays": [],
-      "condition_type": "Prior to Docs",
+      "condition_trigger": "Always required - confirms ownership for refinance transaction",
       "severity": "SOFT-STOP",
       "document_category": "Title",
       "status": "needed",
@@ -862,135 +819,25 @@
       "document_type": "Payoff Statement",
       "category": "Title",
       "priority": "P1",
+      "applies_to": "Existing Mortgage Lien(s) on Subject Property",
       "specifications": [
-        "Must identify current mortgage servicer/creditor name and contact information",
-        "Must include loan/account number for the existing mortgage being paid off",
-        "Must show total payoff amount including principal, interest, and any fees",
-        "Must include good-through date (valid for at least 30 days from closing)",
-        "Must show per diem interest amount for payoff calculation",
-        "Must identify the subject property address securing the existing lien",
-        "Must include any prepayment penalty amount if applicable",
-        "Must include wire instructions or payoff remittance address",
-        "Must be dated within 30 days of anticipated closing"
+        "Must identify creditor/servicer name and contact information",
+        "Must identify loan/account number",
+        "Must show total payoff amount including principal balance, accrued interest, and fees",
+        "Must show good-through date (payoff valid through date)",
+        "Must include per diem interest amount for payoff calculation",
+        "Must identify subject property address or secured collateral",
+        "Must be dated within 30 days of anticipated closing",
+        "Must include wire instructions for payoff disbursement"
       ],
       "reasons_needed": [
-        "Cash-out refinance requires payoff of existing mortgage to establish new first lien",
-        "Payoff amount is required to calculate funds to close and cash-out proceeds",
-        "Underwriter must verify existing lien can be satisfied at closing",
-        "Good-through date ensures payoff figures are valid through closing timeline",
-        "Per diem is needed for accurate final payoff calculation at settlement",
-        "Required to reconcile with title commitment showing existing mortgage lien"
+        "Cash-out refinance requires payoff of existing first lien to establish new first lien position",
+        "Payoff amount required to calculate funds to close and verify sufficient loan proceeds",
+        "Good-through date and per diem needed for accurate closing figures",
+        "Per NQMF guidelines, existing liens must be paid off to ensure clear first lien position",
+        "Title must confirm lien position without exception - existing mortgage must be satisfied"
       ],
-      "applicable_overlays": [],
-      "condition_type": "Prior to Docs",
-      "severity": "SOFT-STOP",
-      "document_category": "Title",
-      "status": "needed",
-      "tags": [
-        "title"
-      ],
-      "source_module": "06"
-    },
-    {
-      "document_type": "Bank Statements - Rental Income Receipt",
-      "category": "income",
-      "borrower_scope": "all_borrowers",
-      "property_scope": "subject_property",
-      "specifications": [
-        "Must provide 2 months bank statements demonstrating receipt of rental income",
-        "Required only for month-to-month lease situations to support rental income continuance",
-        "Must show deposits matching or reasonably close to lease amounts",
-        "Must identify account holder name as borrower or borrower entity"
-      ],
-      "reasons_needed": [
-        "For leases converted to month-to-month, 2 months bank statements required to support rental income per Multi 5-8 Unit requirements",
-        "Bank statement deposits validate that rental income is actually being received",
-        "Supports continuance of month-to-month tenancy for DSCR qualification"
-      ],
-      "guideline_reference": "NQMF Guidelines - MULTI 5-8 UNIT RENTAL INCOME REQUIREMENTS",
-      "priority": "P2",
-      "conditional": "Required only if any lease is month-to-month",
-      "severity": "SOFT-STOP",
-      "document_category": "Income",
-      "status": "needed",
-      "tags": [
-        "income"
-      ],
-      "source_module": "02"
-    },
-    {
-      "document_type": "SSR / UCDP Findings",
-      "category": "Property",
-      "description": "Submission Summary Report / UCDP Findings for Appraisal",
-      "specifications": [
-        "Must reference the subject property appraisal",
-        "Must include FNMA SSR Score (2.5 or less acceptable per Appraisal Review Process)",
-        "Must identify any flags or warnings requiring resolution",
-        "Must be current with appraisal submission"
-      ],
-      "reasons_needed": [
-        "SSR/UCDP is standard appraisal review requirement",
-        "SSR Score of 2.5 or less is acceptable secondary appraisal product per NQMF Appraisal Review Process",
-        "Identifies data quality issues that may require appraisal corrections"
-      ],
-      "priority": "P2",
-      "required": true,
-      "severity": "SOFT-STOP",
-      "document_category": "Property",
-      "status": "needed",
-      "tags": [
-        "property"
-      ],
-      "source_module": "05"
-    },
-    {
-      "document_type": "1-4 Family Rider",
-      "category": "Property",
-      "description": "Assignment of Rents Rider (FNMA Form 3170) for Investment Property",
-      "specifications": [
-        "Must be completed on FNMA Form 3170",
-        "Must identify subject property address",
-        "Must assign rents to lender as additional security",
-        "Must be executed by all borrowers on title"
-      ],
-      "reasons_needed": [
-        "1-4 Family Rider (Assignment of Rents) is required for all Investment Properties per NQMF appraisal requirements",
-        "Provides lender with security interest in rental income stream",
-        "Required as additional collateral documentation for non-owner occupied properties"
-      ],
-      "priority": "P2",
-      "required": true,
-      "severity": "SOFT-STOP",
-      "document_category": "Property",
-      "status": "needed",
-      "tags": [
-        "property"
-      ],
-      "source_module": "05"
-    },
-    {
-      "document_type": "Mortgage Statement",
-      "category": "Title",
-      "priority": "P2",
-      "specifications": [
-        "Must be the most recent monthly statement (within 60 days)",
-        "Must identify borrower name(s) matching loan application",
-        "Must identify current servicer and loan/account number",
-        "Must show subject property address",
-        "Must show current unpaid principal balance",
-        "Must show monthly payment amount (P&I, escrow breakdown if applicable)",
-        "Must show payment due date and any past due amounts",
-        "Must show interest rate on existing loan"
-      ],
-      "reasons_needed": [
-        "Verifies existing mortgage obligation on the property being refinanced",
-        "Supports reconciliation with payoff statement amount",
-        "Confirms housing payment history for DSCR Multi qualification",
-        "Unpaid balance used to verify cash-out refinance loan amount calculation",
-        "Required to verify existing lien matches title commitment disclosure"
-      ],
-      "applicable_overlays": [],
-      "condition_type": "Prior to Docs",
+      "condition_trigger": "Required for refinance transaction - existing mortgage must be paid off",
       "severity": "SOFT-STOP",
       "document_category": "Title",
       "status": "needed",
@@ -1001,26 +848,25 @@
     }
   ],
   "stats": {
-    "total_document_requests": 24,
+    "total_document_requests": 16,
     "hard_stop_documents": 0,
     "by_category": {
-      "Cross-Cutting": 4,
+      "Cross-Cutting": 3,
+      "Compliance": 1,
       "Credit": 2,
-      "Compliance": 2,
-      "Income": 4,
-      "Assets": 2,
-      "Property": 6,
-      "Title": 4
+      "Income": 2,
+      "Assets": 1,
+      "Property": 4,
+      "Title": 3
     },
     "by_priority": {
-      "P0": 4,
-      "P1": 16,
-      "P2": 4
+      "P0": 2,
+      "P1": 14
     },
     "by_status": {
-      "needed": 24
+      "needed": 16
     },
-    "elapsed_seconds": 493.4,
-    "tool_calls": 94
+    "elapsed_seconds": 501.3,
+    "tool_calls": 87
   }
 }

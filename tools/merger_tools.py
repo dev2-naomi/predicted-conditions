@@ -289,8 +289,8 @@ def merge_document_requests(
 
     for mod_key in ["01", "02", "03", "04", "05", "06", "07"]:
         mod = module_outputs.get(mod_key, {})
-        requests = _as_list(mod.get("document_requests", []))
-        normalize_all(requests, default_category=_MODULE_CATEGORY.get(mod_key, "Other"))
+        raw_requests = _as_list(mod.get("document_requests", []))
+        requests = normalize_all(raw_requests, default_category=_MODULE_CATEGORY.get(mod_key, "Other"))
         source_counts[mod_key] = len(requests)
         for dr in requests:
             dr.setdefault("source_module", mod_key)

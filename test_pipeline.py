@@ -125,7 +125,7 @@ def run_single(input_dir: Path, output_dir: Path | None = None) -> dict:
     print("=" * 70)
     sys.stdout.flush()
 
-    config = {"recursion_limit": 150}
+    config = {"recursion_limit": 250}
     tool_call_count = 0
     start_time = time.time()
     accumulated_state: dict = {}

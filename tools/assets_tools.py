@@ -30,7 +30,7 @@ def generate_asset_document_requests(
         document_requests: List of document request dicts conforming to the
                            standard document_request schema.
     """
-    normalize_all(document_requests, default_category="Assets")
+    document_requests = normalize_all(document_requests, default_category="Assets")
 
     for dr in document_requests:
         dr.setdefault("tags", [])
