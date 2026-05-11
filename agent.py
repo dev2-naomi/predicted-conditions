@@ -192,17 +192,13 @@ def _summarize_completed_steps(
     summary_lines = ["[COMPLETED STEPS SUMMARY]", ""]
     for step_id, report in sorted(step_reports.items()):
         summary_text = report.get("summary", "No summary.")
-        # Truncate very long summaries
         if len(summary_text) > 300:
             summary_text = summary_text[:300] + "..."
         summary_lines.append(f"## {step_id}: {summary_text}")
 
-    # Also summarize condition counts from module_outputs if available
     summary_lines.append("")
-
     summary = "\n".join(summary_lines)
 
-    # Keep: first HumanMessage + summary + messages from current step onward
     first_human = None
     for msg in messages:
         if isinstance(msg, HumanMessage):
@@ -211,10 +207,38 @@ def _summarize_completed_steps(
 
     current_step_messages = messages[boundary_idx + 1:]
 
+    # Ensure we don't start with orphaned ToolMessages whose corresponding
+    # AIMessage (with tool_use) was cut.  Walk backward from the boundary to
+    # include any AIMessage that owns tool calls consumed by the kept messages.
+    needed_tool_call_ids: set[str] = set()
+    for msg in current_step_messages:
+        if isinstance(msg, ToolMessage) and hasattr(msg, "tool_call_id"):
+            needed_tool_call_ids.add(msg.tool_call_id)
+
+    # Remove IDs already satisfied by AIMessages in the kept slice
+    for msg in current_step_messages:
+        if isinstance(msg, AIMessage) and msg.tool_calls:
+            for tc in msg.tool_calls:
+                needed_tool_call_ids.discard(tc.get("id", ""))
+
+    # If any orphaned tool_call_ids remain, scan backwards to find their AI parents
+    prefix_messages: list[BaseMessage] = []
+    if needed_tool_call_ids:
+        for i in range(boundary_idx, -1, -1):
+            msg = messages[i]
+            if isinstance(msg, AIMessage) and msg.tool_calls:
+                ids_in_msg = {tc.get("id", "") for tc in msg.tool_calls}
+                if ids_in_msg & needed_tool_call_ids:
+                    prefix_messages.insert(0, msg)
+                    needed_tool_call_ids -= ids_in_msg
+                    if not needed_tool_call_ids:
+                        break
+
     result: list[BaseMessage] = []
     if first_human:
         result.append(first_human)
     result.append(SystemMessage(content=summary))
+    result.extend(prefix_messages)
     result.extend(current_step_messages)
 
     return result
