@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 _VALID_PRIORITIES = {"P0", "P1", "P2", "P3"}
 _VALID_SEVERITIES = {"HARD-STOP", "SOFT-STOP"}
@@ -503,6 +504,70 @@ def normalize_document_request(dr: dict, default_category: str = "Other") -> dic
             dr["reasons_needed"] = []
 
     return dr
+
+
+_CANONICAL_FIELDS: dict[str, Any] = {
+    "document_type": "Unknown",
+    "document_category": "Other",
+    "priority": "P2",
+    "severity": "SOFT-STOP",
+    "status": "needed",
+    "specifications": [],
+    "reasons_needed": [],
+    "source_module": "",
+    "tags": [],
+    "applicable_parties": [],
+    "description": "",
+    "guideline_reference": "",
+}
+
+# Fields to silently drop (LLM sometimes adds these non-standard keys)
+_DROP_FIELDS: set[str] = {
+    "category",          # superseded by document_category
+    "borrower_name",     # merged into applicable_parties
+    "source_guideline",  # merged into guideline_reference
+    "document_name",     # superseded by document_type
+    "title",             # superseded by document_type
+    "document_context",  # internal merge key, not for output
+}
+
+
+def normalize_document_structure(dr: dict) -> dict:
+    """Enforce a fixed field schema on a document request dict.
+
+    - Keeps only the fields in _CANONICAL_FIELDS (with defaults for missing ones).
+    - Folds LLM-invented aliases into the canonical field names.
+    - Returns a new dict — the original is not modified.
+    """
+    out: dict[str, Any] = {}
+
+    # Fold aliased fields before projection
+    if "borrower_name" in dr and not dr.get("applicable_parties"):
+        bn = dr["borrower_name"]
+        dr["applicable_parties"] = [bn] if isinstance(bn, str) else bn
+    if "source_guideline" in dr and not dr.get("guideline_reference"):
+        dr["guideline_reference"] = dr["source_guideline"]
+
+    for field, default in _CANONICAL_FIELDS.items():
+        val = dr.get(field)
+        if val is None:
+            out[field] = default
+        else:
+            out[field] = val
+
+    # Coerce list fields
+    for lf in ("specifications", "reasons_needed", "tags", "applicable_parties"):
+        v = out[lf]
+        if isinstance(v, str):
+            out[lf] = [v] if v else []
+        elif not isinstance(v, list):
+            out[lf] = [v] if v else []
+
+    # Include acceptable_types when present
+    if "acceptable_types" in dr:
+        out["acceptable_types"] = dr["acceptable_types"]
+
+    return out
 
 
 def normalize_all(document_requests: list[dict], default_category: str = "Other") -> list[dict]:

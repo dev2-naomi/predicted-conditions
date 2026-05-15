@@ -1000,21 +1000,75 @@ def build_scenario_summary(
             if extra.get("CashOutAmount") is not None and summary.get("cash_out_amount") is None:
                 summary["cash_out_amount"] = extra["CashOutAmount"]
 
-    # Missing core variables
-    missing: list[str] = []
-    required_fields = [
-        ("purpose", summary["purpose"]),
-        ("occupancy", summary["occupancy"]),
-        ("property_state", summary["property"]["state"]),
-        ("loan_amount", summary["numbers"]["loan_amount"]),
-        ("LTV", summary["numbers"]["LTV"]),
-        ("FICO", summary["credit"]["fico"]),
-        ("program", summary["program"]),
-        ("income_documentation_type", summary["income_profile"]["primary_income_type"]),
+    # Missing core variables — structured with why_it_matters and likely_document_or_source
+    _REQUIRED_FIELDS: list[tuple[str, Any, str, str]] = [
+        (
+            "purpose",
+            summary["purpose"],
+            "Loan purpose (purchase, refi, cash-out) drives LTV limits, seasoning, and document requirements.",
+            "Loan Application (1003) / Loan Scenario Summary",
+        ),
+        (
+            "occupancy",
+            summary["occupancy"],
+            "Occupancy type determines LTV limits, reserve requirements, pricing adjustments, and program eligibility.",
+            "Owner Occupancy Certification / Loan Application (1003)",
+        ),
+        (
+            "property_state",
+            summary["property"]["state"],
+            "State affects allowable programs, prepayment penalties, title requirements, and compliance rules.",
+            "Loan Application (1003) / Appraisal Report",
+        ),
+        (
+            "loan_amount",
+            summary["numbers"]["loan_amount"],
+            "Loan amount is required to calculate LTV, CLTV, reserve months, and program eligibility.",
+            "Loan Application (1003) / Loan Scenario Summary",
+        ),
+        (
+            "LTV",
+            summary["numbers"]["LTV"],
+            "LTV is required to determine program eligibility, required reserves, and pricing adjustments.",
+            "Appraisal Report / Loan Application (1003)",
+        ),
+        (
+            "FICO",
+            summary["credit"]["fico"],
+            "Credit score is required to validate program eligibility and pricing matrix.",
+            "Credit Report",
+        ),
+        (
+            "program",
+            summary["program"],
+            "The loan program determines all guideline requirements, documentation rules, and eligibility criteria.",
+            "Loan Scenario Summary / Eligibility Engine Output",
+        ),
+        (
+            "income_documentation_type",
+            summary["income_profile"]["primary_income_type"],
+            "Income documentation type drives all income document requirements for qualification.",
+            "Loan Application (1003) / Loan Scenario Summary",
+        ),
     ]
-    for field, val in required_fields:
+    # DTI is required for non-DSCR loans only
+    is_dscr = any(t in ("DSCR", "dscr") for t in income_types)
+    if not is_dscr:
+        _REQUIRED_FIELDS.append((
+            "DTI",
+            summary["numbers"]["DTI"],
+            "DTI must be within program cap; cannot validate program eligibility without it.",
+            "Income Documents / Loan Application (1003)",
+        ))
+
+    missing: list[dict] = []
+    for field, val, why, doc in _REQUIRED_FIELDS:
         if val in (None, "unknown"):
-            missing.append(field)
+            missing.append({
+                "field": field,
+                "why_it_matters": why,
+                "likely_document_or_source": doc,
+            })
 
     guideline_refs = _guideline_section_refs(program, income_types, property_type)
 
@@ -1032,7 +1086,9 @@ def build_scenario_summary(
             "key_entities_found": list(doc.get("extracted_fields", {}).keys())[:5],
         })
 
-    missing_str = ", ".join(missing) if missing else "none"
+    missing_str = (
+        ", ".join(m["field"] for m in missing) if missing else "none"
+    )
     return Command(update={
         "scenario_summary": summary,
         "missing_core_variables": missing,
@@ -1044,7 +1100,13 @@ def build_scenario_summary(
             f"Property: {property_type} in {summary['property']['state']}. "
             f"Income types: {income_types}. "
             f"Document inventory: {len(doc_inventory)} docs. "
-            f"Missing core variables: {missing_str}",
+            f"Missing core variables ({len(missing)}): {missing_str}. "
+            + (
+                "Resolve via: " + "; ".join(
+                    f"{m['field']} → {m['likely_document_or_source']}"
+                    for m in missing
+                ) if missing else ""
+            ),
             tool_call_id=tool_call_id,
         )],
     })

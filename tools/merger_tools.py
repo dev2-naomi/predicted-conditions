@@ -17,7 +17,7 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import Annotated
 
-from tools.shared.normalize import normalize_all
+from tools.shared.normalize import normalize_all, normalize_document_structure
 
 
 # ---------------------------------------------------------------------------
@@ -393,6 +393,9 @@ def generate_final_output(
         document_requests = _as_list(
             mo.get("08", {}).get("merged_document_requests", [])
         )
+
+    # Enforce consistent field schema on every document request
+    document_requests = [normalize_document_structure(dr) for dr in document_requests]
 
     scenario_summary = s.get("scenario_summary", {})
     clean_summary: dict[str, Any] = {

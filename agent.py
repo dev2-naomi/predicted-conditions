@@ -188,6 +188,33 @@ def _summarize_completed_steps(
     if boundary_idx < 3:
         return messages
 
+    # Extend the boundary forward to include ALL ToolMessages that belong to
+    # the same AIMessage batch as the boundary ToolMessage.  This prevents
+    # splitting a batch where one tool_result is at the boundary and sibling
+    # tool_results are just after it, which would leave the AIMessage parent
+    # with unmatched tool_use blocks when included via the backward scan.
+    boundary_tm = messages[boundary_idx]
+    if isinstance(boundary_tm, ToolMessage) and hasattr(boundary_tm, "tool_call_id"):
+        parent_ids: set[str] = set()
+        for i in range(boundary_idx - 1, -1, -1):
+            msg = messages[i]
+            if isinstance(msg, AIMessage) and msg.tool_calls:
+                ids = {tc.get("id", "") for tc in msg.tool_calls}
+                if boundary_tm.tool_call_id in ids:
+                    parent_ids = ids
+                    break
+            elif isinstance(msg, ToolMessage):
+                continue
+            else:
+                break
+        if parent_ids:
+            for i in range(boundary_idx + 1, len(messages)):
+                msg = messages[i]
+                if isinstance(msg, ToolMessage) and hasattr(msg, "tool_call_id") and msg.tool_call_id in parent_ids:
+                    boundary_idx = i
+                elif not isinstance(msg, ToolMessage):
+                    break
+
     # Build summary from step_reports
     summary_lines = ["[COMPLETED STEPS SUMMARY]", ""]
     for step_id, report in sorted(step_reports.items()):
@@ -208,20 +235,18 @@ def _summarize_completed_steps(
     current_step_messages = messages[boundary_idx + 1:]
 
     # Ensure we don't start with orphaned ToolMessages whose corresponding
-    # AIMessage (with tool_use) was cut.  Walk backward from the boundary to
+    # AIMessage (with tool_use) was cut. Walk backward from the boundary to
     # include any AIMessage that owns tool calls consumed by the kept messages.
     needed_tool_call_ids: set[str] = set()
     for msg in current_step_messages:
         if isinstance(msg, ToolMessage) and hasattr(msg, "tool_call_id"):
             needed_tool_call_ids.add(msg.tool_call_id)
 
-    # Remove IDs already satisfied by AIMessages in the kept slice
     for msg in current_step_messages:
         if isinstance(msg, AIMessage) and msg.tool_calls:
             for tc in msg.tool_calls:
                 needed_tool_call_ids.discard(tc.get("id", ""))
 
-    # If any orphaned tool_call_ids remain, scan backwards to find their AI parents
     prefix_messages: list[BaseMessage] = []
     if needed_tool_call_ids:
         for i in range(boundary_idx, -1, -1):
@@ -230,6 +255,23 @@ def _summarize_completed_steps(
                 ids_in_msg = {tc.get("id", "") for tc in msg.tool_calls}
                 if ids_in_msg & needed_tool_call_ids:
                     prefix_messages.insert(0, msg)
+                    # Also collect ALL ToolMessages for this AIMessage's
+                    # tool_calls that are on the cut side (before boundary+1),
+                    # so every tool_use has a matching tool_result.
+                    kept_ids = {
+                        m.tool_call_id for m in current_step_messages
+                        if isinstance(m, ToolMessage) and hasattr(m, "tool_call_id")
+                    }
+                    for j in range(i + 1, boundary_idx + 1):
+                        m2 = messages[j]
+                        if (
+                            isinstance(m2, ToolMessage)
+                            and hasattr(m2, "tool_call_id")
+                            and m2.tool_call_id in ids_in_msg
+                            and m2.tool_call_id not in kept_ids
+                        ):
+                            prefix_messages.append(m2)
+
                     needed_tool_call_ids -= ids_in_msg
                     if not needed_tool_call_ids:
                         break

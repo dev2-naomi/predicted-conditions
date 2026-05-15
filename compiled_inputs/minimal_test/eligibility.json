@@ -1,0 +1,55 @@
+{
+  "loan_id": "MINIMAL-TEST-001",
+  "title": "Loan",
+  "status": "pending",
+  "metadata": {
+    "dti": null,
+    "dscr": null,
+    "fico": 700,
+    "itin": null,
+    "state": "CA",
+    "units": 1,
+    "county": "Los Angeles",
+    "escrow": null,
+    "channel": "Wholesale",
+    "ltv_pct": 75,
+    "purpose": null,
+    "borrower": {
+      "suffix": "",
+      "last_name": "TestBorrower",
+      "first_name": "Jane",
+      "middle_name": ""
+    },
+    "cltv_pct": 75,
+    "loan_type": "First Lien",
+    "occupancy": null,
+    "income_doc": "Full Doc",
+    "citizenship": "US Citizen",
+    "co_borrower": null,
+    "loan_amount": 400000,
+    "loan_number": "MINIMAL-TEST-001",
+    "is_us_credit": true,
+    "loan_program": {
+      "id": null,
+      "name": "Flex Supreme",
+      "rate": 7.5,
+      "type": "Conventional",
+      "rateRange": null,
+      "originalApiKey": null
+    }
+  },
+  "eligible_programs": ["Flex Supreme"],
+  "ineligible_programs": [],
+  "application_data": {
+    "LTV": 75,
+    "CLTV": 75,
+    "DTI": null,
+    "FicoScore": 700,
+    "Occupancy": null,
+    "LoanPurpose": null,
+    "LoanAmount": 400000,
+    "State": "CA",
+    "County": "Los Angeles"
+  },
+  "program_results": {}
+}

@@ -1,0 +1,797 @@
+{
+  "scenario_summary": {
+    "program": "Flex Supreme",
+    "product_variant": "unknown",
+    "purpose": "unknown",
+    "occupancy": "unknown",
+    "property": {
+      "address": "unknown",
+      "state": "CA",
+      "county": "Los Angeles",
+      "city": "unknown",
+      "zip": "unknown",
+      "units": null,
+      "property_type": "Unknown",
+      "year_built": null,
+      "rural_property": false
+    },
+    "numbers": {
+      "loan_amount": 400000,
+      "purchase_price": null,
+      "appraised_value": null,
+      "note_rate": null,
+      "LTV": 75,
+      "CLTV": 75,
+      "DTI": null
+    },
+    "loan_terms": {
+      "amortization_type": "unknown",
+      "term_months": null,
+      "interest_only": null,
+      "prepay_penalty": null,
+      "balloon": null,
+      "lien_priority": "unknown"
+    },
+    "credit": {
+      "fico": 700,
+      "credit_scores": [],
+      "fico_source": "loan_profile",
+      "is_us_credit": true,
+      "mortgage_history_flags": [],
+      "credit_events": [
+        "none"
+      ],
+      "declarations": {}
+    },
+    "borrowers": [],
+    "income_profile": {
+      "income_types": [
+        "unknown"
+      ],
+      "primary_income_type": "unknown",
+      "income_doc_label": "",
+      "secondary_income": "N/A",
+      "secondary_income_doc": "N/A"
+    },
+    "asset_profile": {
+      "has_bank_statements": false,
+      "has_large_deposit_flags": false,
+      "has_gift_indicators": false,
+      "has_reserves_indicators": false,
+      "months_reserves": null,
+      "total_liquid_assets": null,
+      "total_investment_assets": null,
+      "total_retirement_assets": null
+    },
+    "reo_summary": {
+      "total_properties_owned": 0,
+      "total_lien_balance": null,
+      "subject_property_rental_income": null
+    },
+    "doc_profile": [],
+    "housing_expenses": {
+      "present": [],
+      "proposed": []
+    },
+    "cash_out_amount": null,
+    "channel": "unknown",
+    "loan_number": null,
+    "dscr_label": null,
+    "borrower_type": null,
+    "employers": [],
+    "residences": [],
+    "assets": [],
+    "liabilities": [],
+    "owned_properties": [],
+    "eligible_programs": [
+      "Flex Supreme"
+    ],
+    "ineligible_programs": [],
+    "program_eligibility_detail": {}
+  },
+  "seen_conflicts": [],
+  "document_requests": [
+    {
+      "document_type": "Credit Report",
+      "document_category": "Credit",
+      "priority": "P0",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be a tri-merge or Residential Mortgage Credit Report (RMCR) from acceptable agencies (Experian, TransUnion, Equifax)",
+        "Must include all borrowers on the loan",
+        "Must display credit scores from all three bureaus with minimum qualifying score of 700",
+        "Must show complete tradeline details including payment history, balances, and credit limits",
+        "Must include mortgage/housing history if reported",
+        "Must show inquiries within the last 90-120 days",
+        "Must include public record searches for each city where borrower resided in last 2 years",
+        "Must identify any collections, charge-offs, disputes, or derogatory items",
+        "Must be dated within 90 days of loan application",
+        "Must verify Social Security number for all borrowers"
+      ],
+      "reasons_needed": [
+        "Credit score is required to validate Flex Supreme program eligibility and pricing at 700 FICO",
+        "Tradeline requirements must be verified: 3 tradelines reporting 12+ months OR 2 tradelines reporting 24+ months",
+        "Credit report is primary source to identify any credit events (BK, FC, SS, DIL) and verify seasoning requirements",
+        "Housing history must be verified to confirm 0x30x12 mortgage payment history if applicable",
+        "Public records search confirms no undisclosed judgments or liens",
+        "Inquiries must be reviewed to identify potential undisclosed new debt"
+      ],
+      "source_module": "04",
+      "tags": [
+        "credit"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "NQM Guidelines - Credit Report section requires tri-merge RMCR for all borrowers"
+    },
+    {
+      "document_type": "Bank Statement",
+      "document_category": "Assets",
+      "priority": "P0",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must provide statements for most recent 2 consecutive months",
+        "Must include all pages of each statement",
+        "Must show borrower/account holder name matching application",
+        "Must show financial institution name and logo",
+        "Must show account number (full or masked)",
+        "Must show beginning and ending balances for each month",
+        "Must show complete transaction history",
+        "Must be dated within 90 days of note date per NQMF guidelines",
+        "Must cover all accounts intended for funds to close and reserves",
+        "Large deposits exceeding 50% of qualifying income require sourcing documentation",
+        "Must show sufficient liquid assets to cover required reserve months",
+        "Must calculate reserves based on PITIA (Principal, Interest, Taxes, Insurance, Association dues)",
+        "Must use verified account balances from acceptable asset sources",
+        "Must show reserves remain after funds to close are deducted",
+        "Reserve assets must be in borrower name or joint with spouse",
+        "Assets must be dated within 90 days of note date"
+      ],
+      "reasons_needed": [
+        "Assets must be verified for funds to close per NQMF guidelines",
+        "Down payment, closing costs, and prepaid items must be evidenced from acceptable sources",
+        "Reserve requirements must be supported by verified liquid assets",
+        "Account ownership must be confirmed to match borrower identity",
+        "Transaction history required to identify large deposits requiring additional documentation",
+        "Reserve requirements apply based on program, property type, and occupancy",
+        "Reserves provide evidence of borrower's ability to sustain mortgage payments",
+        "NQMF guidelines require verification of assets for reserves",
+        "Reserve calculation must reconcile with bank statement balances net of funds to close"
+      ],
+      "source_module": "03",
+      "tags": [
+        "assets"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "NQMF Assets Section - Assets must be dated within 90 days of note date"
+    },
+    {
+      "document_type": "Government-Issued Photo ID",
+      "document_category": "Cross-Cutting",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be current, unexpired government-issued photo identification",
+        "Must show borrower's full legal name matching loan application",
+        "Must include photo, date of birth, and expiration date",
+        "Acceptable forms: Driver's License, State ID, U.S. Passport, Permanent Resident Card"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "Borrower identity verification is required before credit, title, and compliance documents can be validated",
+          "reason_type": "identity_verification"
+        },
+        {
+          "reason": "Name on ID must match loan application and all borrower-signed documents",
+          "reason_type": "document_validation"
+        }
+      ],
+      "source_module": "01",
+      "tags": [
+        "crosscutting"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "",
+      "acceptable_types": [
+        "Drivers License",
+        "Passport",
+        "Non-Driver ID",
+        "Permanent Resident Card",
+        "Social Security ID",
+        "Travel VISA"
+      ]
+    },
+    {
+      "document_type": "IRS 4506-C Authorization",
+      "document_category": "Cross-Cutting",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be fully executed with borrower signature and date",
+        "Must include correct tax years (most recent 1-2 years as required by income type)",
+        "Must list correct borrower SSN and current address",
+        "Must authorize IRS to release tax transcripts to lender"
+      ],
+      "reasons_needed": [
+        {
+          "reason": "Guidelines require a fully executed and signed IRS Form-4506C for income verification",
+          "reason_type": "guideline_requirement"
+        },
+        {
+          "reason": "Tax transcript authorization required to validate income documentation and detect fraud",
+          "reason_type": "compliance"
+        }
+      ],
+      "source_module": "01",
+      "tags": [
+        "crosscutting"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": ""
+    },
+    {
+      "document_type": "Verification of Mortgage",
+      "document_category": "Credit",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must cover most recent 12-month period at minimum",
+        "Must identify borrower name and property address",
+        "Must show payment due dates and actual payment dates",
+        "Must indicate any late payments with severity (30/60/90/120 days)",
+        "Must be from current mortgage servicer or reflected on credit report",
+        "Must include all mortgages held by borrower (including investment properties)",
+        "Must show current loan balance and payment amount",
+        "Must indicate if any modifications, forbearances, or payment deferrals occurred"
+      ],
+      "reasons_needed": [
+        "Housing history verification is required for all programs per NQM guidelines",
+        "Mortgage payment history must demonstrate 0x30x12 standard for tradeline qualification",
+        "Any mortgage lates within lookback period affect program eligibility and pricing",
+        "Modification or forbearance history must be disclosed and seasoning verified",
+        "Investment property borrower likely has existing mortgage requiring history verification",
+        "120-day mortgage late constitutes a Housing Event requiring additional seasoning"
+      ],
+      "source_module": "04",
+      "tags": [
+        "credit"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "NQM Guidelines - Housing History section and Standard Tradelines section"
+    },
+    {
+      "document_type": "Paystub",
+      "document_category": "Income",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be most recent 30 days of paystubs",
+        "Must be typed or computer generated",
+        "Must show borrower's full name and address",
+        "Must show employer name",
+        "Must show year-to-date earnings",
+        "Must show rate of pay",
+        "Must separate base, overtime, bonus, or commission earnings if applicable",
+        "If garnishments or loan deductions are present, additional documentation will be required"
+      ],
+      "reasons_needed": [
+        "Full Documentation income verification requires 30 days of paystubs per NQM guidelines",
+        "YTD earnings are required to calculate qualifying income",
+        "Current employment and income stability must be verified",
+        "Variable income components require separate review for averaging"
+      ],
+      "source_module": "02",
+      "tags": [
+        "income"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "FULL DOCUMENTATION - Income must be verified with 30 days of paystubs"
+    },
+    {
+      "document_type": "W2",
+      "document_category": "Income",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must include W-2 forms covering most recent 1-2 year period",
+        "Must be typed or computer generated",
+        "Must show borrower's full name and address",
+        "Must show employer name",
+        "Must support income continuity and stability",
+        "Must reconcile to 1003 income declaration and paystub YTD"
+      ],
+      "reasons_needed": [
+        "Full Documentation income verification requires 1 or 2 years W-2 forms per NQM guidelines",
+        "Historical income documentation supports income stability analysis",
+        "W-2 income must reconcile with paystub and VOE for qualification"
+      ],
+      "source_module": "02",
+      "tags": [
+        "income"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "FULL DOCUMENTATION - 1 or 2 years W-2"
+    },
+    {
+      "document_type": "Verification of Employment",
+      "document_category": "Income",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be completed by current employer",
+        "Must show borrower name and position/title",
+        "Must show employment start date",
+        "Must show current salary/hourly rate",
+        "Must show YTD earnings and prior year earnings",
+        "Must indicate probability of continued employment",
+        "Must be dated within 30 days of closing",
+        "If commission income, must cover most recent 2-year period",
+        "Must be from CPA, regulatory agency, licensing bureau, or Secretary of State",
+        "Must verify business has been in existence for minimum 2 years",
+        "Must confirm current year registration if from Secretary of State",
+        "Must be obtained within 30 business days of closing",
+        "Must support self-employment history of 2 consecutive years in same business"
+      ],
+      "reasons_needed": [
+        "Full Documentation requires electronic verification of employment or written VOE",
+        "Employment continuity and income stability must be independently verified",
+        "Commission earners require 2-year history via VOE per guideline requirements",
+        "Business existence must be independently verified through disinterested third party",
+        "Self-employment verification required within 30 business days of closing per guideline",
+        "Stability and continuance of self-employment must be documented"
+      ],
+      "source_module": "02",
+      "tags": [
+        "income"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "FULL DOCUMENTATION - electronic verification of employment"
+    },
+    {
+      "document_type": "Verification of Deposit",
+      "document_category": "Assets",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must provide copy of earnest money check (front and back) showing cleared status",
+        "Must show EMD amount matching purchase contract",
+        "Must show funds sourced from verified borrower account",
+        "Must include deposit receipt or escrow confirmation if applicable",
+        "Must trace EMD funds to bank statement showing withdrawal"
+      ],
+      "reasons_needed": [
+        "EMD represents borrower contribution toward down payment",
+        "EMD source must be verified as acceptable funds",
+        "Cleared EMD confirms borrower commitment to transaction",
+        "EMD amount contributes to funds to close calculation"
+      ],
+      "source_module": "03",
+      "tags": [
+        "assets"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "NQMF Assets Section - Funds must be from acceptable sources"
+    },
+    {
+      "document_type": "Gift",
+      "document_category": "Assets",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must include donor's name, address, phone number, and relationship to borrower",
+        "Must state dollar amount of gift",
+        "Must include donor's signed statement that no repayment is expected or required",
+        "Donor must be relative by blood, marriage, adoption, or legal guardianship",
+        "Alternatively, donor may be domestic partner, fianc\u00e9, former relative, or godparent",
+        "Donor may not be builder, developer, real estate agent, or any interested party to transaction",
+        "For Flex Supreme Full Doc at 80% LTV or less: 100% gift funds eligible for down payment and closing costs",
+        "For LTV above 80%: minimum 5% borrower contribution required for owner-occupied"
+      ],
+      "reasons_needed": [
+        "Gift funds require documentation per NQMF Gift Funds guidelines",
+        "Donor relationship must be verified as eligible",
+        "No-repayment statement confirms funds are true gift, not loan",
+        "Gift may not come from interested party to the transaction"
+      ],
+      "source_module": "03",
+      "tags": [
+        "assets"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "NQMF Gift Funds Section"
+    },
+    {
+      "document_type": "Appraisal Report",
+      "document_category": "Property",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must identify subject property address matching loan application",
+        "Must identify property type and number of units",
+        "Must show appraised value to support LTV/CLTV calculation",
+        "Must be dated within 120 days of Note date (or 365 days with Form 1004D recertification)",
+        "Must include all pages, addenda, and photographs",
+        "Must use FNMA Form 1004 for 1-unit properties, Form 1025 for 2-4 units, or Form 1073 for condos",
+        "Must include street map showing subject and comparable locations",
+        "Must include exterior building sketch with dimensions and floor plan",
+        "Must include color photographs of front, street, rear views, kitchen, bathrooms, main living area",
+        "Must include comparable sales analysis and appraiser certification",
+        "Must disclose any repairs, adverse conditions, health/safety issues, or deferred maintenance",
+        "Must show property condition rating (C5/C6 not acceptable)",
+        "Must include appraiser license/certification number",
+        "Must comply with Appraiser Independence Requirements"
+      ],
+      "reasons_needed": [
+        "Collateral valuation is required for underwriting per NQMF guidelines",
+        "LTV 75% eligibility depends on appraised value confirmation",
+        "Property type and unit count affect program eligibility",
+        "Property condition rating impacts loan eligibility (C5/C6 ineligible)",
+        "Subject property identity must be consistent across loan file",
+        "FNMA SSR Score of 2.5 or less required for appraisal review process"
+      ],
+      "source_module": "05",
+      "tags": [
+        "property"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": ""
+    },
+    {
+      "document_type": "UCDP SSR",
+      "document_category": "Property",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must show SSR score from Fannie Mae submission",
+        "Must identify subject property address",
+        "Must include UCDP submission confirmation",
+        "SSR Score must be 2.5 or less for standard acceptance",
+        "Must include all findings and flags for underwriter review"
+      ],
+      "reasons_needed": [
+        "NQMF Appraisal Review Process requires FNMA SSR Score of 2.5 or less",
+        "SSR validates appraisal quality and value reasonableness",
+        "Required secondary appraisal product to support transaction value"
+      ],
+      "source_module": "05",
+      "tags": [
+        "property"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": ""
+    },
+    {
+      "document_type": "Flood Hazard Determination",
+      "document_category": "Property",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be issued by FEMA-certified vendor",
+        "Must identify subject property address",
+        "Must identify flood zone designation (A, V, X, etc.)",
+        "Must include Section B4 Flood Zone and Section B5 NFIP Map status",
+        "Must include Section D Determination confirming whether property is in SFHA",
+        "Must include FEMA Map Panel Number and effective date",
+        "Must be current and valid as of closing date"
+      ],
+      "reasons_needed": [
+        "Flood Certificate required per NQMF guidelines to determine if property is in SFHA",
+        "Determines whether flood insurance is required for loan",
+        "Properties in Zone A or V require FEMA Program participation",
+        "Appraisal report flood zone must be reconciled with flood certificate"
+      ],
+      "source_module": "05",
+      "tags": [
+        "property"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": ""
+    },
+    {
+      "document_type": "Flood Certification",
+      "document_category": "Property",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be NFIP standard policy or private policy with equal coverage",
+        "Must name all persons holding title as named insured",
+        "Must include property address matching loan documents",
+        "Must include standard mortgagee clause (not loss payable clause)",
+        "Minimum coverage: lesser of 100% replacement cost, $250,000 NFIP max, or UPB",
+        "Must show policy number, effective and expiration dates",
+        "Must show premium amount and deductible",
+        "Must include cancellation notice requirements",
+        "Must be in force at closing and maintained throughout loan term"
+      ],
+      "reasons_needed": [
+        "Required per NQMF guidelines for properties in Special Flood Hazard Area (Zone A or V)",
+        "Federal flood insurance requirements mandate coverage for SFHA properties",
+        "Protects collateral value against flood damage"
+      ],
+      "source_module": "05",
+      "tags": [
+        "property"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": ""
+    },
+    {
+      "document_type": "Hazard Insurance",
+      "document_category": "Property",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must name all persons holding title as named insured",
+        "Must include property address matching loan documents",
+        "Must include standard mortgagee clause",
+        "Must provide coverage at replacement cost value",
+        "Must show policy number, effective and expiration dates",
+        "Must include cancellation notice provision requiring insurer notification to mortgagee",
+        "Must show premium amount and deductible",
+        "Must be in force at closing"
+      ],
+      "reasons_needed": [
+        "Required per NQMF guidelines to protect collateral",
+        "Insurance protects lender's security interest in property",
+        "Standard requirement for all mortgage transactions"
+      ],
+      "source_module": "05",
+      "tags": [
+        "property"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": ""
+    },
+    {
+      "document_type": "Title Commitment",
+      "document_category": "Title",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be issued by a title insurer qualified to do business in California",
+        "Must identify all borrower/owner/vested parties by full legal name",
+        "Must identify subject property address and complete legal description",
+        "Must disclose all liens, judgments, easements, exceptions, and title requirements",
+        "Must show title insurer name and effective date",
+        "Must include 24-month chain of title history per NQMF guidelines",
+        "Must indicate final title policy will be issued after funding",
+        "Must be dated within 90 days of closing",
+        "Must reconcile vesting with borrower names and transaction structure",
+        "Must conform to ALTA 2006 standard form or approved state equivalent"
+      ],
+      "reasons_needed": [
+        "Title must confirm ownership, lien position, and insurable interest",
+        "Vesting and subject property must align with loan file",
+        "Liens and exceptions may affect closing conditions and first lien position",
+        "24-month title history required to review for flipping activity or inconsistencies",
+        "Title exceptions must be reviewed for acceptability per NQMF guidelines",
+        "Title insurer must be qualified in California per state licensing requirements"
+      ],
+      "source_module": "06",
+      "tags": [
+        "title"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": ""
+    },
+    {
+      "document_type": "Grant Deed",
+      "document_category": "Title",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be recorded deed showing current ownership of subject property",
+        "Must identify all vested owners by full legal name",
+        "Must include complete legal description matching title commitment",
+        "Must show manner of vesting (sole and separate, joint tenants, etc.)",
+        "Must be recorded with county recorder and show recording information",
+        "Must reconcile with borrower names on loan application",
+        "For purchase transactions, must provide seller's vesting deed showing seller's ownership"
+      ],
+      "reasons_needed": [
+        "Final title policy vesting must reflect the name(s) of individual borrower(s)",
+        "Ownership must be verified to confirm borrower has legal interest in property",
+        "Vesting must align with loan application and title commitment",
+        "Manner of vesting affects loan documentation and signing requirements"
+      ],
+      "source_module": "06",
+      "tags": [
+        "title"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": ""
+    },
+    {
+      "document_type": "Payoff Statement",
+      "document_category": "Title",
+      "priority": "P1",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must identify creditor/servicer name and contact information",
+        "Must identify loan account number",
+        "Must show total payoff amount including all fees",
+        "Must show good-through date (minimum 30 days recommended)",
+        "Must identify subject property address or secured lien reference",
+        "Must include per diem interest amount if applicable",
+        "Must be dated within 30 days of closing",
+        "Must include any prepayment penalty amounts if applicable",
+        "Must show escrow balance to be refunded if applicable"
+      ],
+      "reasons_needed": [
+        "Existing liens must be paid at closing to ensure NQM first lien position",
+        "Payoff amount required to calculate funds to close",
+        "Good-through date must extend past anticipated closing date",
+        "Per diem required for accurate settlement calculations",
+        "Title must ensure first lien position without exception per NQMF guidelines"
+      ],
+      "source_module": "06",
+      "tags": [
+        "title"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": ""
+    },
+    {
+      "document_type": "Verbal Verification of Employment",
+      "document_category": "Income",
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be completed within 10 business days of closing",
+        "Must verify current employment status",
+        "Must verify position/title",
+        "Must verify income if possible",
+        "Must include name and title of person contacted",
+        "Must include phone number used for verification"
+      ],
+      "reasons_needed": [
+        "Verbal VOE confirms employment status close to closing date",
+        "Ensures no changes to employment since written verification"
+      ],
+      "source_module": "02",
+      "tags": [
+        "income"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "Standard Full Documentation employment verification practice"
+    },
+    {
+      "document_type": "Form 1040",
+      "document_category": "Income",
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must include most recent 2 years of complete personal tax returns with all schedules",
+        "Must include Schedule C if borrower has sole proprietorship income",
+        "Must include Schedule E if borrower has rental property income",
+        "Must include Schedule K-1 if borrower has partnership or S-Corp income",
+        "Must be signed and dated",
+        "Must reconcile with W-2 reported wages"
+      ],
+      "reasons_needed": [
+        "Required if borrower has self-employment income, rental income, or other non-W2 income sources",
+        "Self-employed income qualification requires tax return analysis per guideline",
+        "Rental income calculation via FNMA Cash Flow Analysis requires Schedule E"
+      ],
+      "source_module": "02",
+      "tags": [
+        "income"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "SELF-EMPLOYMENT INCOME - Qualifying income is determined from Tax Returns"
+    },
+    {
+      "document_type": "Profit and Loss",
+      "document_category": "Income",
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be prepared and signed by CPA, EA, or PTIN licensed tax preparer",
+        "Must be dated within 90 days of application date",
+        "Must cover year-to-date period",
+        "Must show gross revenue and itemized expenses",
+        "Preparer must attest they have prepared borrower's most recent tax returns",
+        "Expenses must be at least 20% of gross revenue"
+      ],
+      "reasons_needed": [
+        "P&L is used to determine stability of self-employed income per guideline",
+        "YTD trend analysis supports income continuity determination",
+        "Self-employment income qualification requires P&L in addition to tax returns"
+      ],
+      "source_module": "02",
+      "tags": [
+        "income"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "SELF-EMPLOYMENT INCOME - P&L is used to determine the stability of that income"
+    },
+    {
+      "document_type": "Income LOE",
+      "document_category": "Income",
+      "priority": "P2",
+      "severity": "SOFT-STOP",
+      "status": "needed",
+      "specifications": [
+        "Must be signed and dated by borrower and/or employer",
+        "Must explain reason for decline in income",
+        "Must provide supporting documentation for explanation",
+        "Must address whether decline is temporary or permanent"
+      ],
+      "reasons_needed": [
+        "Declining income sources require explanation to determine if income may be used for qualifying",
+        "If income shows consistent decline, it should not be considered stable or usable",
+        "When decline is explained and supported, most recent lower income must be used"
+      ],
+      "source_module": "02",
+      "tags": [
+        "income"
+      ],
+      "applicable_parties": [],
+      "description": "",
+      "guideline_reference": "DECLINING INCOME - signed, written explanation for the decline should be obtained"
+    }
+  ],
+  "stats": {
+    "total_document_requests": 22,
+    "hard_stop_documents": 0,
+    "by_category": {
+      "Credit": 2,
+      "Assets": 3,
+      "Cross-Cutting": 2,
+      "Income": 7,
+      "Property": 5,
+      "Title": 3
+    },
+    "by_priority": {
+      "P0": 2,
+      "P1": 16,
+      "P2": 4
+    },
+    "by_status": {
+      "needed": 22
+    },
+    "elapsed_seconds": 476.8,
+    "tool_calls": 84
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "loan_id": "MINIMAL-TEST-001",
+  "loan_profile": {
+    "metadata": {
+      "borrower": {
+        "first_name": "Jane",
+        "last_name": "TestBorrower",
+        "middle_name": "",
+        "suffix": ""
+      },
+      "loan_amount": 400000,
+      "loan_number": "MINIMAL-TEST-001",
+      "state": "CA",
+      "county": "Los Angeles",
+      "ltv_pct": 75,
+      "cltv_pct": 75,
+      "fico": 700,
+      "occupancy": null,
+      "purpose": null,
+      "income_doc": "Full Doc",
+      "loan_program": {
+        "name": "Flex Supreme",
+        "rate": 7.5,
+        "type": "Conventional"
+      }
+    }
+  },
+  "submitted_documents": [
+    {
+      "doc_id": "doc_001",
+      "name": "Paystub",
+      "doc_type": "paystub",
+      "category_name": "Income",
+      "extracted_fields": {
+        "borrower_name": "Jane TestBorrower",
+        "employer": "Acme Corp",
+        "pay_period": "2026-04-30"
+      }
+    },
+    {
+      "doc_id": "doc_002",
+      "name": "W-2",
+      "doc_type": "W2",
+      "category_name": "Income",
+      "extracted_fields": {
+        "borrower_name": "Jane TestBorrower",
+        "employer": "Acme Corp",
+        "tax_year": "2025"
+      }
+    },
+    {
+      "doc_id": "doc_003",
+      "name": "Bank Statement",
+      "doc_type": "bank_statement",
+      "category_name": "Assets",
+      "extracted_fields": {
+        "account_holder": "Jane TestBorrower",
+        "institution": "Chase Bank",
+        "month": "2026-03"
+      }
+    }
+  ]
+}
