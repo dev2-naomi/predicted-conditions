@@ -286,7 +286,7 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         "name": "Document Request Merger and Ranker",
         "description": "Merge document requests from modules 01-07; aggregate specifications and reasons; de-duplicate; rank; produce final Predictive Document Needs List.",
         "plan_file": "step_08_merger_ranker.md",
-        "tools": ["merge_document_requests", "rank_document_requests", "generate_final_output"],
+        "tools": ["merge_document_requests", "rank_document_requests", "cross_check_satisfaction", "generate_final_output"],
         "substeps": [
                 {
                         "id": "8.1",
@@ -304,13 +304,20 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 },
                 {
                         "id": "8.3",
+                        "name": "Cross-check satisfaction against submitted docs",
+                        "tools": [
+                                "cross_check_satisfaction"
+                        ]
+                },
+                {
+                        "id": "8.4",
                         "name": "Generate final output",
                         "tools": [
                                 "generate_final_output"
                         ]
                 },
                 {
-                        "id": "8.4",
+                        "id": "8.5",
                         "name": "Save step report",
                         "tools": [
                                 "save_step_report"

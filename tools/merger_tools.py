@@ -1,10 +1,11 @@
 """
 merger_tools.py — Tools for STEP_08: Merger, De-Duper, Ranker (v2 Document-Centric).
 
-Three tools:
-  1. merge_document_requests   — collect & merge doc requests from modules 01-07
-  2. rank_document_requests    — sort by severity/priority/category and assign status
-  3. generate_final_output     — assemble the final output JSON with stats
+Four tools:
+  1. merge_document_requests      — collect & merge doc requests from modules 01-07
+  2. rank_document_requests       — sort by severity/priority/category and assign status
+  3. cross_check_satisfaction     — compare specs against submitted doc contents
+  4. generate_final_output        — assemble the final output JSON with stats
 """
 
 from __future__ import annotations
@@ -337,20 +338,26 @@ def rank_document_requests(
     mo = s.get("module_outputs", {})
     merged: list[dict] = _as_list(mo.get("08", {}).get("merged_document_requests", []))
 
-    # Build a lookup of existing documents from document_inventory
+    # Build a lookup of existing documents from document_inventory.
+    # Inventory rows use detected_document_type / category / doc_type / name;
+    # canonical doc requests use "Credit Report" style names.  We normalise
+    # both sides to lowercase-with-underscores so they can match.
     inventory: list[dict] = _as_list(s.get("document_inventory", []))
     inventory_types: set[str] = set()
     for doc in inventory:
-        doc_type = (doc.get("document_type") or doc.get("doc_type") or "").strip().lower()
-        if doc_type:
-            inventory_types.add(doc_type)
-        name = (doc.get("name") or doc.get("label") or "").strip().lower()
-        if name:
-            inventory_types.add(name)
+        for key in ("detected_document_type", "document_type", "doc_type", "name", "label", "category"):
+            raw = (doc.get(key) or "").strip().lower()
+            if raw:
+                inventory_types.add(raw)
+                inventory_types.add(raw.replace(" ", "_"))
+                inventory_types.add(raw.replace("_", " "))
 
     for dr in merged:
         doc_type_lower = (dr.get("document_type") or "").strip().lower()
-        if doc_type_lower and doc_type_lower in inventory_types:
+        if doc_type_lower and (
+            doc_type_lower in inventory_types
+            or doc_type_lower.replace(" ", "_") in inventory_types
+        ):
             dr["status"] = "satisfied_but_review_required"
         else:
             dr["status"] = "needed"
@@ -366,6 +373,178 @@ def rank_document_requests(
     msg = (
         f"Ranked {len(ranked)} document requests. "
         f"Status breakdown: {status_summary}."
+    )
+
+    return Command(update={
+        "module_outputs": {"08": {"ranked_document_requests": ranked}},
+        "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
+    })
+
+
+# ---------------------------------------------------------------------------
+# Satisfaction cross-check helpers
+# ---------------------------------------------------------------------------
+
+_SPEC_FIELD_MAP: dict[str, list[str]] = {
+    "purchase price": ["purchasePrice", "purchase_price", "salesPrice", "sales_price"],
+    "fully executed": ["signed", "dateSigned", "date_signed"],
+    "all signatures": ["signed", "dateSigned", "date_signed"],
+    "property address": ["propertyAddress", "property_address", "fullAddress", "address1"],
+    "subject property": ["propertyAddress", "property_address", "fullAddress", "address1"],
+    "parties": ["buyers", "sellers", "borrowers", "applicants"],
+    "buyer": ["buyers", "borrowers"],
+    "seller": ["sellers"],
+    "earnest money": ["earnestMoney", "emd_amount", "earnest_money"],
+    "closing date": ["closingDate", "closing_date", "settlement_date"],
+    "addenda": ["addenda", "amendments", "counter_offers"],
+    "credit score": ["credit_scores", "fico", "FicoScore", "creditScore"],
+    "all borrowers": ["borrower_name", "borrowers", "applicants"],
+    "tri-merge": ["bureaus", "experian", "transunion", "equifax"],
+    "three bureaus": ["bureaus", "experian", "transunion", "equifax"],
+    "tradeline": ["tradelines", "trade_lines"],
+    "payment history": ["tradelines", "payment_history", "mortgage_history"],
+    "public record": ["public_records", "publicRecords"],
+    "inquiries": ["inquiries", "credit_inquiries"],
+    "disputes": ["disputes", "disputed_accounts"],
+    "collections": ["collections", "charge_offs"],
+    "mortgage history": ["mortgage_history", "housing_history"],
+    "social security": ["ssn", "socialSecurityNumber", "social_security"],
+    "vested": ["vested_parties", "vesting", "grantee"],
+    "legal description": ["legal_description", "legalDescription"],
+    "effective date": ["effective_date", "effectiveDate"],
+    "insurer": ["insurer", "title_company", "underwriter"],
+    "title insurer": ["insurer", "title_company", "underwriter"],
+    "liens": ["liens", "encumbrances", "exceptions"],
+    "judgments": ["judgments", "liens", "tax_liens"],
+    "chain of title": ["chain_of_title", "title_history"],
+    "borrower signature": ["signed", "dateSigned", "borrower_signed"],
+    "borrower name": ["borrower_name", "borrowers", "buyers"],
+    "appraised value": ["appraised_value", "appraisedValue", "marketValue"],
+    "property type": ["property_type", "propertyType"],
+    "comparable": ["comparables", "comparable_sales"],
+    "flood zone": ["flood_zone", "floodZone"],
+    "employer": ["employer", "employer_name", "company"],
+    "pay period": ["pay_period", "payPeriod"],
+    "tax year": ["tax_year", "taxYear"],
+    "account": ["account_number", "institution", "bank"],
+    "account holder": ["account_holder", "accountHolder"],
+    "deposit": ["deposits", "deposit_amount"],
+}
+
+
+def _find_submitted_doc(
+    doc_type_canonical: str,
+    submitted_docs: list[dict],
+) -> dict | None:
+    """Find a submitted doc matching the canonical document_type."""
+    target = doc_type_canonical.strip().lower()
+    target_underscored = target.replace(" ", "_")
+    target_spaced = target.replace("_", " ")
+
+    for sdoc in submitted_docs:
+        name = (sdoc.get("name") or "").strip().lower()
+        dtype = (sdoc.get("doc_type") or "").strip().lower()
+        if target in (name, dtype, name.replace(" ", "_"), dtype.replace("_", " ")):
+            return sdoc
+        if target_underscored in (name, dtype):
+            return sdoc
+        if target_spaced in (name, dtype):
+            return sdoc
+    return None
+
+
+def _spec_text(spec: Any) -> str:
+    """Extract the text content from a spec (string or dict)."""
+    if isinstance(spec, str):
+        return spec
+    if isinstance(spec, dict):
+        return spec.get("text") or spec.get("specification") or spec.get("description") or str(spec)
+    return str(spec)
+
+
+def _check_spec_satisfied(
+    spec: Any,
+    extracted_fields: dict,
+) -> str | None:
+    """If the spec is satisfied by extracted_fields, return a reason string.
+    Returns None if not satisfied."""
+    text_lower = _spec_text(spec).lower()
+    ef_keys_lower = {k.lower() for k in extracted_fields}
+
+    for keyword, field_names in _SPEC_FIELD_MAP.items():
+        if keyword not in text_lower:
+            continue
+        for fname in field_names:
+            if fname.lower() in ef_keys_lower:
+                val = None
+                for real_key in extracted_fields:
+                    if real_key.lower() == fname.lower():
+                        val = extracted_fields[real_key]
+                        break
+                if val is not None and val != "" and val != []:
+                    return (
+                        f"Dropped — submitted document contains {fname} "
+                        f"field confirming this requirement is present"
+                    )
+    return None
+
+
+@tool
+def cross_check_satisfaction(
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
+) -> Command:
+    """
+    Cross-check ranked document requests against submitted documents from
+    the manifest.  For each request whose document exists in the manifest,
+    compare specifications against the doc's extracted_fields.  Satisfied
+    specs are moved from 'specifications' to 'satisfied_specifications'.
+    """
+    s = state or {}
+    mo = s.get("module_outputs", {})
+    ranked: list[dict] = _as_list(
+        mo.get("08", {}).get("ranked_document_requests", [])
+    )
+
+    scenario_summary = s.get("scenario_summary", {})
+    submitted_docs: list[dict] = _as_list(scenario_summary.get("_submitted_docs", []))
+
+    total_checked = 0
+    total_satisfied_specs = 0
+
+    for dr in ranked:
+        doc_type = dr.get("document_type") or ""
+        sdoc = _find_submitted_doc(doc_type, submitted_docs)
+        if not sdoc:
+            dr["satisfied_specifications"] = []
+            continue
+
+        total_checked += 1
+        extracted = sdoc.get("extracted_fields", {})
+        if not extracted:
+            dr["satisfied_specifications"] = []
+            continue
+
+        remaining_specs: list = []
+        satisfied_specs: list[dict] = []
+
+        for spec in _as_list(dr.get("specifications", [])):
+            reason = _check_spec_satisfied(spec, extracted)
+            if reason:
+                satisfied_specs.append({
+                    "specification": _spec_text(spec),
+                    "reason": reason,
+                })
+            else:
+                remaining_specs.append(spec)
+
+        dr["specifications"] = remaining_specs
+        dr["satisfied_specifications"] = satisfied_specs
+        total_satisfied_specs += len(satisfied_specs)
+
+    msg = (
+        f"Cross-checked {total_checked} document requests against submitted docs. "
+        f"Moved {total_satisfied_specs} specifications to satisfied_specifications."
     )
 
     return Command(update={

@@ -514,6 +514,7 @@ _CANONICAL_FIELDS: dict[str, Any] = {
     "status": "needed",
     "specifications": [],
     "reasons_needed": [],
+    "satisfied_specifications": [],
     "source_module": "",
     "tags": [],
     "applicable_parties": [],
@@ -556,7 +557,7 @@ def normalize_document_structure(dr: dict) -> dict:
             out[field] = val
 
     # Coerce list fields
-    for lf in ("specifications", "reasons_needed", "tags", "applicable_parties"):
+    for lf in ("specifications", "reasons_needed", "satisfied_specifications", "tags", "applicable_parties"):
         v = out[lf]
         if isinstance(v, str):
             out[lf] = [v] if v else []

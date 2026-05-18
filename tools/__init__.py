@@ -30,7 +30,12 @@ from tools.credit_tools import generate_credit_document_requests
 from tools.property_tools import generate_property_document_requests
 from tools.title_tools import generate_title_document_requests
 from tools.compliance_tools import generate_compliance_document_requests
-from tools.merger_tools import generate_final_output, merge_document_requests, rank_document_requests
+from tools.merger_tools import (
+    cross_check_satisfaction,
+    generate_final_output,
+    merge_document_requests,
+    rank_document_requests,
+)
 
 # General tools — always available regardless of step
 GENERAL_TOOLS = [
@@ -82,6 +87,7 @@ STEP_TOOLS = {
     "STEP_08": [
         merge_document_requests,
         rank_document_requests,
+        cross_check_satisfaction,
         generate_final_output,
     ],
 }

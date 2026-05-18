@@ -149,11 +149,36 @@ Priority order:
 
 Assign status:
 - needed: document not present or not sufficient
-- partially_satisfied: document exists but lacks required specification
-- satisfied_but_review_required: document appears present but has risk/discrepancy
+- partially_satisfied: document exists, some specs satisfied by submitted doc content
+- satisfied: document exists and all specs satisfied by submitted doc content
+- satisfied_but_review_required: document appears present but can't verify individual specs
 - unknown: not enough evidence to determine
 
 Do not mark satisfied unless evidence clearly meets all specifications.
+
+## Document Satisfaction Cross-Check
+
+After ranking, call `cross_check_satisfaction` before `generate_final_output`.
+
+This tool compares each document request against submitted documents from the manifest.
+For each request whose document exists in the manifest, it checks the document's
+`extracted_fields` against the request's specifications using keyword matching.
+
+Specifications that are satisfied by the submitted document's content are moved from
+`specifications` to `satisfied_specifications`. Each entry in `satisfied_specifications`
+is an object with:
+- `specification`: the original specification text
+- `reason`: why it was dropped (what field in the submitted doc satisfies it)
+
+The document's `status` is **not changed** by this step — it stays as whatever
+`rank_document_requests` assigned (e.g. `needed` or `satisfied_but_review_required`).
+The `satisfied_specifications` array is purely informational.
+
+Tool call sequence for STEP_08:
+1. `merge_document_requests`
+2. `rank_document_requests`
+3. `cross_check_satisfaction`
+4. `generate_final_output`
 
 ## Overlay Conflict Rules
 

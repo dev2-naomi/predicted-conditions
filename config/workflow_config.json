@@ -106,8 +106,9 @@
       "substeps": [
         { "id": "8.1", "name": "Merge and de-duplicate document requests", "tools": ["merge_document_requests"] },
         { "id": "8.2", "name": "Rank document requests", "tools": ["rank_document_requests"] },
-        { "id": "8.3", "name": "Generate final output", "tools": ["generate_final_output"] },
-        { "id": "8.4", "name": "Save step report", "tools": ["save_step_report"] }
+        { "id": "8.3", "name": "Cross-check satisfaction against submitted docs", "tools": ["cross_check_satisfaction"] },
+        { "id": "8.4", "name": "Generate final output", "tools": ["generate_final_output"] },
+        { "id": "8.5", "name": "Save step report", "tools": ["save_step_report"] }
       ]
     }
   },
