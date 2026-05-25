@@ -36,6 +36,7 @@ from tools.merger_tools import (
     merge_document_requests,
     rank_document_requests,
 )
+from tools.presentation_tools import style_document_requests
 
 # General tools — always available regardless of step
 GENERAL_TOOLS = [
@@ -89,6 +90,9 @@ STEP_TOOLS = {
         rank_document_requests,
         cross_check_satisfaction,
         generate_final_output,
+    ],
+    "STEP_09": [
+        style_document_requests,
     ],
 }
 

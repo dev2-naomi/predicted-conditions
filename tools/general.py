@@ -49,7 +49,7 @@ def write_todo(
 
 _STEP_SEQUENCE = [
     "STEP_00", "STEP_01", "STEP_02", "STEP_03", "STEP_04",
-    "STEP_05", "STEP_06", "STEP_07", "STEP_08",
+    "STEP_05", "STEP_06", "STEP_07", "STEP_08", "STEP_09",
 ]
 
 

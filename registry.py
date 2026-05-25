@@ -325,6 +325,28 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                 }
         ],
     },
+    "STEP_09": {
+        "name": "AUS-Like Presentation Styler",
+        "description": "Restyle document request specifications and reasons into AUS/DU/LP-inspired findings language, adding a display block to each document request.",
+        "plan_file": "step_09_presentation_styler.md",
+        "tools": ["style_document_requests"],
+        "substeps": [
+                {
+                        "id": "9.1",
+                        "name": "Style document requests with AUS-like display blocks",
+                        "tools": [
+                                "style_document_requests"
+                        ]
+                },
+                {
+                        "id": "9.2",
+                        "name": "Save step report",
+                        "tools": [
+                                "save_step_report"
+                        ]
+                }
+        ],
+    },
 }
 
 
@@ -332,7 +354,7 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
 # Step ordering (derived from phases)
 # ---------------------------------------------------------------------------
 
-STEP_ORDER: list[str] = ["STEP_00", "STEP_01", "STEP_02", "STEP_03", "STEP_04", "STEP_05", "STEP_06", "STEP_07", "STEP_08"]
+STEP_ORDER: list[str] = ["STEP_00", "STEP_01", "STEP_02", "STEP_03", "STEP_04", "STEP_05", "STEP_06", "STEP_07", "STEP_08", "STEP_09"]
 
 
 # ---------------------------------------------------------------------------

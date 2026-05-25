@@ -110,6 +110,15 @@
         { "id": "8.4", "name": "Generate final output", "tools": ["generate_final_output"] },
         { "id": "8.5", "name": "Save step report", "tools": ["save_step_report"] }
       ]
+    },
+    "STEP_09": {
+      "name": "AUS-Like Presentation Styler",
+      "description": "Restyle document request specifications and reasons into AUS/DU/LP-inspired findings language, adding a display block to each document request.",
+      "plan_file": "step_09_presentation_styler.md",
+      "substeps": [
+        { "id": "9.1", "name": "Style document requests with AUS-like display blocks", "tools": ["style_document_requests"] },
+        { "id": "9.2", "name": "Save step report", "tools": ["save_step_report"] }
+      ]
     }
   },
   "general_tools": [

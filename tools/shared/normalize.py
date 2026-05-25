@@ -515,6 +515,7 @@ _CANONICAL_FIELDS: dict[str, Any] = {
     "specifications": [],
     "reasons_needed": [],
     "satisfied_specifications": [],
+    "display": {},
     "source_module": "",
     "tags": [],
     "applicable_parties": [],

@@ -119,7 +119,7 @@ _llm = ChatAnthropic(**_llm_kwargs)
 # ---------------------------------------------------------------------------
 
 _DEFAULT_INITIAL_PROMPT = (
-    "Execute the FULL Predictive Document Needs workflow from STEP_00 through STEP_08.\n\n"
+    "Execute the FULL Predictive Document Needs workflow from STEP_00 through STEP_09.\n\n"
     "You MUST complete ALL steps in sequence. Do NOT stop after a single step.\n"
     "Do NOT output a summary between steps — just call the tools.\n\n"
     "Step sequence:\n"
@@ -133,7 +133,8 @@ _DEFAULT_INITIAL_PROMPT = (
     "  STEP_05: load_guideline_sections (property), then generate_property_document_requests\n"
     "  STEP_06: load_guideline_sections (title), then generate_title_document_requests\n"
     "  STEP_07: load_guideline_sections (compliance), then generate_compliance_document_requests\n"
-    "  STEP_08: merge_document_requests, rank_document_requests, cross_check_satisfaction, generate_final_output\n\n"
+    "  STEP_08: merge_document_requests, rank_document_requests, cross_check_satisfaction, generate_final_output\n"
+    "  STEP_09: style_document_requests (restyle all document requests into AUS-like display format)\n\n"
     "For STEP_02 through STEP_07: first load the relevant guideline sections, then "
     "reason over the scenario_summary + guidelines to generate document requests.\n"
     "Output document_requests (not conditions). Each document request must include "
