@@ -17,6 +17,37 @@ from langgraph.types import Command
 from typing_extensions import Annotated
 
 
+_AUS_VERBS = {
+    "must include": "Confirm",
+    "must show": "Verify",
+    "must be": "Confirm",
+    "must provide": "Obtain",
+    "must cover": "Confirm",
+    "must identify": "Verify",
+    "must confirm": "Confirm",
+    "must contain": "Verify",
+    "must display": "Verify",
+}
+
+
+def _aus_restyle_spec(spec: str) -> str:
+    """Restyle a raw specification into AUS-inspired language."""
+    s = spec.strip()
+    lower = s.lower()
+    for prefix, verb in _AUS_VERBS.items():
+        if lower.startswith(prefix):
+            remainder = s[len(prefix):].strip()
+            if remainder and remainder[0].isupper():
+                remainder = remainder[0].lower() + remainder[1:]
+            styled = f"{verb} {remainder}"
+            if not styled.endswith("."):
+                styled += "."
+            return styled
+    if not s.endswith("."):
+        s += "."
+    return s
+
+
 def _normalize_key(s: str) -> str:
     return s.strip().lower().replace("-", " ").replace("_", " ")
 
@@ -49,7 +80,7 @@ def style_document_requests(
         styled_displays: A list of objects, each with:
             - document_type: str matching an existing document_request
             - display: dict with document_heading, documentation_requirements,
-              reason_for_requirement, review_notes
+              reason_for_requirement, review_notes, satisfied_requirements
     """
     s = state or {}
     final_output: dict = dict(s.get("final_output") or {})
@@ -96,6 +127,24 @@ def style_document_requests(
                     break
         else:
             unmatched.append(dt)
+
+    # Fallback: auto-populate satisfied_requirements from satisfied_specifications
+    # when the LLM left it empty but raw data exists.
+    for dr in doc_requests:
+        display = dr.get("display")
+        if not isinstance(display, dict):
+            continue
+        sat_specs = dr.get("satisfied_specifications") or []
+        existing = display.get("satisfied_requirements") or []
+        if sat_specs and not existing:
+            styled_sats = []
+            for item in sat_specs:
+                raw = item.get("specification", "") if isinstance(item, dict) else str(item)
+                if raw:
+                    styled_sats.append(
+                        f"{_aus_restyle_spec(raw).rstrip('.')} — confirmed by submitted document."
+                    )
+            display["satisfied_requirements"] = styled_sats
 
     final_output["document_requests"] = doc_requests
     styled_total = sum(1 for dr in doc_requests if dr.get("display") and dr["display"].get("document_heading"))

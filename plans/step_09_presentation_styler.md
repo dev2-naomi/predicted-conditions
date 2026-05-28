@@ -26,9 +26,10 @@ Call `style_document_requests` with a list of display objects, one per document 
   "document_type": "string — MUST be the EXACT document_type from final_output",
   "display": {
     "document_heading": "string — the document type name",
-    "documentation_requirements": ["string — AUS-styled specs"],
+    "documentation_requirements": ["string — AUS-styled specs (remaining/outstanding only)"],
     "reason_for_requirement": ["string — AUS-styled reasons"],
-    "review_notes": ["string — conditional or advisory notes"]
+    "review_notes": ["string — conditional or advisory notes"],
+    "satisfied_requirements": ["string — AUS-styled confirmed items from satisfied_specifications"]
   }
 }
 ```
@@ -137,8 +138,29 @@ Use "AUS-inspired" style only.
 Use the `review_notes` array for:
 
 - Conditional requirements that depend on scenario facts
-- Items from `satisfied_specifications` that were already confirmed by submitted docs
 - Any advisory or situational guidance
+
+### 11. Satisfied requirements
+
+Use the `satisfied_requirements` array for items from `satisfied_specifications` that were already confirmed by submitted documents.
+
+- Restyle each satisfied specification into AUS-inspired language, same as documentation_requirements
+- Append a confirmation note, e.g. "— confirmed by submitted document."
+- If `satisfied_specifications` is empty, set `satisfied_requirements` to an empty array `[]`
+
+Example:
+
+If `satisfied_specifications` contains:
+```json
+{"specification": "Must include subject property address in California", "reason": "Dropped — submitted document contains propertyAddress field"}
+```
+
+Write:
+```json
+"satisfied_requirements": [
+  "Subject property address in California — confirmed by submitted document."
+]
+```
 
 ## Example
 
@@ -165,14 +187,15 @@ Styled output:
   ],
   "review_notes": [
     "If rental income is used to qualify, obtain Form 1007 or other acceptable market rent support required by program guidelines."
-  ]
+  ],
+  "satisfied_requirements": []
 }
 ```
 
 ## Procedure
 
 1. Read `final_output.document_requests` from state
-2. For each document request, restyle its `specifications` into `documentation_requirements`, its `reasons_needed` into `reason_for_requirement`, and extract conditional/advisory items into `review_notes`
+2. For each document request, restyle its `specifications` into `documentation_requirements`, its `reasons_needed` into `reason_for_requirement`, extract conditional/advisory items into `review_notes`, and restyle its `satisfied_specifications` into `satisfied_requirements`
 3. Merge repetitive bullets — consolidate overlapping specs into single concise statements
 4. Call `style_document_requests` with the display objects. You MUST style ALL documents. If the list is long, split into multiple calls (the tool merges incrementally). Do NOT skip any document.
 5. Call `save_step_report` with a summary of what was styled
