@@ -36,6 +36,8 @@ Call `style_document_requests` with a list of display objects, one per document 
 
 CRITICAL: The `document_type` value in each display object MUST exactly match the `document_type` in the corresponding document request from `final_output`. Do NOT invent new names, rename documents, or paraphrase. Copy the exact string. For example, if the document request says `"UCDP SSR"`, use `"UCDP SSR"` — not `"SSR/UCDP Findings"`.
 
+CRITICAL: The `document_heading` MUST be the EXACT `document_type` string from the document request. Do NOT generalize, shorten, or paraphrase headings. For example, if the document_type is `"Borrower Certification as to Business Purpose"`, the heading must be `"Borrower Certification as to Business Purpose"` — not `"Borrower Certification and Authorization"`.
+
 ## Style Rules
 
 ### 1. Use AUS-inspired wording
@@ -85,7 +87,7 @@ Example headings:
 
 ### 4. Separate requirements from reasons
 
-Specifications become `documentation_requirements`.
+Specifications become `documentation_requirements`. Only include specifications that are STILL in the `specifications` array (i.e. remaining/outstanding). Do NOT re-introduce any item that appears in `satisfied_specifications` — those belong in `satisfied_requirements` only.
 
 Reasons become `reason_for_requirement`.
 

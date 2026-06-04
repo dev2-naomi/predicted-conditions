@@ -128,15 +128,21 @@ def style_document_requests(
         else:
             unmatched.append(dt)
 
-    # Fallback: auto-populate satisfied_requirements from satisfied_specifications
-    # when the LLM left it empty but raw data exists.
     for dr in doc_requests:
         display = dr.get("display")
         if not isinstance(display, dict):
             continue
+
+        # --- Fix heading: must match the canonical document_type exactly ---
+        # Only apply when display has real content (LLM actually styled it).
+        canonical_dt = (dr.get("document_type") or "").strip()
+        if canonical_dt and display.get("document_heading"):
+            display["document_heading"] = canonical_dt
+
+        # --- Fallback: auto-populate satisfied_requirements from raw data ---
         sat_specs = dr.get("satisfied_specifications") or []
-        existing = display.get("satisfied_requirements") or []
-        if sat_specs and not existing:
+        existing_sat = display.get("satisfied_requirements") or []
+        if sat_specs and not existing_sat:
             styled_sats = []
             for item in sat_specs:
                 raw = item.get("specification", "") if isinstance(item, dict) else str(item)
@@ -145,6 +151,25 @@ def style_document_requests(
                         f"{_aus_restyle_spec(raw).rstrip('.')} — confirmed by submitted document."
                     )
             display["satisfied_requirements"] = styled_sats
+
+        # --- Dedup: strip documentation_requirements that overlap satisfied ---
+        sat_items = display.get("satisfied_requirements") or []
+        if sat_items:
+            doc_reqs = display.get("documentation_requirements") or []
+            if doc_reqs:
+                sat_keywords = {
+                    _normalize_key(s.split("—")[0]) for s in sat_items
+                }
+                filtered = []
+                for req in doc_reqs:
+                    req_norm = _normalize_key(req)
+                    is_dup = any(
+                        SequenceMatcher(None, req_norm, sk).ratio() > 0.70
+                        for sk in sat_keywords
+                    )
+                    if not is_dup:
+                        filtered.append(req)
+                display["documentation_requirements"] = filtered
 
     final_output["document_requests"] = doc_requests
     styled_total = sum(1 for dr in doc_requests if dr.get("display") and dr["display"].get("document_heading"))
