@@ -152,6 +152,11 @@ def style_document_requests(
                     )
             display["satisfied_requirements"] = styled_sats
 
+        # --- Clear documentation_requirements when no specs remain ---
+        remaining_specs = dr.get("specifications") or []
+        if not remaining_specs:
+            display["documentation_requirements"] = []
+
         # --- Dedup: strip documentation_requirements that overlap satisfied ---
         sat_items = display.get("satisfied_requirements") or []
         if sat_items:
