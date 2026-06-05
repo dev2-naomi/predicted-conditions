@@ -22,6 +22,30 @@ from tools.shared.normalize import normalize_all, normalize_document_structure
 
 
 # ---------------------------------------------------------------------------
+# Document-type alias map
+# ---------------------------------------------------------------------------
+# Maps a requested document type (lower-cased) to a set of manifest names
+# that should be treated as equivalent.  If the manifest contains any of the
+# alias names, the engine treats the requested document as present.
+
+_DOCTYPE_ALIASES: dict[str, set[str]] = {
+    "borrower certification as to business purpose": {
+        "borrowers authorization",
+    },
+}
+
+
+def _get_aliases(doc_type: str) -> set[str]:
+    """Return all names (including the original) that count as the same doc."""
+    key = doc_type.strip().lower()
+    aliases = {key, key.replace(" ", "_"), key.replace("_", " ")}
+    for mapped in _DOCTYPE_ALIASES.get(key, set()):
+        m = mapped.strip().lower()
+        aliases.update({m, m.replace(" ", "_"), m.replace("_", " ")})
+    return aliases
+
+
+# ---------------------------------------------------------------------------
 # Ranking helpers
 # ---------------------------------------------------------------------------
 
@@ -354,10 +378,8 @@ def rank_document_requests(
 
     for dr in merged:
         doc_type_lower = (dr.get("document_type") or "").strip().lower()
-        if doc_type_lower and (
-            doc_type_lower in inventory_types
-            or doc_type_lower.replace(" ", "_") in inventory_types
-        ):
+        all_names = _get_aliases(doc_type_lower) if doc_type_lower else set()
+        if all_names & inventory_types:
             dr["status"] = "satisfied_but_review_required"
         else:
             dr["status"] = "needed"
@@ -436,19 +458,15 @@ def _find_submitted_doc(
     doc_type_canonical: str,
     submitted_docs: list[dict],
 ) -> dict | None:
-    """Find a submitted doc matching the canonical document_type."""
-    target = doc_type_canonical.strip().lower()
-    target_underscored = target.replace(" ", "_")
-    target_spaced = target.replace("_", " ")
+    """Find a submitted doc matching the canonical document_type,
+    including alias lookups from _DOCTYPE_ALIASES."""
+    all_names = _get_aliases(doc_type_canonical)
 
     for sdoc in submitted_docs:
         name = (sdoc.get("name") or "").strip().lower()
         dtype = (sdoc.get("doc_type") or "").strip().lower()
-        if target in (name, dtype, name.replace(" ", "_"), dtype.replace("_", " ")):
-            return sdoc
-        if target_underscored in (name, dtype):
-            return sdoc
-        if target_spaced in (name, dtype):
+        sdoc_names = {name, dtype, name.replace(" ", "_"), dtype.replace("_", " ")}
+        if all_names & sdoc_names:
             return sdoc
     return None
 
@@ -520,6 +538,29 @@ def cross_check_satisfaction(
             continue
 
         total_checked += 1
+
+        # When the match came through an alias (submitted doc name differs
+        # from the requested doc type), the document is functionally
+        # equivalent — treat ALL specs as satisfied.
+        sdoc_name = (sdoc.get("name") or "").strip().lower()
+        is_alias_match = sdoc_name != doc_type.strip().lower()
+
+        if is_alias_match:
+            satisfied_specs = [
+                {
+                    "specification": _spec_text(spec),
+                    "reason": (
+                        f"Satisfied — equivalent document '{sdoc.get('name', '')}' "
+                        f"is present in the manifest"
+                    ),
+                }
+                for spec in _as_list(dr.get("specifications", []))
+            ]
+            dr["specifications"] = []
+            dr["satisfied_specifications"] = satisfied_specs
+            total_satisfied_specs += len(satisfied_specs)
+            continue
+
         extracted = sdoc.get("extracted_fields", {})
         if not extracted:
             dr["satisfied_specifications"] = []
