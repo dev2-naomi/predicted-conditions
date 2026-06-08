@@ -24,13 +24,74 @@ from tools.shared.normalize import normalize_all, normalize_document_structure
 # ---------------------------------------------------------------------------
 # Document-type alias map
 # ---------------------------------------------------------------------------
-# Maps a requested document type (lower-cased) to a set of manifest names
-# that should be treated as equivalent.  If the manifest contains any of the
-# alias names, the engine treats the requested document as present.
+# Two maps control how the engine matches requested documents against the
+# manifest:
+#
+# _DOCTYPE_BLANKET_ALIASES — functionally equivalent documents.  When a
+#   blanket alias matches, ALL specs are marked satisfied (the submitted doc
+#   is a different document that fully covers the requirement).
+#
+# _DOCTYPE_ALIASES — naming variants of the same document.  When a name
+#   variant matches, the normal extracted-fields check still runs so only
+#   specs actually confirmed by extracted data are satisfied.
 
-_DOCTYPE_ALIASES: dict[str, set[str]] = {
+_DOCTYPE_BLANKET_ALIASES: dict[str, set[str]] = {
     "borrower certification as to business purpose": {
         "borrowers authorization",
+    },
+}
+
+_DOCTYPE_ALIASES: dict[str, set[str]] = {
+    "personal bank statements": {
+        "bank statement",
+    },
+    "bank statement": {
+        "personal bank statements",
+    },
+    "hazard insurance": {
+        "homeowners insurance", "property insurance", "insurance binder",
+    },
+    "government-issued photo id": {
+        "drivers license", "passport", "photo id", "identification",
+    },
+    "irs 4506-c authorization": {
+        "4506-c", "4506c", "irs form 4506-c", "tax transcript authorization",
+    },
+    "purchase contract": {
+        "sales contract", "purchase agreement", "contract of sale",
+    },
+    "rental agreement": {
+        "lease agreement", "lease", "rental lease",
+    },
+    "appraisal report": {
+        "appraisal report (urar)", "appraisal",
+    },
+    "credit report": {
+        "tri-merge credit report", "credit report (rmcr)",
+    },
+    "verification of employment": {
+        "voe", "verbal verification of employment",
+    },
+    "verification of mortgage": {
+        "vom", "mortgage verification",
+    },
+    "verification of deposit": {
+        "vod", "deposit verification",
+    },
+    "verification of rent": {
+        "vor", "rent verification",
+    },
+    "rental income calculations worksheet": {
+        "dscr calculation worksheet", "dscr documentation",
+    },
+    "flood hazard determination": {
+        "flood certification", "flood determination",
+    },
+    "owner occupancy certification": {
+        "occupancy affidavit", "occupancy certification",
+    },
+    "title commitment": {
+        "title report", "preliminary title report",
     },
 }
 
@@ -39,10 +100,18 @@ def _get_aliases(doc_type: str) -> set[str]:
     """Return all names (including the original) that count as the same doc."""
     key = doc_type.strip().lower()
     aliases = {key, key.replace(" ", "_"), key.replace("_", " ")}
-    for mapped in _DOCTYPE_ALIASES.get(key, set()):
-        m = mapped.strip().lower()
-        aliases.update({m, m.replace(" ", "_"), m.replace("_", " ")})
+    for alias_map in (_DOCTYPE_ALIASES, _DOCTYPE_BLANKET_ALIASES):
+        for mapped in alias_map.get(key, set()):
+            m = mapped.strip().lower()
+            aliases.update({m, m.replace(" ", "_"), m.replace("_", " ")})
     return aliases
+
+
+def _is_blanket_alias(doc_type: str, sdoc_name: str) -> bool:
+    """Return True if the match is a blanket alias (satisfy all specs)."""
+    key = doc_type.strip().lower()
+    blanket_names = _DOCTYPE_BLANKET_ALIASES.get(key, set())
+    return sdoc_name.strip().lower() in blanket_names
 
 
 # ---------------------------------------------------------------------------
@@ -539,13 +608,10 @@ def cross_check_satisfaction(
 
         total_checked += 1
 
-        # When the match came through an alias (submitted doc name differs
-        # from the requested doc type), the document is functionally
-        # equivalent — treat ALL specs as satisfied.
+        # When the match came through a blanket alias (functionally
+        # equivalent document), treat ALL specs as satisfied.
         sdoc_name = (sdoc.get("name") or "").strip().lower()
-        is_alias_match = sdoc_name != doc_type.strip().lower()
-
-        if is_alias_match:
+        if _is_blanket_alias(doc_type, sdoc_name):
             satisfied_specs = [
                 {
                     "specification": _spec_text(spec),
