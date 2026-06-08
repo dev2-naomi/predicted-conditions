@@ -107,6 +107,7 @@ _SYSTEM_PROMPT = load_system_prompt()
 _llm_kwargs: dict = {
     "model": _MODEL,
     "max_tokens": 16384,
+    "max_retries": 5,
 }
 if "opus" in _MODEL:
     _llm_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
