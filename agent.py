@@ -18,7 +18,9 @@ Architecture:
 from __future__ import annotations
 
 import json
+import logging
 import os
+import time
 from typing import Annotated, Any, Literal
 from typing_extensions import NotRequired
 
@@ -107,12 +109,16 @@ _SYSTEM_PROMPT = load_system_prompt()
 _llm_kwargs: dict = {
     "model": _MODEL,
     "max_tokens": 16384,
-    "max_retries": 5,
+    "max_retries": 0,
 }
 if "opus" in _MODEL:
     _llm_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
 
 _llm = ChatAnthropic(**_llm_kwargs)
+
+_RETRY_COOLDOWN_SECONDS = int(os.environ.get("LLM_RETRY_COOLDOWN", "30"))
+_MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "5"))
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -289,6 +295,35 @@ def _summarize_completed_steps(
 
 
 # ---------------------------------------------------------------------------
+# LLM invocation with retry + cooldown
+# ---------------------------------------------------------------------------
+
+
+def _invoke_with_retry(llm, messages: list) -> AIMessage:
+    """
+    Invoke the LLM with retry logic. On 500/529 (server overloaded) errors,
+    wait LLM_RETRY_COOLDOWN seconds (default 30) before retrying, up to
+    LLM_MAX_RETRIES attempts (default 5).
+    """
+    from anthropic import APIStatusError
+
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            return llm.invoke(messages)
+        except APIStatusError as e:
+            if e.status_code in (500, 529) and attempt < _MAX_RETRIES:
+                _logger.warning(
+                    "Anthropic API error %d (attempt %d/%d). "
+                    "Retrying in %ds...",
+                    e.status_code, attempt, _MAX_RETRIES, _RETRY_COOLDOWN_SECONDS,
+                )
+                time.sleep(_RETRY_COOLDOWN_SECONDS)
+            else:
+                raise
+    raise RuntimeError("Unreachable")
+
+
+# ---------------------------------------------------------------------------
 # Graph nodes
 # ---------------------------------------------------------------------------
 
@@ -344,7 +379,7 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
     else:
         injected = non_system
 
-    response: AIMessage = llm_with_tools.invoke(injected)
+    response: AIMessage = _invoke_with_retry(llm_with_tools, injected)
     return {"messages": [response]}
 
 
