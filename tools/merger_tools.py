@@ -576,6 +576,102 @@ def _check_spec_satisfied(
     return None
 
 
+# ---------------------------------------------------------------------------
+# LLM-based spec satisfaction check
+# ---------------------------------------------------------------------------
+
+_SATISFACTION_PROMPT = """\
+You are a mortgage document reviewer. A borrower has submitted a "{doc_type}" document.
+Below are the extracted fields from that document, and a list of specifications that
+the document must satisfy.
+
+For each specification, determine if the extracted fields provide evidence that the
+requirement is met. A spec is "satisfied" if the extracted data confirms the requirement
+is present — even partially. Be reasonably lenient: if the document type matches and
+relevant fields exist (even with limited data), the requirement to OBTAIN/PROVIDE
+the document itself is satisfied.
+
+However, do NOT mark a spec as satisfied if:
+- The relevant extracted field is completely empty ([] or null or "")
+- There is genuinely no evidence in the fields for that requirement
+
+## Extracted Fields
+{extracted_fields_json}
+
+## Specifications to Check
+{specs_json}
+
+## Response Format
+Return a JSON array of objects for ONLY the satisfied specs:
+[
+  {{"specification": "<exact spec text>", "reason": "<brief reason why satisfied>"}}
+]
+
+If none are satisfied, return an empty array: []
+Return ONLY valid JSON, no other text.
+"""
+
+
+def _llm_check_specs(
+    doc_type: str,
+    specifications: list,
+    extracted_fields: dict,
+) -> list[dict]:
+    """Use an LLM to determine which specs are satisfied by extracted fields."""
+    import json
+    import logging
+    import os
+
+    from langchain_anthropic import ChatAnthropic
+
+    specs_text = [_spec_text(s) for s in _as_list(specifications)]
+    if not specs_text:
+        return []
+
+    ef_summary = {}
+    for k, v in extracted_fields.items():
+        if isinstance(v, list) and len(v) > 5:
+            ef_summary[k] = v[:5] + [f"... ({len(v)} items total)"]
+        elif isinstance(v, dict) and len(str(v)) > 500:
+            ef_summary[k] = {dk: dv for i, (dk, dv) in enumerate(v.items()) if i < 10}
+        else:
+            ef_summary[k] = v
+
+    prompt = _SATISFACTION_PROMPT.format(
+        doc_type=doc_type,
+        extracted_fields_json=json.dumps(ef_summary, indent=2, default=str),
+        specs_json=json.dumps(specs_text, indent=2),
+    )
+
+    model = os.environ.get("SATISFACTION_CHECK_MODEL", "claude-haiku-4-5")
+    logger = logging.getLogger(__name__)
+
+    try:
+        llm = ChatAnthropic(model=model, max_tokens=4096, max_retries=2)
+        response = llm.invoke(prompt)
+        content = response.content if hasattr(response, "content") else str(response)
+
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0]
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0]
+
+        result = json.loads(content.strip())
+        if isinstance(result, list):
+            valid = []
+            for item in result:
+                if isinstance(item, dict) and "specification" in item:
+                    valid.append({
+                        "specification": item["specification"],
+                        "reason": item.get("reason", "Confirmed by submitted document"),
+                    })
+            return valid
+    except Exception as e:
+        logger.warning("LLM satisfaction check failed for %s: %s", doc_type, e)
+
+    return []
+
+
 @tool
 def cross_check_satisfaction(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -632,18 +728,14 @@ def cross_check_satisfaction(
             dr["satisfied_specifications"] = []
             continue
 
-        remaining_specs: list = []
-        satisfied_specs: list[dict] = []
-
-        for spec in _as_list(dr.get("specifications", [])):
-            reason = _check_spec_satisfied(spec, extracted)
-            if reason:
-                satisfied_specs.append({
-                    "specification": _spec_text(spec),
-                    "reason": reason,
-                })
-            else:
-                remaining_specs.append(spec)
+        satisfied_specs = _llm_check_specs(
+            doc_type, dr.get("specifications", []), extracted
+        )
+        satisfied_spec_texts = {s["specification"] for s in satisfied_specs}
+        remaining_specs = [
+            spec for spec in _as_list(dr.get("specifications", []))
+            if _spec_text(spec) not in satisfied_spec_texts
+        ]
 
         dr["specifications"] = remaining_specs
         dr["satisfied_specifications"] = satisfied_specs
