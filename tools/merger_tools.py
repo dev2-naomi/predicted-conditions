@@ -189,9 +189,26 @@ _CANONICAL_NAMES: dict[str, str] = {
 }
 
 
+# Reverse map built from _DOCTYPE_ALIASES so that naming variants
+# (e.g. "verbal verification of employment" → "verification of employment",
+# "flood certification" → "flood hazard determination") collapse to the same
+# merge key.  This is the single source of truth for "same document, different
+# name" and prevents the run-to-run naming drift seen in variance testing.
+_ALIAS_TO_CANONICAL: dict[str, str] = {}
+for _canon, _variants in _DOCTYPE_ALIASES.items():
+    for _v in _variants:
+        _ALIAS_TO_CANONICAL[_v.strip().lower()] = _canon
+
+
 def _canonical_doc_type(name: str) -> str:
     key = name.strip().lower()
-    return _CANONICAL_NAMES.get(key, key)
+    # 1) explicit canonical-name overrides
+    if key in _CANONICAL_NAMES:
+        return _CANONICAL_NAMES[key]
+    # 2) alias-variant → canonical document type
+    if key in _ALIAS_TO_CANONICAL:
+        return _ALIAS_TO_CANONICAL[key]
+    return key
 
 
 def _merge_key(dr: dict) -> str:
@@ -357,6 +374,12 @@ def _merge_two(base: dict, other: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Deterministic document rules live in tools/doc_rules.py and are applied
+# inside merge_document_requests via apply_deterministic_rules().
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
 
@@ -399,15 +422,35 @@ def merge_document_requests(
             groups[key] = dict(dr)
 
     merged = list(groups.values())
+    llm_count = len(merged)
+
+    # ------------------------------------------------------------------
+    # Deterministic reconciliation (LLM proposes, rules dispose).
+    # Applies: negative gates → mandatory floor → conditional docs →
+    # derived income docs, deduping by canonical document type.
+    # ------------------------------------------------------------------
+    from tools.doc_rules import apply_deterministic_rules
+
+    scenario_summary = s.get("scenario_summary", {})
+    merged, det_stats = apply_deterministic_rules(
+        merged, scenario_summary, canonical_fn=_canonical_doc_type,
+    )
+    injected_count = len(det_stats.get("injected", []))
+    removed_count = len(det_stats.get("removed", []))
 
     sources_summary = ", ".join(
         f"{k}: {v}" for k, v in source_counts.items() if v > 0
     )
     msg = (
         f"Collected {len(all_requests)} document requests from modules "
-        f"({sources_summary}) → {len(merged)} after merging by "
-        f"document_type + context (de-duped {len(all_requests) - len(merged)})."
+        f"({sources_summary}) → {llm_count} after merging by "
+        f"document_type + context (de-duped {len(all_requests) - llm_count})."
     )
+    if removed_count:
+        msg += f" Removed {removed_count} doc(s) via negative gates ({', '.join(det_stats['removed'])})."
+    if injected_count:
+        msg += f" Injected {injected_count} deterministic doc(s) ({', '.join(det_stats['injected'])})."
+    msg += f" Final set: {len(merged)} documents."
 
     return Command(update={
         "module_outputs": {

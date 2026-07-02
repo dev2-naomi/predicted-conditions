@@ -199,6 +199,23 @@ Produce:
 
 ## Rules
 
+### 0. Eligibility engine data is AUTHORITATIVE
+
+When an eligibility engine output is provided (via `parse_eligibility_output`), its fields
+ALWAYS take priority over XML/DU findings for:
+- Occupancy (NOO, Primary, Second Home)
+- Program name (Flex Select, DSCR, etc.)
+- Loan amount, LTV, CLTV, DTI, FICO
+- Income documentation type
+- Property type
+
+The DU/LP XML may contain data about MULTIPLE properties owned by the borrower
+(primary residence, investment properties, REO). Do NOT confuse these with the
+SUBJECT PROPERTY. The eligibility engine has already identified the correct
+subject property and loan parameters. If the XML shows "PrimaryResidence" for
+one property and "Investment" for another, use the eligibility engine's
+Occupancy field to determine which is the subject.
+
 ### 1. Do not guess
 
 If a loan field is missing, mark it unknown and add it to missing_core_variables.

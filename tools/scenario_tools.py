@@ -832,6 +832,11 @@ def build_scenario_summary(
         income_types = ["unknown"]
 
     program = _infer_program(profile, submitted_docs)
+    # Override program from eligibility engine if available
+    elig_programs = eligibility_data.get("eligible_programs", [])
+    if elig_programs and (not program or program in ("unknown", "Flex Select", "Conventional")):
+        program = elig_programs[0]
+
     property_type = meta.get("property_type") or "Unknown"
 
     # Purpose
@@ -1089,14 +1094,78 @@ def build_scenario_summary(
     missing_str = (
         ", ".join(m["field"] for m in missing) if missing else "none"
     )
+
+    # --- Eligibility Override Validation (Scenario Lock) ---
+    # When eligibility engine data is available, it is AUTHORITATIVE.
+    # Emit an explicit lock message so downstream steps cannot deviate.
+    override_warnings: list[str] = []
+    if elig_app:
+        _LOCK_FIELDS = {
+            "occupancy": ("Occupancy", elig_app.get("Occupancy")),
+            "program": ("Program", None),
+            "numbers.loan_amount": ("LoanAmount", elig_app.get("LoanAmount")),
+            "numbers.LTV": ("LTV", elig_app.get("LTV")),
+            "income_profile.income_doc_label": ("IncomeDocType", elig_app.get("IncomeDocType")),
+        }
+        # Check program from eligible list
+        elig_programs = eligibility_data.get("eligible_programs", [])
+        if elig_programs:
+            _LOCK_FIELDS["program"] = ("Program", elig_programs[0])
+
+        for field_path, (label, elig_val) in _LOCK_FIELDS.items():
+            if elig_val is None:
+                continue
+            # Navigate the summary to get current value
+            parts = field_path.split(".")
+            current = summary
+            for p in parts[:-1]:
+                current = current.get(p, {})
+            current_val = current.get(parts[-1]) if isinstance(current, dict) else None
+
+            # Normalize for comparison
+            elig_norm = str(elig_val).strip().lower()
+            curr_norm = str(current_val).strip().lower() if current_val else ""
+
+            if curr_norm and elig_norm and curr_norm != elig_norm:
+                override_warnings.append(
+                    f"OVERRIDE: {label} was '{current_val}' but eligibility engine says '{elig_val}' — using eligibility value"
+                )
+                # Force the override
+                if field_path == "occupancy":
+                    summary["occupancy"] = str(elig_val)
+                elif field_path == "program":
+                    summary["program"] = str(elig_val)
+                elif field_path == "numbers.loan_amount":
+                    summary["numbers"]["loan_amount"] = elig_val
+                elif field_path == "numbers.LTV":
+                    summary["numbers"]["LTV"] = elig_val
+                elif field_path == "income_profile.income_doc_label":
+                    summary["income_profile"]["income_doc_label"] = str(elig_val)
+
+    lock_msg = (
+        f"\n\n*** SCENARIO LOCK (AUTHORITATIVE — DO NOT DEVIATE) ***\n"
+        f"  Program: {summary['program']}\n"
+        f"  Occupancy: {summary['occupancy']}\n"
+        f"  Purpose: {summary['purpose']}\n"
+        f"  LTV: {summary['numbers']['LTV']}\n"
+        f"  FICO: {summary['credit']['fico']}\n"
+        f"  Income Type: {summary['income_profile']['primary_income_type']}\n"
+        f"  Property Type: {summary['property']['property_type']} in {summary['property']['state']}\n"
+        f"  Loan Amount: {summary['numbers']['loan_amount']}\n"
+        f"{'  Source: Eligibility Engine (overrides XML/manifest if conflicting)' if elig_app else '  Source: XML/Manifest (no eligibility engine data available)'}\n"
+        f"*** ALL SUBSEQUENT STEPS MUST USE THESE VALUES ***"
+    )
+    if override_warnings:
+        lock_msg += "\n  WARNINGS:\n    " + "\n    ".join(override_warnings)
+
     return Command(update={
         "scenario_summary": summary,
         "missing_core_variables": missing,
         "document_inventory": doc_inventory,
         "guideline_section_refs": guideline_refs,
         "messages": [ToolMessage(
-            f"Scenario summary built. Program: {program}, Purpose: {purpose}, "
-            f"Occupancy: {summary['occupancy']}, LTV: {ltv}, FICO: {fico}, "
+            f"Scenario summary built. Program: {summary['program']}, Purpose: {purpose}, "
+            f"Occupancy: {summary['occupancy']}, LTV: {summary['numbers']['LTV']}, FICO: {fico}, "
             f"Property: {property_type} in {summary['property']['state']}. "
             f"Income types: {income_types}. "
             f"Document inventory: {len(doc_inventory)} docs. "
@@ -1106,7 +1175,8 @@ def build_scenario_summary(
                     f"{m['field']} → {m['likely_document_or_source']}"
                     for m in missing
                 ) if missing else ""
-            ),
+            )
+            + lock_msg,
             tool_call_id=tool_call_id,
         )],
     })

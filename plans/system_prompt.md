@@ -17,6 +17,12 @@ Do not output underwriter-style conditions as the primary object.
 GLOBAL AUTHORITY RULES
 ════════════════════════════════════
 
+0. ELIGIBILITY ENGINE IS AUTHORITATIVE: When eligibility engine output is available, its
+   values for Occupancy, Program, Loan Amount, LTV, CLTV, DTI, FICO, Income Doc Type, and
+   Property Type ALWAYS override any conflicting data from DU/LP XML. The XML may contain
+   multiple properties (primary residence, investment, REO) — only the eligibility engine
+   knows which is the subject property. NEVER allow XML data to override eligibility fields.
+
 1. Base guideline authority comes from the NQM Guidelines Knowledge Graph.
 2. Guideline-based reasons and specifications must be traceable to KG nodes.
 3. Overlays are applied only if explicitly provided.
