@@ -51,6 +51,14 @@ def derive_flags(ss: dict) -> dict:
     )
     is_dscr = "dscr" in program or "dscr" in dscr_label
 
+    # Bank-statement qualification: only true when EVERY income entry is a
+    # bank-statement type (protects multi-borrower loans with a full-doc or
+    # wage co-borrower, where traditional income docs are still required).
+    income_labels = _income_labels(ss)
+    is_bank_statement = bool(income_labels) and all(
+        ("bank stmt" in lbl or "bank statement" in lbl) for lbl in income_labels
+    )
+
     return {
         "is_noo": is_noo,
         "is_owner_occupied": not is_noo,
@@ -58,10 +66,23 @@ def derive_flags(ss: dict) -> dict:
         "is_refinance": "refi" in purpose,
         "is_dscr": is_dscr,
         "is_condo": "condo" in prop_type,
+        "is_bank_statement": is_bank_statement,
         "has_reo": total_props > 0,
         "has_large_deposits": bool(assets.get("has_large_deposit_flags")),
         "has_gift": bool(assets.get("has_gift_indicators")),
     }
+
+
+def _income_labels(ss: dict) -> list[str]:
+    """Return lowercased income-doc labels, one per resolved income entry
+    (falling back to the single income_doc_label when entries are absent)."""
+    elig = ss.get("_eligibility_data") or {}
+    app = elig.get("application_data") or {}
+    entries = app.get("_all_resolved_income_entries") or []
+    if entries:
+        return [str(e.get("resolved_doc") or "").lower() for e in entries]
+    label = str((ss.get("income_profile") or {}).get("income_doc_label") or "").lower()
+    return [label] if label else []
 
 
 # ---------------------------------------------------------------------------
@@ -344,6 +365,17 @@ _DSCR_SUPPRESSED = {
     "award letter", "1099",
 }
 
+# Bank-statement income loans qualify on deposits, not wage/full-doc income —
+# suppress the traditional income docs an LLM may over-request.
+_BANK_STATEMENT_SUPPRESSED = {
+    "w2", "w-2", "paystub", "pay stub", "verification of employment",
+    "verbal verification of employment", "voe", "form 1040", "form 1040a",
+    "form 1040ez", "1040", "profit and loss", "cpa prepared p&l letter",
+    "1120 corporate tax return", "1065", "tax return", "personal tax return",
+    "business tax return", "state tax return", "employment contract",
+    "award letter", "1099",
+}
+
 _PURCHASE_SUPPRESSED = {
     "payoff statement", "request for payoff", "payoff demand",
 }
@@ -388,6 +420,8 @@ def apply_negative_gates(docs: list[dict], flags: dict) -> tuple[list[dict], lis
         drop = False
 
         if flags["is_dscr"] and dt in _DSCR_SUPPRESSED:
+            drop = True
+        elif flags["is_bank_statement"] and dt in _BANK_STATEMENT_SUPPRESSED:
             drop = True
         elif flags["is_purchase"] and dt in _PURCHASE_SUPPRESSED:
             drop = True
