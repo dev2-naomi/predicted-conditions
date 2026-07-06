@@ -42,6 +42,10 @@ _DOCTYPE_BLANKET_ALIASES: dict[str, set[str]] = {
 }
 
 _DOCTYPE_ALIASES: dict[str, set[str]] = {
+    "loan application (1003)": {
+        "urla 1003", "urla", "1003", "loan application", "loan_application",
+        "uniform residential loan application",
+    },
     "personal bank statements": {
         "bank statement",
     },

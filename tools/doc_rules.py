@@ -244,6 +244,10 @@ def _doc(
 
 def mandatory_docs() -> list[dict]:
     return [
+        _doc("Loan Application (1003)", "Cross-Cutting", "P1", "HARD-STOP",
+             ["Final signed and dated URLA (Form 1003) for all borrowers",
+              "All sections complete and consistent with the loan terms and program"],
+             ["Final signed loan application required for all loans"]),
         _doc("Government-Issued Photo ID", "Cross-Cutting", "P1", "HARD-STOP",
              ["Valid, unexpired government-issued photo identification for all borrowers",
               "Name matches the loan application"],
