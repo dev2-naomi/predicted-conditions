@@ -660,14 +660,27 @@ Return ONLY valid JSON, no other text.
 
 
 _REFERENCE_BLOCK_TEMPLATE = """
-## Reference Data (authoritative — from the borrower's loan application / Form 1003)
-Use this ONLY to verify cross-document consistency requirements such as
-"name matches the loan application" or "SSN matches the loan application".
-Do NOT use this reference to satisfy a specification that requires the submitted
-document itself to contain data. If the submitted document's value conflicts with
-this reference (for example a different legal name or SSN), do NOT mark that
-specification as satisfied — leave it for reviewer reconciliation and note the
-discrepancy in your reason.
+## Reference Data (authoritative loan facts — from the loan application and the
+## eligibility-locked loan file)
+This block contains the authoritative borrower identity and loan facts for this
+file (e.g. borrower names, SSN, DOB, loan amount, LTV, occupancy, loan purpose,
+program, and subject property).
+
+Use this ONLY to verify cross-document CONSISTENCY requirements — specs that ask
+whether a value on the submitted document matches the loan (for example "name
+matches the loan application", "property address matches the subject property",
+"loan amount matches", "named insured matches the borrower").
+
+Rules:
+- Do NOT use this reference to satisfy a specification that requires the submitted
+  document itself to CONTAIN data. The submitted document's own extracted fields
+  are the only evidence that a value is present.
+- Only apply a reference fact when a specification actually asks for that kind of
+  cross-check. Ignore reference facts that are irrelevant to the spec.
+- If the submitted document's value CONFLICTS with this reference (for example a
+  different legal name, address, or loan amount), do NOT mark that specification
+  as satisfied — leave it for reviewer reconciliation and note the discrepancy in
+  your reason.
 {reference_json}
 """
 
@@ -779,6 +792,53 @@ def _extract_identity_reference(submitted_docs: list[dict]) -> dict:
     return {"loan_application_borrowers": borrowers} if borrowers else {}
 
 
+def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict]) -> dict:
+    """Assemble the authoritative cross-reference facts for satisfaction checks.
+
+    Combines borrower identity (from the 1003) with eligibility-locked loan facts
+    (loan amount, LTV, occupancy, purpose, program, subject property) so that
+    consistency specs on ANY document — title, deed, hazard insurance, purchase
+    contract, appraisal, etc. — can be verified against the loan file rather than
+    confirmed from the submitted document alone.
+    """
+    ctx: dict = {}
+    ctx.update(_extract_identity_reference(submitted_docs))
+
+    ss = scenario_summary or {}
+    loan_facts: dict = {}
+
+    numbers = ss.get("numbers", {}) or {}
+    for src_key, out_key in (
+        ("loan_amount", "loan_amount"),
+        ("purchase_price", "purchase_price"),
+        ("appraised_value", "appraised_value"),
+        ("LTV", "ltv"),
+        ("CLTV", "cltv"),
+    ):
+        val = numbers.get(src_key)
+        if val not in (None, "", [], "unknown"):
+            loan_facts[out_key] = val
+
+    for key in ("occupancy", "purpose", "program", "loan_number",
+                "cash_out_amount", "borrower_type"):
+        val = ss.get(key)
+        if val not in (None, "", [], "unknown"):
+            loan_facts[key] = val
+
+    prop = ss.get("property", {}) or {}
+    prop_clean = {
+        k: v for k, v in prop.items()
+        if v not in (None, "", [], "unknown")
+    }
+    if prop_clean:
+        loan_facts["subject_property"] = prop_clean
+
+    if loan_facts:
+        ctx["loan_facts"] = loan_facts
+
+    return ctx
+
+
 @tool
 def cross_check_satisfaction(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -799,9 +859,10 @@ def cross_check_satisfaction(
     scenario_summary = s.get("scenario_summary", {})
     submitted_docs: list[dict] = _as_list(scenario_summary.get("_submitted_docs", []))
 
-    # Authoritative borrower identity from the submitted 1003, used to
-    # cross-check name/SSN consistency specs on other documents.
-    identity_reference = _extract_identity_reference(submitted_docs)
+    # Authoritative cross-reference facts (borrower identity from the 1003 +
+    # eligibility-locked loan facts) used to cross-check consistency specs
+    # (name, address, loan amount, occupancy, ...) on other documents.
+    reference_context = _build_reference_context(scenario_summary, submitted_docs)
 
     total_checked = 0
     total_satisfied_specs = 0
@@ -839,12 +900,12 @@ def cross_check_satisfaction(
             dr["satisfied_specifications"] = []
             continue
 
-        # Pass authoritative loan-application identity as reference context for
-        # every doc except the 1003 itself, so specs like "name matches the
-        # loan application" are cross-checked against the 1003 rather than
+        # Pass authoritative loan facts as reference context for every doc
+        # except the 1003 itself, so consistency specs (name/address/amount
+        # matching) are cross-checked against the loan file rather than
         # confirmed from the submitted doc alone.
         ref_ctx = (
-            identity_reference
+            reference_context
             if _canonical_doc_type(doc_type) != "loan application (1003)"
             else None
         )
