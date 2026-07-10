@@ -144,13 +144,36 @@ def style_document_requests(
         existing_sat = display.get("satisfied_requirements") or []
         if sat_specs and not existing_sat:
             styled_sats = []
+            sat_reasons = []
             for item in sat_specs:
-                raw = item.get("specification", "") if isinstance(item, dict) else str(item)
-                if raw:
-                    styled_sats.append(
-                        f"{_aus_restyle_spec(raw).rstrip('.')} — confirmed by submitted document."
-                    )
+                if isinstance(item, dict):
+                    raw = item.get("specification", "")
+                    reason = (item.get("reason") or "").strip()
+                else:
+                    raw = str(item)
+                    reason = ""
+                if not raw:
+                    continue
+                base = _aus_restyle_spec(raw).rstrip(".")
+                # Carry the actual satisfaction reason (e.g. the name/DOB
+                # cross-check against the 1003) instead of a generic suffix.
+                if reason:
+                    styled_sats.append(f"{base} — {reason}")
+                    sat_reasons.append(reason)
+                else:
+                    styled_sats.append(f"{base} — confirmed by submitted document.")
             display["satisfied_requirements"] = styled_sats
+
+            # --- Also surface the satisfaction reasons under
+            # reason_for_requirement (deduped against existing entries) ---
+            if sat_reasons:
+                rfr = display.get("reason_for_requirement") or []
+                rfr_norm = {_normalize_key(r) for r in rfr}
+                for r in sat_reasons:
+                    if _normalize_key(r) not in rfr_norm:
+                        rfr.append(r)
+                        rfr_norm.add(_normalize_key(r))
+                display["reason_for_requirement"] = rfr
 
         # --- Clear documentation_requirements when no specs remain ---
         remaining_specs = dr.get("specifications") or []
