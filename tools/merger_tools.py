@@ -644,7 +644,7 @@ However, do NOT mark a spec as satisfied if:
 
 ## Extracted Fields
 {extracted_fields_json}
-
+{reference_block}
 ## Specifications to Check
 {specs_json}
 
@@ -659,12 +659,31 @@ Return ONLY valid JSON, no other text.
 """
 
 
+_REFERENCE_BLOCK_TEMPLATE = """
+## Reference Data (authoritative — from the borrower's loan application / Form 1003)
+Use this ONLY to verify cross-document consistency requirements such as
+"name matches the loan application" or "SSN matches the loan application".
+Do NOT use this reference to satisfy a specification that requires the submitted
+document itself to contain data. If the submitted document's value conflicts with
+this reference (for example a different legal name or SSN), do NOT mark that
+specification as satisfied — leave it for reviewer reconciliation and note the
+discrepancy in your reason.
+{reference_json}
+"""
+
+
 def _llm_check_specs(
     doc_type: str,
     specifications: list,
     extracted_fields: dict,
+    reference_context: dict | None = None,
 ) -> list[dict]:
-    """Use an LLM to determine which specs are satisfied by extracted fields."""
+    """Use an LLM to determine which specs are satisfied by extracted fields.
+
+    When ``reference_context`` is provided (authoritative borrower identity from
+    the loan application), the model may use it to verify cross-document
+    consistency specs — but not to satisfy specs on its own.
+    """
     import json
     import logging
     import os
@@ -684,9 +703,16 @@ def _llm_check_specs(
         else:
             ef_summary[k] = v
 
+    reference_block = ""
+    if reference_context:
+        reference_block = _REFERENCE_BLOCK_TEMPLATE.format(
+            reference_json=json.dumps(reference_context, indent=2, default=str),
+        )
+
     prompt = _SATISFACTION_PROMPT.format(
         doc_type=doc_type,
         extracted_fields_json=json.dumps(ef_summary, indent=2, default=str),
+        reference_block=reference_block,
         specs_json=json.dumps(specs_text, indent=2),
     )
 
@@ -719,6 +745,40 @@ def _llm_check_specs(
     return []
 
 
+def _extract_identity_reference(submitted_docs: list[dict]) -> dict:
+    """Pull authoritative borrower identity from the submitted 1003, so
+    identity/consistency specs on other documents (e.g. "name matches the loan
+    application") can be truly cross-checked instead of confirmed in isolation.
+    """
+    doc = _find_submitted_doc("Loan Application (1003)", submitted_docs)
+    if not doc:
+        return {}
+
+    ef = doc.get("extracted_fields", {}) or {}
+    raw_borrowers = ef.get("new1003Borrowers") or ef.get("borrowers") or []
+
+    borrowers: list[dict] = []
+    for b in _as_list(raw_borrowers):
+        if not isinstance(b, dict):
+            continue
+        nm = b.get("name") if isinstance(b.get("name"), dict) else b
+        parts = [nm.get("firstName"), nm.get("middleName"), nm.get("lastName")]
+        full = " ".join(str(p).strip() for p in parts if p)
+        entry: dict = {}
+        if full.strip():
+            entry["name"] = full.strip()
+        dob = b.get("DOB") or b.get("dob")
+        if dob:
+            entry["dob"] = dob
+        ssn = b.get("last4SSN") or b.get("last4_ssn")
+        if ssn:
+            entry["last4_ssn"] = ssn
+        if entry:
+            borrowers.append(entry)
+
+    return {"loan_application_borrowers": borrowers} if borrowers else {}
+
+
 @tool
 def cross_check_satisfaction(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -738,6 +798,10 @@ def cross_check_satisfaction(
 
     scenario_summary = s.get("scenario_summary", {})
     submitted_docs: list[dict] = _as_list(scenario_summary.get("_submitted_docs", []))
+
+    # Authoritative borrower identity from the submitted 1003, used to
+    # cross-check name/SSN consistency specs on other documents.
+    identity_reference = _extract_identity_reference(submitted_docs)
 
     total_checked = 0
     total_satisfied_specs = 0
@@ -775,8 +839,17 @@ def cross_check_satisfaction(
             dr["satisfied_specifications"] = []
             continue
 
+        # Pass authoritative loan-application identity as reference context for
+        # every doc except the 1003 itself, so specs like "name matches the
+        # loan application" are cross-checked against the 1003 rather than
+        # confirmed from the submitted doc alone.
+        ref_ctx = (
+            identity_reference
+            if _canonical_doc_type(doc_type) != "loan application (1003)"
+            else None
+        )
         satisfied_specs = _llm_check_specs(
-            doc_type, dr.get("specifications", []), extracted
+            doc_type, dr.get("specifications", []), extracted, reference_context=ref_ctx
         )
         satisfied_spec_texts = {s["specification"] for s in satisfied_specs}
         remaining_specs = [
