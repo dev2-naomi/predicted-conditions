@@ -139,65 +139,48 @@ def style_document_requests(
         if canonical_dt and display.get("document_heading"):
             display["document_heading"] = canonical_dt
 
-        # --- Fallback: auto-populate satisfied_requirements from raw data ---
+        # --- Authoritative split: derive the two requirement lists directly
+        # from the raw specifications / satisfied_specifications produced by
+        # cross_check_satisfaction. This is the single source of truth for
+        # what is satisfied vs still-needed, so the display can never
+        # misclassify a satisfied requirement as still-needed (or omit a
+        # genuinely unsatisfied one), which the LLM's independent styling did. ---
         sat_specs = dr.get("satisfied_specifications") or []
-        existing_sat = display.get("satisfied_requirements") or []
-        if sat_specs and not existing_sat:
+        raw_specs = dr.get("specifications") or []
+
+        if sat_specs or raw_specs:
+            # Satisfied requirements — carry the actual satisfaction reason
+            # (e.g. the name/DOB cross-check against the 1003).
             styled_sats = []
-            sat_reasons = []
             for item in sat_specs:
                 if isinstance(item, dict):
-                    raw = item.get("specification", "")
+                    text = item.get("specification", "")
                     reason = (item.get("reason") or "").strip()
                 else:
-                    raw = str(item)
+                    text = str(item)
                     reason = ""
-                if not raw:
+                if not text:
                     continue
-                base = _aus_restyle_spec(raw).rstrip(".")
-                # Carry the actual satisfaction reason (e.g. the name/DOB
-                # cross-check against the 1003) instead of a generic suffix.
+                base = _aus_restyle_spec(text).rstrip(".")
                 if reason:
                     styled_sats.append(f"{base} — {reason}")
-                    sat_reasons.append(reason)
                 else:
                     styled_sats.append(f"{base} — confirmed by submitted document.")
             display["satisfied_requirements"] = styled_sats
 
-            # --- Also surface the satisfaction reasons under
-            # reason_for_requirement (deduped against existing entries) ---
-            if sat_reasons:
-                rfr = display.get("reason_for_requirement") or []
-                rfr_norm = {_normalize_key(r) for r in rfr}
-                for r in sat_reasons:
-                    if _normalize_key(r) not in rfr_norm:
-                        rfr.append(r)
-                        rfr_norm.add(_normalize_key(r))
-                display["reason_for_requirement"] = rfr
-
-        # --- Clear documentation_requirements when no specs remain ---
-        remaining_specs = dr.get("specifications") or []
-        if not remaining_specs:
-            display["documentation_requirements"] = []
-
-        # --- Dedup: strip documentation_requirements that overlap satisfied ---
-        sat_items = display.get("satisfied_requirements") or []
-        if sat_items:
-            doc_reqs = display.get("documentation_requirements") or []
-            if doc_reqs:
-                sat_keywords = {
-                    _normalize_key(s.split("—")[0]) for s in sat_items
-                }
-                filtered = []
-                for req in doc_reqs:
-                    req_norm = _normalize_key(req)
-                    is_dup = any(
-                        SequenceMatcher(None, req_norm, sk).ratio() > 0.70
-                        for sk in sat_keywords
+            # Documentation requirements — only the still-unsatisfied specs.
+            styled_reqs = []
+            for spec in raw_specs:
+                if isinstance(spec, dict):
+                    text = (
+                        spec.get("text") or spec.get("specification")
+                        or spec.get("description") or ""
                     )
-                    if not is_dup:
-                        filtered.append(req)
-                display["documentation_requirements"] = filtered
+                else:
+                    text = str(spec)
+                if text:
+                    styled_reqs.append(_aus_restyle_spec(text))
+            display["documentation_requirements"] = styled_reqs
 
     final_output["document_requests"] = doc_requests
     styled_total = sum(1 for dr in doc_requests if dr.get("display") and dr["display"].get("document_heading"))
