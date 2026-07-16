@@ -73,12 +73,14 @@ def resolve_tools_for_step(state: dict) -> list[Any]:
     Returns only the tools relevant to the current step plus general tools.
     """
     registry = get_tool_registry()
-    current_step = get_current_step(state)
+    # Default to STEP_00 when the caller did not seed current_step in the
+    # initial state. Without this, a fresh run (which only sends
+    # loan_file_xml/manifest_json/eligibility_json) would bind only the
+    # general tools, so the STEP_00 parse tools never become available and
+    # the model advances past ingestion with an empty scenario.
+    current_step = get_current_step(state) or "STEP_00"
 
     general_tools = [registry[name] for name in GENERAL_TOOL_NAMES if name in registry]
-
-    if not current_step:
-        return general_tools
 
     if is_step_skipped(current_step, state):
         return [registry["write_todo"]] if "write_todo" in registry else general_tools
@@ -102,9 +104,7 @@ def resolve_plan_for_step(state: dict) -> str | None:
     Plan resolver called before every LLM invocation.
     Returns the markdown plan for the current step as a transient system message.
     """
-    current_step = get_current_step(state)
-    if not current_step:
-        return None
+    current_step = get_current_step(state) or "STEP_00"
     if is_step_skipped(current_step, state):
         return None
     return load_plan_content(current_step)
