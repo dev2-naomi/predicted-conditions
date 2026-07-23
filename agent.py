@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 import time
 from typing import Annotated, Any, Literal
 from typing_extensions import NotRequired
@@ -122,8 +123,14 @@ if "opus" in _MODEL:
 
 _llm = ChatAnthropic(**_llm_kwargs)
 
-_RETRY_COOLDOWN_SECONDS = int(os.environ.get("LLM_RETRY_COOLDOWN", "30"))
-_MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "5"))
+# Retry tuning for transient Anthropic server errors (500/503/529 overload,
+# 429 rate limit). Waits use exponential backoff with full jitter, capped at
+# LLM_RETRY_MAX_BACKOFF, so a sustained overload is ridden out over a much
+# longer total window than a fixed cooldown while staggering concurrent runs.
+_RETRY_COOLDOWN_SECONDS = float(os.environ.get("LLM_RETRY_COOLDOWN", "5"))
+_RETRY_MAX_BACKOFF = float(os.environ.get("LLM_RETRY_MAX_BACKOFF", "60"))
+_MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "8"))
+_RETRYABLE_STATUS = {429, 500, 502, 503, 529}
 _logger = logging.getLogger(__name__)
 
 
@@ -305,11 +312,24 @@ def _summarize_completed_steps(
 # ---------------------------------------------------------------------------
 
 
+def _retry_delay(attempt: int) -> float:
+    """Exponential backoff with full jitter for retry *attempt* (1-based).
+
+    Base doubles each attempt (cooldown * 2**(attempt-1)) and is capped at
+    LLM_RETRY_MAX_BACKOFF; the actual sleep is a random value in [0, cap] so
+    concurrent runs don't retry in lockstep against an already-overloaded API.
+    """
+    cap = min(_RETRY_COOLDOWN_SECONDS * (2 ** (attempt - 1)), _RETRY_MAX_BACKOFF)
+    return random.uniform(0, cap)
+
+
 def _invoke_with_retry(llm, messages: list) -> AIMessage:
     """
-    Invoke the LLM with retry logic. On 500/529 (server overloaded) errors,
-    wait LLM_RETRY_COOLDOWN seconds (default 30) before retrying, up to
-    LLM_MAX_RETRIES attempts (default 5).
+    Invoke the LLM with retry logic. On transient server errors (429 rate
+    limit, 500/502/503/529 overloaded), retry up to LLM_MAX_RETRIES attempts
+    (default 8) using exponential backoff with full jitter, capped at
+    LLM_RETRY_MAX_BACKOFF seconds (default 60). This rides out a sustained
+    Anthropic overload over a much longer window than a fixed cooldown.
     """
     from anthropic import APIStatusError
 
@@ -317,13 +337,14 @@ def _invoke_with_retry(llm, messages: list) -> AIMessage:
         try:
             return llm.invoke(messages)
         except APIStatusError as e:
-            if e.status_code in (500, 529) and attempt < _MAX_RETRIES:
+            if e.status_code in _RETRYABLE_STATUS and attempt < _MAX_RETRIES:
+                delay = _retry_delay(attempt)
                 _logger.warning(
                     "Anthropic API error %d (attempt %d/%d). "
-                    "Retrying in %ds...",
-                    e.status_code, attempt, _MAX_RETRIES, _RETRY_COOLDOWN_SECONDS,
+                    "Retrying in %.1fs...",
+                    e.status_code, attempt, _MAX_RETRIES, delay,
                 )
-                time.sleep(_RETRY_COOLDOWN_SECONDS)
+                time.sleep(delay)
             else:
                 raise
     raise RuntimeError("Unreachable")
