@@ -123,12 +123,16 @@ if "opus" in _MODEL:
 
 _llm = ChatAnthropic(**_llm_kwargs)
 
-# Fallback model — used only when the primary model returns a transient
-# overload/rate-limit error and retries against it don't immediately clear.
-# Trades a possible quality drop for run completion during an Anthropic outage.
-# Set ANTHROPIC_FALLBACK_MODEL="" to disable (primary-only, retry until exhausted).
+# Fallback chain — tried in order when the primary model returns a transient
+# overload/rate-limit error. Each entry is (provider, llm). A cross-provider
+# fallback (OpenAI) is the most effective during an Anthropic-wide overload,
+# since a same-provider model (Sonnet) is often saturated at the same time.
+# Trades a possible quality/behavior shift for run completion during an outage.
+_fallback_specs: list[tuple[str, Any]] = []
+
+# Tier 1 — Anthropic Sonnet (same provider; cheaper/faster than Opus).
+# Set ANTHROPIC_FALLBACK_MODEL="" to disable this tier.
 _FALLBACK_MODEL = os.environ.get("ANTHROPIC_FALLBACK_MODEL", "claude-sonnet-4-5")
-_fallback_llm: ChatAnthropic | None = None
 if _FALLBACK_MODEL and _FALLBACK_MODEL != _MODEL:
     _fallback_kwargs: dict = {
         "model": _FALLBACK_MODEL,
@@ -137,7 +141,27 @@ if _FALLBACK_MODEL and _FALLBACK_MODEL != _MODEL:
     }
     if "opus" in _FALLBACK_MODEL:
         _fallback_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
-    _fallback_llm = ChatAnthropic(**_fallback_kwargs)
+    _fallback_specs.append(("anthropic", ChatAnthropic(**_fallback_kwargs)))
+
+# Tier 2 — OpenAI reasoning ("thinking") model for cross-provider resilience.
+# Enabled only when OPENAI_API_KEY is set and langchain-openai imports.
+# Configure model via OPENAI_FALLBACK_MODEL (default gpt-5) and reasoning depth
+# via OPENAI_REASONING_EFFORT (default "medium"; set "" to disable reasoning).
+_OPENAI_FALLBACK_MODEL = os.environ.get("OPENAI_FALLBACK_MODEL", "gpt-5")
+if os.environ.get("OPENAI_API_KEY") and _OPENAI_FALLBACK_MODEL:
+    try:
+        from langchain_openai import ChatOpenAI
+
+        _oai_kwargs: dict = {"model": _OPENAI_FALLBACK_MODEL, "max_retries": 0}
+        _effort = os.environ.get("OPENAI_REASONING_EFFORT", "medium")
+        if _effort:
+            _oai_kwargs["reasoning_effort"] = _effort
+        _fallback_specs.append(("openai", ChatOpenAI(**_oai_kwargs)))
+    except Exception as _oai_err:  # noqa: BLE001 — fallback is best-effort
+        logging.getLogger(__name__).warning(
+            "OpenAI fallback disabled (could not initialise ChatOpenAI): %s",
+            _oai_err,
+        )
 
 # Retry tuning for transient Anthropic server errors (500/503/529 overload,
 # 429 rate limit). Waits use exponential backoff with full jitter, capped at
@@ -339,41 +363,91 @@ def _retry_delay(attempt: int) -> float:
     return random.uniform(0, cap)
 
 
-def _invoke_with_retry(llm, messages: list, fallback_llm=None) -> AIMessage:
+def _is_transient_exc(exc: Exception) -> bool:
+    """True if *exc* is a transient provider error worth retrying/falling back.
+
+    Works across providers (Anthropic + OpenAI SDKs both expose ``status_code``
+    on API errors). Connection/timeout errors carry no status code but are also
+    transient, so we additionally match on the exception class name.
+    """
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int):
+        return status in _RETRYABLE_STATUS
+    name = type(exc).__name__.lower()
+    return any(
+        k in name
+        for k in ("timeout", "connection", "overload", "ratelimit",
+                  "serviceunavailable", "internalserver", "apierror")
+    )
+
+
+def _messages_for_openai(messages: list) -> list:
+    """Sanitise Anthropic-shaped history for an OpenAI model.
+
+    Opus emits assistant turns whose ``content`` is a list of blocks that can
+    include Anthropic-specific ``thinking``/``redacted_thinking`` items OpenAI
+    rejects. Flatten AIMessage content to plain text (dropping thinking blocks)
+    while preserving ``tool_calls`` so the ReAct loop keeps working.
+    """
+    out: list = []
+    for m in messages:
+        if isinstance(m, AIMessage) and isinstance(m.content, list):
+            texts: list[str] = []
+            for block in m.content:
+                if isinstance(block, dict):
+                    if block.get("type") == "text" and block.get("text"):
+                        texts.append(block["text"])
+                elif isinstance(block, str):
+                    texts.append(block)
+            new_msg = AIMessage(
+                content="\n".join(texts),
+                tool_calls=list(getattr(m, "tool_calls", []) or []),
+            )
+            out.append(new_msg)
+        else:
+            out.append(m)
+    return out
+
+
+def _invoke_with_retry(llm, messages: list, fallbacks=None) -> AIMessage:
     """
     Invoke the LLM with retry logic. On transient server errors (429 rate
-    limit, 500/502/503/529 overloaded), retry up to LLM_MAX_RETRIES attempts
-    (default 8) using exponential backoff with full jitter, capped at
-    LLM_RETRY_MAX_BACKOFF seconds (default 60).
+    limit, 500/502/503/529 overloaded, connection/timeout), retry up to
+    LLM_MAX_RETRIES attempts (default 8) using exponential backoff with full
+    jitter, capped at LLM_RETRY_MAX_BACKOFF seconds (default 60).
 
-    When *fallback_llm* is provided, each attempt tries the primary model
-    first and, if it returns a transient error, immediately tries the fallback
-    model before sleeping. This lets a run complete on the fallback during a
-    sustained overload of the primary rather than failing outright. Non-retryable
-    errors propagate immediately.
+    *fallbacks* is an ordered list of (provider, llm) tuples. Each attempt tries
+    the primary first and, on a transient error, immediately tries each fallback
+    (e.g. Anthropic Sonnet, then an OpenAI reasoning model) before sleeping.
+    This lets a run complete on another model/provider during a sustained
+    primary overload rather than failing outright.
+
+    A non-transient error from the PRIMARY propagates immediately (it's a real
+    error on well-formed input). Fallback errors are always swallowed so a
+    best-effort fallback (e.g. cross-provider format quirks) never kills a run.
     """
-    from anthropic import APIStatusError
-
-    candidates = [("primary", llm)]
-    if fallback_llm is not None:
-        candidates.append(("fallback", fallback_llm))
+    candidates: list[tuple[str, str, Any, bool]] = [("primary", "anthropic", llm, True)]
+    for i, (provider, fb_llm) in enumerate(fallbacks or []):
+        candidates.append((f"fallback[{i + 1}:{provider}]", provider, fb_llm, False))
 
     last_exc: Exception | None = None
     for attempt in range(1, _MAX_RETRIES + 1):
-        for label, current in candidates:
+        for label, provider, current, is_primary in candidates:
             try:
-                return current.invoke(messages)
-            except APIStatusError as e:
-                if e.status_code not in _RETRYABLE_STATUS:
-                    raise
+                msgs = _messages_for_openai(messages) if provider == "openai" else messages
+                return current.invoke(msgs)
+            except Exception as e:  # noqa: BLE001 — classified below
                 last_exc = e
+                transient = _is_transient_exc(e)
+                if is_primary and not transient:
+                    raise
                 _logger.warning(
-                    "Anthropic API error %d on %s model (attempt %d/%d).",
-                    e.status_code, label, attempt, _MAX_RETRIES,
+                    "LLM invoke failed on %s (transient=%s, attempt %d/%d): %s",
+                    label, transient, attempt, _MAX_RETRIES, e,
                 )
         if attempt < _MAX_RETRIES:
             delay = _retry_delay(attempt)
-            _logger.warning("All models overloaded; retrying in %.1fs...", delay)
+            _logger.warning("All models failed this round; retrying in %.1fs...", delay)
             time.sleep(delay)
 
     assert last_exc is not None
@@ -398,9 +472,10 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
     # Dynamic tool binding
     step_tools = resolve_tools_for_step(state)
     llm_with_tools = _llm.bind_tools(step_tools)
-    fallback_with_tools = (
-        _fallback_llm.bind_tools(step_tools) if _fallback_llm is not None else None
-    )
+    fallbacks_with_tools = [
+        (provider, fb_llm.bind_tools(step_tools))
+        for provider, fb_llm in _fallback_specs
+    ]
 
     # Build message list with summarization
     messages: list[BaseMessage] = list(state.get("messages", []))
@@ -440,7 +515,7 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
         injected = non_system
 
     response: AIMessage = _invoke_with_retry(
-        llm_with_tools, injected, fallback_llm=fallback_with_tools
+        llm_with_tools, injected, fallbacks=fallbacks_with_tools
     )
     return {"messages": [response]}
 
