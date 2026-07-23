@@ -336,6 +336,38 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     "rsu vesting schedule": "RSU Vesting Schedule",
 }
 
+# ---------------------------------------------------------------------------
+# Output display renaming: canonical masterlist name -> NQMF business wording
+# ---------------------------------------------------------------------------
+# Applied ONLY at the final-output boundary (generate_final_output), AFTER
+# masterlist matching, dedup, and satisfaction cross-check have all run against
+# the canonical names. This is a pure *label* rename so the customer-facing
+# document name reads using NQMF's "Order for Presenting Documents" wording,
+# while the whole pipeline keeps matching on stable canonical masterlist names.
+#
+# Scope = labels only: quantity/period qualifiers ("most recent 2 years",
+# "30 days of pay", "dated within 90 days") stay in `specifications`, not the
+# label. Keys are lowercased canonical names. Add new rows here to extend.
+_OUTPUT_DISPLAY_NAMES: dict[str, str] = {
+    # --- Minimum Submission Requirements (All Loans) ---
+    "loan application (1003)": "Initial Loan Application (1003)",
+    "borrowers authorization": "Borrower Authorization",
+    # --- Income / rental ---
+    "rental agreement": "Current Lease Agreement",
+}
+
+
+def apply_output_display_name(name: str) -> str:
+    """Map a canonical masterlist document name to its NQMF display label.
+
+    Pass-through when no override is defined. Safe to call on already-renamed
+    names (idempotent for keys not in the map).
+    """
+    if not name:
+        return name
+    return _OUTPUT_DISPLAY_NAMES.get(name.strip().lower(), name)
+
+
 # Documents that map to multiple acceptable masterlist types
 _MULTI_TYPE_DOCS: dict[str, list[str]] = {
     "Government-Issued Photo ID": [

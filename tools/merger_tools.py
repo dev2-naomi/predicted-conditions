@@ -18,7 +18,11 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import Annotated
 
-from tools.shared.normalize import normalize_all, normalize_document_structure
+from tools.shared.normalize import (
+    apply_output_display_name,
+    normalize_all,
+    normalize_document_structure,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -955,6 +959,13 @@ def generate_final_output(
 
     # Enforce consistent field schema on every document request
     document_requests = [normalize_document_structure(dr) for dr in document_requests]
+
+    # Final label pass: rename canonical masterlist names to NQMF display
+    # wording. Runs last (after matching/dedup/satisfaction) so only the
+    # customer-facing label changes; STEP_09 forces the display heading to
+    # equal this document_type, so headings follow automatically.
+    for dr in document_requests:
+        dr["document_type"] = apply_output_display_name(dr.get("document_type", ""))
 
     scenario_summary = s.get("scenario_summary", {})
     clean_summary: dict[str, Any] = {
