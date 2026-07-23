@@ -123,6 +123,22 @@ if "opus" in _MODEL:
 
 _llm = ChatAnthropic(**_llm_kwargs)
 
+# Fallback model — used only when the primary model returns a transient
+# overload/rate-limit error and retries against it don't immediately clear.
+# Trades a possible quality drop for run completion during an Anthropic outage.
+# Set ANTHROPIC_FALLBACK_MODEL="" to disable (primary-only, retry until exhausted).
+_FALLBACK_MODEL = os.environ.get("ANTHROPIC_FALLBACK_MODEL", "claude-sonnet-4-5")
+_fallback_llm: ChatAnthropic | None = None
+if _FALLBACK_MODEL and _FALLBACK_MODEL != _MODEL:
+    _fallback_kwargs: dict = {
+        "model": _FALLBACK_MODEL,
+        "max_tokens": 16384,
+        "max_retries": 0,
+    }
+    if "opus" in _FALLBACK_MODEL:
+        _fallback_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
+    _fallback_llm = ChatAnthropic(**_fallback_kwargs)
+
 # Retry tuning for transient Anthropic server errors (500/503/529 overload,
 # 429 rate limit). Waits use exponential backoff with full jitter, capped at
 # LLM_RETRY_MAX_BACKOFF, so a sustained overload is ridden out over a much
@@ -323,31 +339,45 @@ def _retry_delay(attempt: int) -> float:
     return random.uniform(0, cap)
 
 
-def _invoke_with_retry(llm, messages: list) -> AIMessage:
+def _invoke_with_retry(llm, messages: list, fallback_llm=None) -> AIMessage:
     """
     Invoke the LLM with retry logic. On transient server errors (429 rate
     limit, 500/502/503/529 overloaded), retry up to LLM_MAX_RETRIES attempts
     (default 8) using exponential backoff with full jitter, capped at
-    LLM_RETRY_MAX_BACKOFF seconds (default 60). This rides out a sustained
-    Anthropic overload over a much longer window than a fixed cooldown.
+    LLM_RETRY_MAX_BACKOFF seconds (default 60).
+
+    When *fallback_llm* is provided, each attempt tries the primary model
+    first and, if it returns a transient error, immediately tries the fallback
+    model before sleeping. This lets a run complete on the fallback during a
+    sustained overload of the primary rather than failing outright. Non-retryable
+    errors propagate immediately.
     """
     from anthropic import APIStatusError
 
+    candidates = [("primary", llm)]
+    if fallback_llm is not None:
+        candidates.append(("fallback", fallback_llm))
+
+    last_exc: Exception | None = None
     for attempt in range(1, _MAX_RETRIES + 1):
-        try:
-            return llm.invoke(messages)
-        except APIStatusError as e:
-            if e.status_code in _RETRYABLE_STATUS and attempt < _MAX_RETRIES:
-                delay = _retry_delay(attempt)
+        for label, current in candidates:
+            try:
+                return current.invoke(messages)
+            except APIStatusError as e:
+                if e.status_code not in _RETRYABLE_STATUS:
+                    raise
+                last_exc = e
                 _logger.warning(
-                    "Anthropic API error %d (attempt %d/%d). "
-                    "Retrying in %.1fs...",
-                    e.status_code, attempt, _MAX_RETRIES, delay,
+                    "Anthropic API error %d on %s model (attempt %d/%d).",
+                    e.status_code, label, attempt, _MAX_RETRIES,
                 )
-                time.sleep(delay)
-            else:
-                raise
-    raise RuntimeError("Unreachable")
+        if attempt < _MAX_RETRIES:
+            delay = _retry_delay(attempt)
+            _logger.warning("All models overloaded; retrying in %.1fs...", delay)
+            time.sleep(delay)
+
+    assert last_exc is not None
+    raise last_exc
 
 
 # ---------------------------------------------------------------------------
@@ -368,6 +398,9 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
     # Dynamic tool binding
     step_tools = resolve_tools_for_step(state)
     llm_with_tools = _llm.bind_tools(step_tools)
+    fallback_with_tools = (
+        _fallback_llm.bind_tools(step_tools) if _fallback_llm is not None else None
+    )
 
     # Build message list with summarization
     messages: list[BaseMessage] = list(state.get("messages", []))
@@ -406,7 +439,9 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
     else:
         injected = non_system
 
-    response: AIMessage = _invoke_with_retry(llm_with_tools, injected)
+    response: AIMessage = _invoke_with_retry(
+        llm_with_tools, injected, fallback_llm=fallback_with_tools
+    )
     return {"messages": [response]}
 
 
