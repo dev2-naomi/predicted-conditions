@@ -541,6 +541,7 @@ def normalize_document_request(dr: dict, default_category: str = "Other") -> dic
 _CANONICAL_FIELDS: dict[str, Any] = {
     "document_type": "Unknown",
     "document_category": "Other",
+    "party": "borrower",
     "priority": "P2",
     "severity": "SOFT-STOP",
     "status": "needed",

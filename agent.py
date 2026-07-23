@@ -79,6 +79,12 @@ class PredictiveConditionsState(TypedDict, total=False):
     eligibility_json: str             # Raw eligibility engine output JSON
     env: str                          # "Test" | "Prod"
 
+    # Optional co-borrower object. When present, a second document-needs set is
+    # generated for the co-borrower and appended (tagged party="coborrower").
+    # Shape: {"manifest_json": str, "loan_file_xml": str (optional)}.
+    # Eligibility is shared with the borrower.
+    coborrower: NotRequired[dict]
+
     # ---- Message history ----
     messages: Annotated[list[BaseMessage], add_messages]
 
@@ -388,15 +394,24 @@ def tool_node_factory(tools: list) -> ToolNode:
     return ToolNode(tools)
 
 
-def should_continue(state: PredictiveConditionsState) -> Literal["tools", "end"]:
-    """Route: if the last message has tool calls, execute them; otherwise end."""
+def should_continue(state: PredictiveConditionsState) -> Literal["tools", "coborrower"]:
+    """Route: if the last message has tool calls, execute them; otherwise run
+    the co-borrower post-pass before ending."""
     messages = state.get("messages", [])
     if not messages:
-        return "end"
+        return "coborrower"
     last = messages[-1]
     if isinstance(last, AIMessage) and last.tool_calls:
         return "tools"
-    return "end"
+    return "coborrower"
+
+
+def coborrower_node(state: PredictiveConditionsState) -> dict:
+    """Post-pipeline node: tag borrower docs and, when a co-borrower manifest
+    is supplied, append the co-borrower's document set to final_output."""
+    from tools.coborrower import apply_coborrower_pass
+
+    return apply_coborrower_pass(dict(state))
 
 
 # ---------------------------------------------------------------------------
@@ -408,13 +423,15 @@ _tool_node = ToolNode(ALL_TOOLS)
 _builder = StateGraph(PredictiveConditionsState)
 _builder.add_node("orchestrator", orchestrator_node)
 _builder.add_node("tools", _tool_node)
+_builder.add_node("coborrower", coborrower_node)
 
 _builder.set_entry_point("orchestrator")
 _builder.add_conditional_edges(
     "orchestrator",
     should_continue,
-    {"tools": "tools", "end": END},
+    {"tools": "tools", "coborrower": "coborrower"},
 )
 _builder.add_edge("tools", "orchestrator")
+_builder.add_edge("coborrower", END)
 
 agent = _builder.compile().with_config({"recursion_limit": 150})

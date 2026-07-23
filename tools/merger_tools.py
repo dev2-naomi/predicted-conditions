@@ -468,6 +468,41 @@ def merge_document_requests(
     })
 
 
+def _build_inventory_types(inventory: list[dict]) -> set[str]:
+    """Normalise document_inventory rows into a lowercase name lookup set.
+
+    Inventory rows use detected_document_type / category / doc_type / name;
+    canonical doc requests use "Credit Report" style names.  Both sides are
+    normalised to lowercase (with space/underscore variants) so they match.
+    """
+    inventory_types: set[str] = set()
+    for doc in inventory:
+        for key in ("detected_document_type", "document_type", "doc_type", "name", "label", "category"):
+            raw = (doc.get(key) or "").strip().lower()
+            if raw:
+                inventory_types.add(raw)
+                inventory_types.add(raw.replace(" ", "_"))
+                inventory_types.add(raw.replace("_", " "))
+    return inventory_types
+
+
+def assign_statuses(document_requests: list[dict], inventory: list[dict]) -> None:
+    """Set each request's status to 'satisfied_but_review_required' when a
+    matching document exists in *inventory*, else 'needed'. Mutates in place.
+
+    Reused by rank_document_requests (borrower) and the co-borrower pass so
+    both parties compute status against their own manifest inventory.
+    """
+    inventory_types = _build_inventory_types(inventory)
+    for dr in document_requests:
+        doc_type_lower = (dr.get("document_type") or "").strip().lower()
+        all_names = _get_aliases(doc_type_lower) if doc_type_lower else set()
+        if all_names & inventory_types:
+            dr["status"] = "satisfied_but_review_required"
+        else:
+            dr["status"] = "needed"
+
+
 @tool
 def rank_document_requests(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -482,27 +517,9 @@ def rank_document_requests(
     mo = s.get("module_outputs", {})
     merged: list[dict] = _as_list(mo.get("08", {}).get("merged_document_requests", []))
 
-    # Build a lookup of existing documents from document_inventory.
-    # Inventory rows use detected_document_type / category / doc_type / name;
-    # canonical doc requests use "Credit Report" style names.  We normalise
-    # both sides to lowercase-with-underscores so they can match.
+    # Assign status (needed vs already-submitted) from document_inventory.
     inventory: list[dict] = _as_list(s.get("document_inventory", []))
-    inventory_types: set[str] = set()
-    for doc in inventory:
-        for key in ("detected_document_type", "document_type", "doc_type", "name", "label", "category"):
-            raw = (doc.get(key) or "").strip().lower()
-            if raw:
-                inventory_types.add(raw)
-                inventory_types.add(raw.replace(" ", "_"))
-                inventory_types.add(raw.replace("_", " "))
-
-    for dr in merged:
-        doc_type_lower = (dr.get("document_type") or "").strip().lower()
-        all_names = _get_aliases(doc_type_lower) if doc_type_lower else set()
-        if all_names & inventory_types:
-            dr["status"] = "satisfied_but_review_required"
-        else:
-            dr["status"] = "needed"
+    assign_statuses(merged, inventory)
 
     ranked = sorted(merged, key=_sort_key)
 
@@ -843,26 +860,20 @@ def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict])
     return ctx
 
 
-@tool
-def cross_check_satisfaction(
-    tool_call_id: Annotated[str, InjectedToolCallId] = "",
-    state: Annotated[dict, InjectedState] = None,
-) -> Command:
-    """
-    Cross-check ranked document requests against submitted documents from
-    the manifest.  For each request whose document exists in the manifest,
-    compare specifications against the doc's extracted_fields.  Satisfied
-    specs are moved from 'specifications' to 'satisfied_specifications'.
-    """
-    s = state or {}
-    mo = s.get("module_outputs", {})
-    ranked: list[dict] = _as_list(
-        mo.get("08", {}).get("ranked_document_requests", [])
-    )
+def run_satisfaction_pass(
+    document_requests: list[dict],
+    submitted_docs: list[dict],
+    scenario_summary: dict,
+) -> tuple[int, int]:
+    """Cross-check *document_requests* against *submitted_docs*, moving
+    satisfied specs from 'specifications' to 'satisfied_specifications'.
 
-    scenario_summary = s.get("scenario_summary", {})
-    submitted_docs: list[dict] = _as_list(scenario_summary.get("_submitted_docs", []))
+    Mutates each request in place. Returns (total_checked, total_satisfied).
 
+    Reused by cross_check_satisfaction (borrower) and the co-borrower pass so
+    both parties are evaluated with identical satisfaction semantics against
+    their own manifest.
+    """
     # Authoritative cross-reference facts (borrower identity from the 1003 +
     # eligibility-locked loan facts) used to cross-check consistency specs
     # (name, address, loan amount, occupancy, ...) on other documents.
@@ -871,7 +882,7 @@ def cross_check_satisfaction(
     total_checked = 0
     total_satisfied_specs = 0
 
-    for dr in ranked:
+    for dr in document_requests:
         doc_type = dr.get("document_type") or ""
         sdoc = _find_submitted_doc(doc_type, submitted_docs)
         if not sdoc:
@@ -925,6 +936,33 @@ def cross_check_satisfaction(
         dr["specifications"] = remaining_specs
         dr["satisfied_specifications"] = satisfied_specs
         total_satisfied_specs += len(satisfied_specs)
+
+    return total_checked, total_satisfied_specs
+
+
+@tool
+def cross_check_satisfaction(
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
+) -> Command:
+    """
+    Cross-check ranked document requests against submitted documents from
+    the manifest.  For each request whose document exists in the manifest,
+    compare specifications against the doc's extracted_fields.  Satisfied
+    specs are moved from 'specifications' to 'satisfied_specifications'.
+    """
+    s = state or {}
+    mo = s.get("module_outputs", {})
+    ranked: list[dict] = _as_list(
+        mo.get("08", {}).get("ranked_document_requests", [])
+    )
+
+    scenario_summary = s.get("scenario_summary", {})
+    submitted_docs: list[dict] = _as_list(scenario_summary.get("_submitted_docs", []))
+
+    total_checked, total_satisfied_specs = run_satisfaction_pass(
+        ranked, submitted_docs, scenario_summary
+    )
 
     msg = (
         f"Cross-checked {total_checked} document requests against submitted docs. "
