@@ -152,6 +152,17 @@ def build_coborrower_document_requests(
     return out
 
 
+def _fold_party_into_display(dr: dict) -> None:
+    """Surface the ``party`` tag inside ``display`` so the frontend — which
+    renders only ``display`` — knows whether a document belongs to the borrower
+    or the co-borrower. Mutates in place."""
+    display = dr.get("display")
+    if not isinstance(display, dict):
+        display = {}
+        dr["display"] = display
+    display["party"] = dr.get("party", "borrower")
+
+
 def _coborrower_manifest(coborrower: Any) -> str:
     """Extract the co-borrower manifest JSON string from the input object.
 
@@ -208,6 +219,11 @@ def apply_coborrower_pass(state: dict) -> dict:
             cb_docs = []
 
     combined = borrower_final + cb_docs
+
+    # Surface the party tag inside `display` (the frontend renders only display).
+    for dr in combined:
+        _fold_party_into_display(dr)
+
     final_output["document_requests"] = combined
 
     # Refresh stats, adding a per-party breakdown.
