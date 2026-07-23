@@ -17,6 +17,12 @@ last checkpoint instead of restarting. Pass --resume <thread_id> to start a
 fresh run on the existing thread with no new input; the graph replays from the
 last completed step rather than re-running steps 0..N.
 
+Auto-resume: a normal trigger self-heals. If a run fails with a transient error
+(overload / rate limit / 5xx / timeout), the script automatically resumes the
+thread from its last checkpoint (up to a few attempts, with backoff), so a
+single Anthropic overload spike no longer surfaces as a crashed run. A
+non-transient error stops immediately so real bugs aren't retried blindly.
+
 Requires LANGGRAPH_URL + LANGCHAIN_API_KEY in .env.
 """
 from __future__ import annotations
@@ -76,6 +82,64 @@ def _poll(thread_id: str, run_id: str) -> str:
     return status
 
 
+# Error signatures that are transient (Anthropic capacity / rate limit) and so
+# worth auto-resuming. A deterministic code bug will surface a different message
+# and repeat, so we cap attempts to avoid a crash loop.
+_TRANSIENT_MARKERS = (
+    "overloaded", "rate_limit", "rate limit", "529", "503", "502", "500",
+    "timeout", "timed out", "overloaded_error",
+)
+
+
+def _error_details(thread_id: str, run_id: str) -> str:
+    """Fetch the failed run's error text (best effort)."""
+    try:
+        jr = requests.get(f"{BASE_URL}/threads/{thread_id}/runs/{run_id}/join",
+                          headers=HEADERS, timeout=60)
+        return json.dumps(jr.json(), default=str) if jr.ok else ""
+    except requests.exceptions.RequestException:
+        return ""
+
+
+def _looks_transient(err_text: str) -> bool:
+    low = err_text.lower()
+    return any(m in low for m in _TRANSIENT_MARKERS)
+
+
+def _run_with_auto_resume(
+    thread_id: str, first_input: dict | None, max_resumes: int = 6,
+) -> str:
+    """Start a run and, if it fails transiently, resume from the checkpoint.
+
+    LangGraph Platform checkpoints after each node, so resuming (input=None)
+    continues from the last completed step rather than restarting. This lets a
+    single trigger ride out Anthropic overloads that outlast one run's retry
+    budget, only re-running the step that actually failed.
+    """
+    payload = first_input
+    for attempt in range(max_resumes + 1):
+        run_id = _start_run(thread_id, payload)
+        status = _poll(thread_id, run_id)
+        if status != "error":
+            return status
+
+        err = _error_details(thread_id, run_id)
+        print("ERROR:", err[:2000] if err else "no details")
+        if attempt >= max_resumes:
+            print(f"\nGiving up after {max_resumes} resume attempt(s).")
+            return status
+        if err and not _looks_transient(err):
+            print("\nError does not look transient (not an overload); not auto-resuming.")
+            return status
+
+        wait = min(15 * (2 ** attempt), 120)
+        print(f"\nTransient failure — auto-resuming thread from last checkpoint "
+              f"in {wait}s (attempt {attempt + 1}/{max_resumes})...")
+        time.sleep(wait)
+        payload = None  # subsequent runs resume from checkpoint
+    return status
+
+
 def main():
     if not BASE_URL or not API_KEY:
         print("ERROR: set LANGGRAPH_URL and LANGCHAIN_API_KEY in .env")
@@ -94,12 +158,12 @@ def main():
         # Resume: continue the existing thread from its last checkpoint. No new
         # input is sent, so steps already completed are not re-run.
         thread_id = resume_thread_id
+        first_input: dict | None = None
         print("=" * 60)
         print("  Co-borrower cloud run (RESUME)")
         print("=" * 60)
         print(f"  Resuming thread: {thread_id}")
         print("=" * 60)
-        run_id = _start_run(thread_id, None)
     else:
         inputs_dir = Path(args[0]) if args else Path("test_results/coborrower_test/inputs")
 
@@ -107,7 +171,7 @@ def main():
             p = inputs_dir / name
             return p.read_text(encoding="utf-8") if p.exists() else ""
 
-        payload_input = {
+        first_input = {
             "loan_file_xml": _read("loan_file.xml"),
             "manifest_json": _read("manifest.json"),
             "eligibility_json": _read("eligibility.json"),
@@ -119,10 +183,10 @@ def main():
         print("  Co-borrower cloud run")
         print("=" * 60)
         print(f"  Inputs dir : {inputs_dir}")
-        print(f"  Borrower   : xml={len(payload_input['loan_file_xml'])}c "
-              f"manifest={len(payload_input['manifest_json'])}c "
-              f"elig={len(payload_input['eligibility_json'])}c")
-        print(f"  Co-borrower: manifest={len(payload_input['coborrower']['manifest_json'])}c")
+        print(f"  Borrower   : xml={len(first_input['loan_file_xml'])}c "
+              f"manifest={len(first_input['manifest_json'])}c "
+              f"elig={len(first_input['eligibility_json'])}c")
+        print(f"  Co-borrower: manifest={len(first_input['coborrower']['manifest_json'])}c")
         print("=" * 60)
 
         r = requests.post(f"{BASE_URL}/threads", headers=HEADERS, json={})
@@ -130,16 +194,12 @@ def main():
         thread_id = r.json()["thread_id"]
         print(f"Thread: {thread_id}")
 
-        run_id = _start_run(thread_id, payload_input)
-
-    status = _poll(thread_id, run_id)
+    status = _run_with_auto_resume(thread_id, first_input)
 
     if status == "error":
-        jr = requests.get(f"{BASE_URL}/threads/{thread_id}/runs/{run_id}/join", headers=HEADERS)
-        print("ERROR:", json.dumps(jr.json(), indent=2)[:2000] if jr.ok else "no details")
         print(
-            f"\nRun failed mid-pipeline. State is checkpointed — resume from the "
-            f"last completed step with:\n"
+            f"\nRun still failing after auto-resume. State is checkpointed — "
+            f"retry later from the last completed step with:\n"
             f"    python run_coborrower_cloud.py --resume {thread_id}"
         )
         sys.exit(1)
