@@ -363,22 +363,45 @@ def _retry_delay(attempt: int) -> float:
     return random.uniform(0, cap)
 
 
+_TRANSIENT_KEYWORDS = (
+    "overload", "rate_limit", "ratelimit", "timeout", "connection",
+    "serviceunavailable", "service_unavailable", "internalserver",
+    "internal_server", "api_error", "apierror",
+)
+
+
 def _is_transient_exc(exc: Exception) -> bool:
     """True if *exc* is a transient provider error worth retrying/falling back.
 
     Works across providers (Anthropic + OpenAI SDKs both expose ``status_code``
-    on API errors). Connection/timeout errors carry no status code but are also
-    transient, so we additionally match on the exception class name.
+    on API errors). We match on THREE signals because no single one is reliable:
+
+    1. HTTP status code — for ordinary non-streaming errors (429/500/502/503/529).
+    2. The structured error *body* — CRITICAL for Anthropic mid-stream errors.
+       When the provider overloads while streaming, the HTTP response already
+       returned 200 OK and an ``error`` SSE event arrives afterwards. The SDK
+       then raises a bare ``APIStatusError`` whose ``status_code`` is 200 (from
+       the original response), so signal (1) misses it. The real cause lives in
+       ``exc.body`` as ``{"error": {"type": "overloaded_error", ...}}``.
+    3. The exception class name / message text — for connection/timeout errors
+       that carry no status code or body.
     """
     status = getattr(exc, "status_code", None)
-    if isinstance(status, int):
-        return status in _RETRYABLE_STATUS
-    name = type(exc).__name__.lower()
-    return any(
-        k in name
-        for k in ("timeout", "connection", "overload", "ratelimit",
-                  "serviceunavailable", "internalserver", "apierror")
-    )
+    if isinstance(status, int) and status in _RETRYABLE_STATUS:
+        return True
+
+    # Extract the provider error "type" from the structured body, if present.
+    err_type = ""
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        err = body.get("error")
+        if isinstance(err, dict):
+            err_type = str(err.get("type", "")).lower()
+        elif body.get("type"):
+            err_type = str(body.get("type", "")).lower()
+
+    haystack = f"{err_type} {type(exc).__name__} {exc}".lower()
+    return any(k in haystack for k in _TRANSIENT_KEYWORDS)
 
 
 def _messages_for_openai(messages: list) -> list:
