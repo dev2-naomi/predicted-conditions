@@ -10,6 +10,7 @@ Four tools:
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from langchain_core.messages import ToolMessage
@@ -860,6 +861,242 @@ def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict])
     return ctx
 
 
+# ---------------------------------------------------------------------------
+# 1003 (URLA) completeness + consistency check
+# ---------------------------------------------------------------------------
+#
+# The mandatory 1003 request carries the spec "All sections complete and
+# consistent with the loan terms and program".  That is not a discrete
+# attribute the generic checker can confirm (there is no single field for it,
+# and the 1003 is deliberately not cross-referenced against itself), so it is
+# evaluated directly here against the extracted URLA fields:
+#
+#   Completeness — the core URLA sections every application must populate
+#     (borrower identity §1a, employment/income §1b–1e, assets §2a, subject
+#     property + loan terms §4a, declarations §5a) contain extracted data.
+#     Conditional sections (§1c/1d, §2c/2d, §3a–3c, §4b–4d) are only required
+#     when their ``isSectionXX`` applicability flag is explicitly true.
+#   Consistency  — loan-level values the 1003 exposes (loan amount, subject
+#     property address, occupancy, purpose) do not conflict with the
+#     eligibility-locked loan facts.
+#
+# The spec clears only when the application is actually complete AND nothing on
+# it contradicts the loan; otherwise it stays open for reviewer follow-up.
+
+_1003_BORROWER_KEYS = ("new1003Borrowers", "borrowers")
+
+
+def _is_1003_completeness_spec(spec_text: str) -> bool:
+    t = (spec_text or "").lower()
+    return "complete and consistent" in t or "sections complete" in t
+
+
+def _has_any_value(obj: Any) -> bool:
+    """True if *obj* contains at least one non-empty leaf value."""
+    if obj is None:
+        return False
+    if isinstance(obj, bool):
+        return obj
+    if isinstance(obj, (int, float)):
+        return True
+    if isinstance(obj, str):
+        return obj.strip() != ""
+    if isinstance(obj, dict):
+        return any(_has_any_value(v) for v in obj.values())
+    if isinstance(obj, list):
+        return any(_has_any_value(v) for v in obj)
+    return bool(obj)
+
+
+def _flag_true(val: Any) -> bool:
+    """Interpret an ``isSectionXX`` applicability flag as an explicit True."""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.strip().lower() in ("true", "yes", "y", "1")
+    if isinstance(val, (int, float)):
+        return val == 1
+    return False
+
+
+def _1003_borrowers(extracted_fields: dict) -> list[dict]:
+    for k in _1003_BORROWER_KEYS:
+        raw = extracted_fields.get(k)
+        if raw:
+            return [b for b in _as_list(raw) if isinstance(b, dict)]
+    return []
+
+
+def _1003_borrower_name(b: dict) -> str:
+    nm = b.get("name") if isinstance(b.get("name"), dict) else b
+    if not isinstance(nm, dict):
+        return ""
+    parts = [nm.get("firstName"), nm.get("middleName"), nm.get("lastName")]
+    return " ".join(str(p).strip() for p in parts if p).strip()
+
+
+def _to_number(v: Any) -> float | None:
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        digits = re.sub(r"[^0-9.]", "", v)
+        try:
+            return float(digits) if digits else None
+        except ValueError:
+            return None
+    return None
+
+
+def _first_present(d: dict, keys: tuple) -> Any:
+    for k in keys:
+        v = d.get(k)
+        if v not in (None, "", [], {}):
+            return v
+    return None
+
+
+def _norm_text(v: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(v or "").lower()).strip()
+
+
+def _evaluate_1003_completeness_consistency(
+    extracted_fields: dict,
+    reference_context: dict | None,
+) -> tuple[bool, str]:
+    """Return (satisfied, reason) for the 1003 'complete and consistent' spec."""
+    borrowers = _1003_borrowers(extracted_fields)
+    if not borrowers:
+        return False, "No borrower application data was extracted from the 1003."
+
+    # --- Completeness: required-always sections must contain data ---
+    # Conditional sections are required only when their isSectionXX flag is true.
+    missing_all: list[str] = []
+    for idx, b in enumerate(borrowers):
+        label = _1003_borrower_name(b) or f"borrower #{idx + 1}"
+        missing: list[str] = []
+        if not _1003_borrower_name(b):
+            missing.append("identity (§1a)")
+
+        # Primary borrower must show income, assets, subject property/loan
+        # terms, and declarations. Co-borrowers need only identity (they may
+        # not carry separate income/assets on the application).
+        if idx == 0:
+            income = any(
+                _has_any_value(b.get(s)) for s in ("section1b", "section1e")
+            )
+            if not income:
+                missing.append("employment/income (§1b–1e)")
+
+            if not _has_any_value(b.get("section2a")):
+                missing.append("assets (§2a)")
+
+            s4a = b.get("section4a") or {}
+            if not _has_any_value(s4a.get("propertyAddress")):
+                missing.append("subject property address (§4a)")
+            if not _has_any_value(_first_present(
+                s4a, ("loanAmount", "purposeOfLoan", "occupancy")
+            )):
+                missing.append("loan terms — amount/purpose/occupancy (§4a)")
+
+            if not _has_any_value(b.get("section5a")):
+                missing.append("declarations (§5a)")
+
+        # Conditional sections — required only when flagged applicable.
+        for flag, section, sec_label in (
+            ("isSection1c", "section1c", "additional employment (§1c)"),
+            ("isSection1d", "section1d", "previous employment (§1d)"),
+            ("isSection2c", "section2c", "liabilities (§2c)"),
+            ("isSection2d", "section2d", "other expenses (§2d)"),
+            ("isSection3a", "section3a", "real estate owned (§3a)"),
+            ("isSection4b", "section4b", "other new mortgages (§4b)"),
+        ):
+            if _flag_true(b.get(flag)) and not _has_any_value(b.get(section)):
+                missing.append(sec_label)
+
+        if missing:
+            missing_all.append(f"{label}: {', '.join(missing)}")
+
+    if missing_all:
+        return False, (
+            "Incomplete — the following 1003 sections have no extracted data: "
+            + "; ".join(missing_all)
+        )
+
+    # --- Consistency: loan-level values on the 1003 must match loan facts ---
+    loan_facts = (reference_context or {}).get("loan_facts", {}) or {}
+    primary = borrowers[0]
+    s4a = primary.get("section4a") or {}
+    conflicts: list[str] = []
+    checked: list[str] = []
+
+    la_1003 = _to_number(s4a.get("loanAmount"))
+    la_ref = _to_number(loan_facts.get("loan_amount"))
+    if la_1003 and la_ref:
+        checked.append("loan amount")
+        if abs(la_1003 - la_ref) > max(1.0, 0.01 * la_ref):
+            conflicts.append(f"loan amount ({la_1003:.0f} vs loan file {la_ref:.0f})")
+
+    subj = loan_facts.get("subject_property", {}) or {}
+    addr = s4a.get("propertyAddress") or {}
+    if isinstance(addr, dict) and subj:
+        z1 = str(addr.get("zipCode") or addr.get("zip") or "").strip()[:5]
+        z2 = str(subj.get("zip") or subj.get("zipCode") or "").strip()[:5]
+        if z1 and z2:
+            checked.append("property ZIP")
+            if z1 != z2:
+                conflicts.append(f"property ZIP ({z1} vs loan file {z2})")
+
+    occ_1003 = _norm_text(s4a.get("occupancy"))
+    occ_ref = _norm_text(loan_facts.get("occupancy"))
+    if occ_1003 and occ_ref:
+        checked.append("occupancy")
+        if occ_1003 not in occ_ref and occ_ref not in occ_1003:
+            conflicts.append(f"occupancy ({s4a.get('occupancy')} vs loan file {loan_facts.get('occupancy')})")
+
+    if conflicts:
+        return False, "Inconsistent with the loan terms: " + "; ".join(conflicts)
+
+    consistency_note = (
+        f" and consistent with the loan file ({', '.join(checked)})"
+        if checked else " with no detected conflicts against the loan file"
+    )
+    return True, (
+        "All core 1003 sections are populated (borrower identity, "
+        "employment/income, assets, subject property/loan terms, declarations)"
+        + consistency_note + "."
+    )
+
+
+def _check_1003_specs(
+    doc_type: str,
+    specifications: list,
+    extracted_fields: dict,
+    reference_context: dict | None,
+) -> list[dict]:
+    """Satisfaction check for the 1003.
+
+    The generic 'complete and consistent' spec is evaluated deterministically
+    (completeness + consistency); any other specs (e.g. signed/dated) fall back
+    to the standard extracted-fields LLM check, confirmed from the 1003's own
+    fields only (no reference context, since the 1003 IS the reference).
+    """
+    completeness_specs: list = []
+    other_specs: list = []
+    for s in _as_list(specifications):
+        (completeness_specs if _is_1003_completeness_spec(_spec_text(s)) else other_specs).append(s)
+
+    satisfied = _llm_check_specs(doc_type, other_specs, extracted_fields, reference_context=None)
+
+    for s in completeness_specs:
+        ok, reason = _evaluate_1003_completeness_consistency(extracted_fields, reference_context)
+        if ok:
+            satisfied.append({"specification": _spec_text(s), "reason": reason})
+
+    return satisfied
+
+
 def run_satisfaction_pass(
     document_requests: list[dict],
     submitted_docs: list[dict],
@@ -915,18 +1152,21 @@ def run_satisfaction_pass(
             dr["satisfied_specifications"] = []
             continue
 
-        # Pass authoritative loan facts as reference context for every doc
-        # except the 1003 itself, so consistency specs (name/address/amount
-        # matching) are cross-checked against the loan file rather than
-        # confirmed from the submitted doc alone.
-        ref_ctx = (
-            reference_context
-            if _canonical_doc_type(doc_type) != "loan application (1003)"
-            else None
-        )
-        satisfied_specs = _llm_check_specs(
-            doc_type, dr.get("specifications", []), extracted, reference_context=ref_ctx
-        )
+        # The 1003 is special: its own consistency/completeness spec is
+        # evaluated deterministically against the extracted URLA sections and
+        # the eligibility-locked loan facts (see _check_1003_specs). Every other
+        # document passes the authoritative loan facts as reference context so
+        # consistency specs (name/address/amount matching) are cross-checked
+        # against the loan file rather than confirmed from the doc alone.
+        if _canonical_doc_type(doc_type) == "loan application (1003)":
+            satisfied_specs = _check_1003_specs(
+                doc_type, dr.get("specifications", []), extracted, reference_context
+            )
+        else:
+            satisfied_specs = _llm_check_specs(
+                doc_type, dr.get("specifications", []), extracted,
+                reference_context=reference_context,
+            )
         satisfied_spec_texts = {s["specification"] for s in satisfied_specs}
         remaining_specs = [
             spec for spec in _as_list(dr.get("specifications", []))
