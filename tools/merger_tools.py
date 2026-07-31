@@ -609,6 +609,19 @@ def _find_submitted_doc(
     return None
 
 
+def _submitted_doc_ids(sdoc: dict) -> list[str]:
+    """Return the physical document UUID(s) for a matched submitted doc.
+
+    Prefers ``document_ids`` (a merged doc — e.g. combined paystubs — spans
+    several files); falls back to a single ``document_id``/``id``.
+    """
+    ids = sdoc.get("document_ids")
+    if isinstance(ids, list) and ids:
+        return [str(i) for i in ids if i]
+    one = sdoc.get("document_id") or sdoc.get("id")
+    return [str(one)] if one else []
+
+
 def _spec_text(spec: Any) -> str:
     """Extract the text content from a spec (string or dict)."""
     if isinstance(spec, str):
@@ -1128,6 +1141,10 @@ def run_satisfaction_pass(
 
         total_checked += 1
 
+        # Physical UUID(s) of the manifest document that matched this request,
+        # so a satisfied condition can point back to the exact file(s) used.
+        matched_ids = _submitted_doc_ids(sdoc)
+
         # When the match came through a blanket alias (functionally
         # equivalent document), treat ALL specs as satisfied.
         sdoc_name = (sdoc.get("name") or "").strip().lower()
@@ -1144,6 +1161,8 @@ def run_satisfaction_pass(
             ]
             dr["specifications"] = []
             dr["satisfied_specifications"] = satisfied_specs
+            if satisfied_specs and matched_ids:
+                dr["document_ids"] = matched_ids
             total_satisfied_specs += len(satisfied_specs)
             continue
 
@@ -1175,6 +1194,8 @@ def run_satisfaction_pass(
 
         dr["specifications"] = remaining_specs
         dr["satisfied_specifications"] = satisfied_specs
+        if satisfied_specs and matched_ids:
+            dr["document_ids"] = matched_ids
         total_satisfied_specs += len(satisfied_specs)
 
     return total_checked, total_satisfied_specs

@@ -377,6 +377,11 @@ def _merge_paystubs(
 
     merged_entry = dict(most_recent_entry)
     merged_entry["extracted_fields"] = merged_fields
+    # A merged paystub represents several physical documents; keep every
+    # contributing UUID so a condition satisfied by it points to all of them.
+    merged_ids = [e.get("document_id") for _, _, e in selected if e.get("document_id")]
+    if merged_ids:
+        merged_entry["document_ids"] = merged_ids
     merged_entry["name"] = (
         f"Paystub ({earliest_from.isoformat()} – {latest_to.isoformat()}, "
         f"{len(selected)} period{'s' if len(selected) != 1 else ''}, "
@@ -467,8 +472,18 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
         doc_type = CATEGORY_ID_TO_DOC_TYPE.get(category_id, "other")
         extracted = _extract_entity_fields(metadata)
 
+        # Physical document identity (the manifest's per-file UUID + blob id).
+        # `doc_id` is the CATEGORY id (e.g. "349" = URLA 1003); `document_id`
+        # is the unique uploaded-file UUID used to point a satisfied condition
+        # back to the exact document that satisfied it.
+        document_id = doc.get("id", "") or ""
+        blob_id = doc.get("blob_id", "") or ""
+
         entry = {
             "doc_id": str(category_id),
+            "document_id": document_id,
+            "document_ids": [document_id] if document_id else [],
+            "blob_id": blob_id,
             "name": category_name,
             "doc_type": doc_type,
             "extracted_fields": extracted,

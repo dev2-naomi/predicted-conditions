@@ -139,6 +139,10 @@ def style_document_requests(
         if canonical_dt and display.get("document_heading"):
             display["document_heading"] = canonical_dt
 
+        # --- Surface the manifest document UUID(s) that satisfied this
+        # condition so the frontend can deep-link to the exact uploaded file. ---
+        display["document_ids"] = dr.get("document_ids") or []
+
         # --- Authoritative split: derive the two requirement lists directly
         # from the raw specifications / satisfied_specifications produced by
         # cross_check_satisfaction. This is the single source of truth for

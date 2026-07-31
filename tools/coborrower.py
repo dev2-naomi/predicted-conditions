@@ -101,6 +101,9 @@ def _rebuild_display(dr: dict, borrower_display: dict | None) -> dict:
             styled_reqs.append(_aus_restyle_spec(text))
     display["documentation_requirements"] = styled_reqs
 
+    # Point back to the co-borrower manifest file(s) that satisfied this condition.
+    display["document_ids"] = dr.get("document_ids") or []
+
     return display
 
 
