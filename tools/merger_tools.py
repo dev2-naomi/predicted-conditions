@@ -1142,8 +1142,13 @@ def run_satisfaction_pass(
         total_checked += 1
 
         # Physical UUID(s) of the manifest document that matched this request,
-        # so a satisfied condition can point back to the exact file(s) used.
+        # so the condition points back to the exact submitted file(s) — the
+        # ones a reviewer should open to confirm/close it. Stamped on match
+        # (not only on a confirmed spec) so a "satisfied_but_review_required"
+        # condition still carries the file the reviewer needs.
         matched_ids = _submitted_doc_ids(sdoc)
+        if matched_ids:
+            dr["document_ids"] = matched_ids
 
         # When the match came through a blanket alias (functionally
         # equivalent document), treat ALL specs as satisfied.
@@ -1161,8 +1166,6 @@ def run_satisfaction_pass(
             ]
             dr["specifications"] = []
             dr["satisfied_specifications"] = satisfied_specs
-            if satisfied_specs and matched_ids:
-                dr["document_ids"] = matched_ids
             total_satisfied_specs += len(satisfied_specs)
             continue
 
@@ -1194,8 +1197,6 @@ def run_satisfaction_pass(
 
         dr["specifications"] = remaining_specs
         dr["satisfied_specifications"] = satisfied_specs
-        if satisfied_specs and matched_ids:
-            dr["document_ids"] = matched_ids
         total_satisfied_specs += len(satisfied_specs)
 
     return total_checked, total_satisfied_specs
