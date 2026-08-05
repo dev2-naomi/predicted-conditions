@@ -1,10 +1,11 @@
 """
-run_coborrower_cloud.py — Send a borrower + co-borrower payload to the cloud
-deployment and save the party-tagged output.
+run_coborrower_cloud.py — Send the three loan inputs to the cloud deployment and
+save the party-tagged output. Borrower/co-borrower are auto-detected from the
+eligibility JSON (falling back to the loan XML); there is no co-borrower input.
 
 By default it reads the cached fixtures created by test_coborrower.py:
     test_results/coborrower_test/inputs/{loan_file.xml, manifest.json,
-                                         eligibility.json, coborrower_manifest.json}
+                                         eligibility.json}
 
 Usage:
     python run_coborrower_cloud.py
@@ -175,18 +176,16 @@ def main():
             "loan_file_xml": _read("loan_file.xml"),
             "manifest_json": _read("manifest.json"),
             "eligibility_json": _read("eligibility.json"),
-            # The optional co-borrower object — just a manifest here.
-            "coborrower": {"manifest_json": _read("coborrower_manifest.json")},
         }
 
         print("=" * 60)
-        print("  Co-borrower cloud run")
+        print("  Per-party attribution cloud run")
         print("=" * 60)
         print(f"  Inputs dir : {inputs_dir}")
-        print(f"  Borrower   : xml={len(first_input['loan_file_xml'])}c "
+        print(f"  Inputs     : xml={len(first_input['loan_file_xml'])}c "
               f"manifest={len(first_input['manifest_json'])}c "
               f"elig={len(first_input['eligibility_json'])}c")
-        print(f"  Co-borrower: manifest={len(first_input['coborrower']['manifest_json'])}c")
+        print("  Parties are auto-detected from eligibility (fallback: loan XML).")
         print("=" * 60)
 
         r = requests.post(f"{BASE_URL}/threads", headers=HEADERS, json={})

@@ -1,20 +1,20 @@
 """
-test_coborrower.py — Local end-to-end test of the co-borrower document set.
+test_coborrower.py — Local end-to-end test of per-party document attribution.
 
-Pulls two existing cloud threads: one is used as the BORROWER (its loan file +
-manifest + eligibility), and the OTHER thread's manifest is reused as the
-co-borrower's manifest (it's just a test fixture). The updated LOCAL `agent`
-graph is then run in-process so the new co-borrower node is exercised without
-needing a cloud redeploy.
+Pulls ONE existing cloud thread's three inputs (loan_file_xml + manifest_json +
+eligibility_json) and runs the updated LOCAL `agent` graph in-process so the
+per-party attribution node is exercised without a cloud redeploy. The borrower
+and co-borrower are auto-detected from the eligibility JSON (falling back to the
+loan XML's BORROWER_2); there is no separate co-borrower input anymore.
 
 Inputs are cached to test_results/coborrower_test/inputs/ on first fetch, so
 re-runs are fully offline (no cloud, no re-download of the large manifests).
 
 Usage:
-    python test_coborrower.py                         # use cached inputs, else auto-pick two threads
-    python test_coborrower.py <borrower_tid> <cob_tid> # fetch these specific threads (and cache)
-    python test_coborrower.py --refetch               # force re-fetch from cloud
-    python test_coborrower.py --fetch-only            # fetch + cache inputs, skip the pipeline run
+    python test_coborrower.py                 # cached inputs, else default thread
+    python test_coborrower.py <thread_id>     # fetch this specific thread (and cache)
+    python test_coborrower.py --refetch       # force re-fetch from cloud
+    python test_coborrower.py --fetch-only    # fetch + cache inputs, skip the run
 
 Requires LANGGRAPH_URL + LANGCHAIN_API_KEY (thread fetch) and ANTHROPIC_API_KEY
 (local pipeline run) in .env. Tip: set ANTHROPIC_MODEL=claude-haiku-4-5 for a
@@ -38,13 +38,15 @@ BASE_URL = os.getenv("LANGGRAPH_URL", "")
 API_KEY = os.getenv("LANGCHAIN_API_KEY", "")
 HEADERS = {"x-api-key": API_KEY, "Content-Type": "application/json"}
 
+# Default: O'Malley loan (16 docs, co-borrower Matthew via loan XML BORROWER_2).
+DEFAULT_THREAD = "019ede7f-61e6-7511-8aaf-d69a6043bdb7"
+
 OUT_DIR = Path("test_results/coborrower_test")
 INPUT_DIR = OUT_DIR / "inputs"
 _INPUT_FILES = {
     "loan_file_xml": "loan_file.xml",
     "manifest_json": "manifest.json",
     "eligibility_json": "eligibility.json",
-    "coborrower_manifest_json": "coborrower_manifest.json",
 }
 
 
@@ -60,8 +62,7 @@ def load_cached_inputs() -> dict | None:
     if not all((INPUT_DIR / f).exists() for f in _INPUT_FILES.values()):
         return None
     data = {k: (INPUT_DIR / f).read_text(encoding="utf-8") for k, f in _INPUT_FILES.items()}
-    # Require at least a borrower manifest + co-borrower manifest to be useful.
-    if not data.get("manifest_json") or not data.get("coborrower_manifest_json"):
+    if not data.get("manifest_json") or not data.get("eligibility_json"):
         return None
     return data
 
@@ -70,40 +71,6 @@ def fetch_state(thread_id: str) -> dict:
     r = requests.get(f"{BASE_URL}/threads/{thread_id}/state", headers=HEADERS, timeout=60)
     r.raise_for_status()
     return r.json().get("values", {}) or {}
-
-
-def search_threads(limit: int = 20) -> list[dict]:
-    r = requests.post(f"{BASE_URL}/threads/search", headers=HEADERS, json={"limit": limit}, timeout=60)
-    r.raise_for_status()
-    return r.json()
-
-
-def _has_inputs(vals: dict, *, need_xml: bool) -> bool:
-    ok = bool(vals.get("manifest_json")) and bool(vals.get("eligibility_json"))
-    if need_xml:
-        ok = ok and bool(vals.get("loan_file_xml"))
-    return ok
-
-
-def pick_two_threads() -> tuple[str, str]:
-    """Auto-pick two distinct threads: borrower needs xml+manifest+elig, the
-    co-borrower just needs a manifest."""
-    threads = search_threads(limit=20)
-    borrower_tid = coborrower_tid = None
-    for t in threads:
-        tid = t.get("thread_id")
-        vals = t.get("values", {}) or {}
-        if borrower_tid is None and _has_inputs(vals, need_xml=True):
-            borrower_tid = tid
-            continue
-        if coborrower_tid is None and tid != borrower_tid and bool(vals.get("manifest_json")):
-            coborrower_tid = tid
-        if borrower_tid and coborrower_tid:
-            break
-    if not (borrower_tid and coborrower_tid):
-        print("ERROR: could not find two suitable threads")
-        sys.exit(1)
-    return borrower_tid, coborrower_tid
 
 
 def _print_set(label: str, docs: list[dict]) -> None:
@@ -117,30 +84,22 @@ def _print_set(label: str, docs: list[dict]) -> None:
 
 
 def fetch_and_cache(argv: list[str]) -> dict:
-    """Fetch borrower + co-borrower inputs from cloud threads and cache them."""
+    """Fetch a single thread's three inputs from a cloud thread and cache them."""
     if not BASE_URL or not API_KEY:
         print("ERROR: set LANGGRAPH_URL and LANGCHAIN_API_KEY in .env")
         sys.exit(1)
 
     tids = [a for a in argv if not a.startswith("--")]
-    if len(tids) >= 2:
-        borrower_tid, coborrower_tid = tids[0], tids[1]
-    else:
-        borrower_tid, coborrower_tid = pick_two_threads()
+    thread_id = tids[0] if tids else DEFAULT_THREAD
+    print(f"  Thread: {thread_id}")
 
-    print(f"  Borrower thread   : {borrower_tid}")
-    print(f"  Co-borrower thread: {coborrower_tid}")
-
-    bvals = fetch_state(borrower_tid)
-    cvals = fetch_state(coborrower_tid)
-
+    vals = fetch_state(thread_id)
     inputs = {
-        "loan_file_xml": bvals.get("loan_file_xml", "") or "",
-        "manifest_json": bvals.get("manifest_json", "") or "",
-        "eligibility_json": bvals.get("eligibility_json", "") or "",
-        "coborrower_manifest_json": cvals.get("manifest_json", "") or "",
+        "loan_file_xml": vals.get("loan_file_xml", "") or "",
+        "manifest_json": vals.get("manifest_json", "") or "",
+        "eligibility_json": vals.get("eligibility_json", "") or "",
     }
-    save_inputs(inputs, {"borrower_thread": borrower_tid, "coborrower_thread": coborrower_tid})
+    save_inputs(inputs, {"thread": thread_id})
     return inputs
 
 
@@ -150,12 +109,12 @@ def main():
     fetch_only = "--fetch-only" in argv
 
     print("=" * 68)
-    print("  Co-borrower local E2E test")
+    print("  Per-party attribution local E2E test")
     print("=" * 68)
 
     inputs = None if refetch else load_cached_inputs()
     if inputs is None:
-        print("  Fetching inputs from cloud threads...")
+        print("  Fetching inputs from cloud thread...")
         inputs = fetch_and_cache(argv)
     else:
         print(f"  Using cached inputs from {INPUT_DIR}/")
@@ -163,10 +122,8 @@ def main():
     loan_xml = inputs.get("loan_file_xml", "") or ""
     manifest = inputs.get("manifest_json", "") or ""
     elig = inputs.get("eligibility_json", "") or ""
-    cob_manifest = inputs.get("coborrower_manifest_json", "") or ""
 
-    print(f"  Borrower   : xml={len(loan_xml)}c manifest={len(manifest)}c elig={len(elig)}c")
-    print(f"  Co-borrower: manifest={len(cob_manifest)}c (reused as test fixture)")
+    print(f"  Inputs: xml={len(loan_xml)}c manifest={len(manifest)}c elig={len(elig)}c")
     print("=" * 68)
 
     if fetch_only:
@@ -177,7 +134,6 @@ def main():
         "loan_file_xml": loan_xml,
         "manifest_json": manifest,
         "eligibility_json": elig,
-        "coborrower": {"manifest_json": cob_manifest},
     }
 
     # Import after env is loaded so ANTHROPIC_API_KEY is picked up.
