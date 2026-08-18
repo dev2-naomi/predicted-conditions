@@ -26,7 +26,13 @@ load_dotenv(Path(__file__).parent / ".env")
 import requests
 
 BASE_URL = os.getenv("LANGGRAPH_URL", "")
-API_KEY = os.getenv("LANGCHAIN_API_KEY", "")
+# Prefer the dedicated deployment API_KEY (used by the AWS Lambda shim's
+# x-api-key auth, see api/main.py). Falls back to LANGCHAIN_API_KEY for
+# backward compatibility with LangGraph Platform Cloud, which used the
+# LangSmith key as its own auth key — these are two different secrets once
+# hosting moves to AWS, so don't rely on the fallback there (see
+# docs/AWS_DEPLOYMENT.md).
+API_KEY = os.getenv("API_KEY") or os.getenv("LANGCHAIN_API_KEY", "")
 ASSISTANT_ID = "predicted-conditions"
 
 HEADERS = {
@@ -62,7 +68,10 @@ def create_thread() -> str:
 def start_run(thread_id: str, inputs: dict) -> str:
     payload = {
         "assistant_id": ASSISTANT_ID,
-        "input": {**inputs, "current_step": "STEP_00"},
+        # Intentionally do NOT seed current_step here: real API callers send
+        # only the three data fields, so the test must exercise that same path
+        # (the engine now defaults to STEP_00 on its own).
+        "input": {**inputs},
         "config": {
             "recursion_limit": 250,
         },
@@ -158,9 +167,13 @@ def main():
     state = get_thread_state(thread_id)
     values = state.get("values", {})
 
+    source_label = input_dir.name
+    out_dir = Path("test_results/05_15") / f"{source_label}_cloud"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     final_output = values.get("final_output")
     if final_output:
-        out_path = Path("cloud_test_output.json")
+        out_path = out_dir / f"{source_label}_cloud_output.json"
         out_path.write_text(json.dumps(final_output, indent=2, default=str))
         print(f"\nFinal output saved to {out_path}")
 
@@ -208,7 +221,7 @@ def main():
             else:
                 print(f"  {k}: {v}")
 
-    full_state_path = Path("cloud_test_state.json")
+    state_path = out_dir / f"{source_label}_cloud_final_state.json"
     serializable = {}
     for k, v in values.items():
         if k in ("loan_file_xml", "manifest_json", "eligibility_json") and isinstance(v, str):
@@ -217,8 +230,9 @@ def main():
             serializable[k] = f"<{len(v)} messages>"
         else:
             serializable[k] = v
-    full_state_path.write_text(json.dumps(serializable, indent=2, default=str))
-    print(f"State summary saved to {full_state_path}")
+    state_path.write_text(json.dumps(serializable, indent=2, default=str))
+    print(f"State saved to {state_path}")
+    print(f"Thread ID: {thread_id}")
 
 
 if __name__ == "__main__":

@@ -583,4 +583,18 @@ _builder.add_conditional_edges(
 _builder.add_edge("tools", "orchestrator")
 _builder.add_edge("party_split", END)
 
-agent = _builder.compile().with_config({"recursion_limit": 150})
+
+def build_agent(checkpointer: Any | None = None):
+    """Compile the graph, optionally with a checkpointer.
+
+    ``langgraph dev`` / LangGraph Platform manage persistence themselves and
+    never call this directly (they use the module-level ``agent`` below,
+    compiled without an explicit checkpointer). The AWS Lambda shim
+    (api/registry.py) calls this per-request with a DynamoDB-backed
+    checkpointer so /threads/{id}/state and multi-turn resumption work the
+    same way there as they do under LangGraph Platform.
+    """
+    return _builder.compile(checkpointer=checkpointer).with_config({"recursion_limit": 150})
+
+
+agent = build_agent()

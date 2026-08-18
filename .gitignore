@@ -214,3 +214,33 @@ logs/
 test_output.json
 agent-transcripts/
 *.local
+
+# AWS CDK (infra/)
+infra/cdk.out/
+infra/cdk.context.json
+infra/.venv/
+output.json
+
+# Ad-hoc local test/debug artifacts (loan data dumps, run logs, one-off
+# scripts) accumulated during development — not meant to be committed.
+# Real loan test fixtures belong under compiled_inputs/ or data/input/
+# and should be added deliberately, not swept in by a broad `git add`.
+*.zip
+*_output.json
+*_final_state.json
+*_state.json
+*_run.log
+*_run_log.txt
+*_logs.json
+*_logs.txt
+*_manifest.json
+*_thread_state.json
+thread_*
+cloud_*.json
+cloud_runs*.json
+output-manifest-*.json
+prechange.json
+postchange.json
+test_results/
+test_conditions_compiled.json
+variance_report.json

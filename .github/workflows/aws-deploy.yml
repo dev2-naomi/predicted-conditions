@@ -1,0 +1,134 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - "agent.py"
+      - "registry.py"
+      - "step_loader.py"
+      - "tools/**"
+      - "data/**"
+      - "plans/**"
+      - "api/**"
+      - "infra/**"
+      - "requirements.txt"
+      - ".github/workflows/aws-deploy.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  # Per-branch group so a dev deploy never queues behind (or blocks) a prod
+  # deploy, or vice versa — they're entirely separate stacks.
+  group: deploy-predicted-conditions-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # dev -> aws-dev environment / PredictedConditionsStack-Dev
+    # main -> aws-prod environment / PredictedConditionsStack (requires
+    # branch protection + reviewer approval on main to gate real prod pushes)
+    environment: ${{ github.ref_name == 'main' && 'aws-prod' || 'aws-dev' }}
+    env:
+      PREDICTED_CONDITIONS_STAGE: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      STACK_ID: ${{ github.ref_name == 'main' && 'PredictedConditionsStack' || 'PredictedConditionsStack-Dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # ubuntu-latest runners are x86_64; the Lambda is built for ARM64
+      # (Graviton, see infra/stacks/predicted_conditions_stack.py). Without
+      # QEMU, `docker build --platform linux/arm64` fails with
+      # "exec format error" the moment it runs an arm64 binary (e.g. pip
+      # install) on the amd64 host kernel.
+      - name: Set up QEMU (cross-arch Docker builds)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-2' }}
+
+      - name: Install CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install infra dependencies
+        working-directory: infra
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -q -r requirements.txt
+
+      - name: CDK bootstrap (safe to re-run)
+        working-directory: infra
+        run: |
+          source .venv/bin/activate
+          cdk bootstrap
+
+      - name: CDK deploy
+        working-directory: infra
+        env:
+          # Deploy-time values consumed by _deploy_env() in
+          # infra/stacks/predicted_conditions_stack.py. Only used to seed
+          # non-secret Lambda config — real secrets are pushed to Secrets
+          # Manager in a separate step below, never as CFN properties.
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL || 'claude-opus-4-5' }}
+          ANTHROPIC_FALLBACK_MODEL: ${{ vars.ANTHROPIC_FALLBACK_MODEL || 'claude-sonnet-4-5' }}
+          OPENAI_FALLBACK_MODEL: ${{ vars.OPENAI_FALLBACK_MODEL || 'gpt-5' }}
+          LANGCHAIN_TRACING_V2: "true"
+          LANGCHAIN_PROJECT: ${{ vars.LANGCHAIN_PROJECT }}
+          CORS_ALLOW_ORIGINS: ${{ vars.CORS_ALLOW_ORIGINS || '*' }}
+          PREDICTED_CONDITIONS_STAGE: ${{ env.PREDICTED_CONDITIONS_STAGE }}
+        run: |
+          source .venv/bin/activate
+          cdk deploy "$STACK_ID" --require-approval never --outputs-file "$GITHUB_WORKSPACE/cdk-outputs.json"
+
+      - name: Push secret values to Secrets Manager
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          SECRET_ARN=$(python3 -c "import json; print(json.load(open('cdk-outputs.json'))['$STACK_ID']['AgentSecretsArn'])")
+          python3 -c "
+          import json, os
+          print(json.dumps({
+              'ANTHROPIC_API_KEY': os.environ.get('ANTHROPIC_API_KEY', ''),
+              'OPENAI_API_KEY': os.environ.get('OPENAI_API_KEY', ''),
+              'LANGCHAIN_API_KEY': os.environ.get('LANGCHAIN_API_KEY', ''),
+              'API_KEY': os.environ.get('API_KEY', ''),
+          }))" > /tmp/secret-payload.json
+          aws secretsmanager put-secret-value \
+            --secret-id "$SECRET_ARN" \
+            --secret-string "file:///tmp/secret-payload.json"
+          rm -f /tmp/secret-payload.json
+
+      - name: Smoke test
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          API_URL=$(python3 -c "import json; print(json.load(open('cdk-outputs.json'))['$STACK_ID']['ApiUrl'])")
+          echo "API_URL=$API_URL" >> "$GITHUB_ENV"
+          curl -sf "$API_URL/health" | grep -q '"status":"ok"' || (echo "Health check failed" && exit 1)
+          curl -sf -X POST "$API_URL/assistants/search" -H "Content-Type: application/json" -d '{}' \
+            | grep -q predicted-conditions || (echo "assistants/search failed" && exit 1)
+
+      - name: Show stack outputs
+        run: cat cdk-outputs.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cdk-outputs-${{ env.PREDICTED_CONDITIONS_STAGE }}
+          path: cdk-outputs.json

@@ -41,7 +41,7 @@ load_dotenv(Path(__file__).parent / ".env")
 import requests
 
 BASE_URL = os.getenv("LANGGRAPH_URL", "")
-API_KEY = os.getenv("LANGCHAIN_API_KEY", "")
+API_KEY = os.getenv("API_KEY") or os.getenv("LANGCHAIN_API_KEY", "")
 ASSISTANT_ID = "predicted-conditions"
 HEADERS = {"x-api-key": API_KEY, "Content-Type": "application/json"}
 

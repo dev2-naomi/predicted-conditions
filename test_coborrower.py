@@ -35,7 +35,7 @@ load_dotenv(Path(__file__).parent / ".env")
 import requests
 
 BASE_URL = os.getenv("LANGGRAPH_URL", "")
-API_KEY = os.getenv("LANGCHAIN_API_KEY", "")
+API_KEY = os.getenv("API_KEY") or os.getenv("LANGCHAIN_API_KEY", "")
 HEADERS = {"x-api-key": API_KEY, "Content-Type": "application/json"}
 
 # Default: O'Malley loan (16 docs, co-borrower Matthew via loan XML BORROWER_2).
