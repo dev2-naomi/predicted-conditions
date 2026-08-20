@@ -127,7 +127,10 @@ jobs:
           API_URL=$(python3 -c "import json; print(json.load(open('cdk-outputs.json'))['$STACK_ID']['ApiUrl'])")
           echo "API_URL=$API_URL" >> "$GITHUB_ENV"
           curl -sf "$API_URL/health" | grep -q '"status":"ok"' || (echo "Health check failed" && exit 1)
-          curl -sf -X POST "$API_URL/assistants/search" -H "Content-Type: application/json" -d '{}' \
+          # /health is unauthenticated, but every other route requires
+          # x-api-key (see api/main.py's auth middleware) — the API_KEY
+          # secret above is only wired into the env for this reason.
+          curl -sf -X POST "$API_URL/assistants/search" -H "Content-Type: application/json" -H "x-api-key: $API_KEY" -d '{}' \
             | grep -q predicted-conditions || (echo "assistants/search failed" && exit 1)
 
       - name: Show stack outputs
