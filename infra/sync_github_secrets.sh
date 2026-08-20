@@ -40,24 +40,39 @@ SECRET_NAMES=(
   AWS_SECRET_ACCESS_KEY
 )
 
-# Non-sensitive — pushed as GitHub Actions variables.
+# Non-sensitive — pushed as GitHub Actions variables. Deliberately excludes
+# LANGCHAIN_PROJECT: that needs to differ between dev/prod (see
+# .github/workflows/aws-deploy.yml's stage-aware fallback), so a single
+# flat repo-level value for it would defeat the per-stage LangSmith trace
+# separation — leave it unset here and let the workflow compute it.
 VARIABLE_NAMES=(
   AWS_REGION
   ANTHROPIC_MODEL
   ANTHROPIC_FALLBACK_MODEL
   OPENAI_FALLBACK_MODEL
-  LANGCHAIN_PROJECT
   CORS_ALLOW_ORIGINS
 )
 
 echo ""
 echo "Ensuring GitHub environments aws-dev / aws-prod exist..."
+ENVS_CREATED=1
 if [[ "$DRY_RUN" -eq 0 ]]; then
-  gh api "repos/$REPO/environments/aws-dev" -X PUT >/dev/null
-  gh api "repos/$REPO/environments/aws-prod" -X PUT >/dev/null
-  # Restrict aws-prod deploys to the main branch only.
-  gh api "repos/$REPO/environments/aws-prod/deployment-branch-policies" \
-    -X POST -f name='main' >/dev/null 2>&1 || true
+  if gh api "repos/$REPO/environments/aws-dev" -X PUT >/dev/null 2>&1 \
+      && gh api "repos/$REPO/environments/aws-prod" -X PUT >/dev/null 2>&1; then
+    # Restrict aws-prod deploys to the main branch only.
+    gh api "repos/$REPO/environments/aws-prod/deployment-branch-policies" \
+      -X POST -f name='main' >/dev/null 2>&1 || true
+  else
+    ENVS_CREATED=0
+    echo "  WARNING: could not create/configure Environments (needs admin on $REPO)."
+    echo "  Continuing with repo-level secrets/variables only — the workflow's"
+    echo "  dev->PredictedConditionsStack-Dev / main->PredictedConditionsStack"
+    echo "  branch routing still works (it's driven by github.ref_name, not by"
+    echo "  the Environment feature). You just won't get environment-scoped"
+    echo "  secrets, required-reviewer gating, or the branch-restriction policy"
+    echo "  on aws-prod until someone with admin access on $REPO re-runs this,"
+    echo "  or creates the aws-dev/aws-prod environments manually in Settings."
+  fi
 else
   echo "  (dry-run) would create/verify environments aws-dev, aws-prod"
 fi

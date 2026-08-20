@@ -87,7 +87,12 @@ jobs:
           ANTHROPIC_FALLBACK_MODEL: ${{ vars.ANTHROPIC_FALLBACK_MODEL || 'claude-sonnet-4-5' }}
           OPENAI_FALLBACK_MODEL: ${{ vars.OPENAI_FALLBACK_MODEL || 'gpt-5' }}
           LANGCHAIN_TRACING_V2: "true"
-          LANGCHAIN_PROJECT: ${{ vars.LANGCHAIN_PROJECT }}
+          # Stage-aware default (matches infra/stacks/predicted_conditions_stack.py's
+          # _deploy_env fallback) so dev/prod traces land in separate LangSmith
+          # projects even if the vars.LANGCHAIN_PROJECT repo variable is unset —
+          # an empty string here would otherwise win over that Python-side
+          # default, since it's still "set" from os.environ's perspective.
+          LANGCHAIN_PROJECT: ${{ vars.LANGCHAIN_PROJECT || (github.ref_name == 'main' && 'predicted-conditions' || 'predicted-conditions-dev') }}
           CORS_ALLOW_ORIGINS: ${{ vars.CORS_ALLOW_ORIGINS || '*' }}
           PREDICTED_CONDITIONS_STAGE: ${{ env.PREDICTED_CONDITIONS_STAGE }}
         run: |

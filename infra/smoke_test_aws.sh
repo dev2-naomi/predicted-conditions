@@ -16,7 +16,17 @@ with open('$ROOT/output.json', encoding='utf-8') as f:
     print(json.load(f).get('$STACK_ID.ApiUrl', ''))
 ")"
 fi
-API_URL="${API_URL:?Set API_URL, or run infra/deploy.sh first so output.json exists}"
+# output.json only ever reflects whichever stage was deployed *most
+# recently* (infra/deploy.sh overwrites it every run), so it may be stale
+# or missing the other stage's URL entirely. Fall back to asking
+# CloudFormation directly, which is always authoritative.
+if [[ -z "${API_URL:-}" ]]; then
+  API_URL="$(aws cloudformation describe-stacks --region us-east-2 \
+    --stack-name "$STACK_ID" \
+    --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
+    --output text 2>/dev/null || true)"
+fi
+API_URL="${API_URL:?Could not resolve API_URL. Set API_URL explicitly, or make sure $STACK_ID is deployed and your AWS credentials can read it.}"
 API_URL="${API_URL%/}"
 
 if [[ -f "$ROOT/.env" ]]; then
