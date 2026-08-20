@@ -235,7 +235,7 @@ output.json
 *_logs.txt
 *_manifest.json
 *_thread_state.json
-thread_*
+/thread_*
 cloud_*.json
 cloud_runs*.json
 output-manifest-*.json
