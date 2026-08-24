@@ -31,11 +31,15 @@ if [[ -f "$ROOT/.env" ]]; then
 fi
 
 # Sensitive — pushed as GitHub Actions secrets.
+# API_KEY is dev's Lambda auth key; API_KEY_PROD is prod's — they're
+# deliberately different secrets (see docs/AWS_DEPLOYMENT.md) and
+# .github/workflows/aws-deploy.yml picks API_KEY_PROD on the main branch.
 SECRET_NAMES=(
   ANTHROPIC_API_KEY
   OPENAI_API_KEY
   LANGCHAIN_API_KEY
   API_KEY
+  API_KEY_PROD
   AWS_ACCESS_KEY_ID
   AWS_SECRET_ACCESS_KEY
 )

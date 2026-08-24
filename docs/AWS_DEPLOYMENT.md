@@ -129,11 +129,21 @@ want a manual approval gate before prod deploys (not configured by
 | `ANTHROPIC_API_KEY` | `.env` / GitHub secret | `agent.py` (primary LLM) |
 | `OPENAI_API_KEY` | `.env` / GitHub secret | `agent.py` (cross-provider fallback) |
 | `LANGCHAIN_API_KEY` | `.env` / GitHub secret | LangSmith tracing (kept post-migration) |
-| `API_KEY` | Generated locally (`openssl rand -hex 24`) / GitHub secret | `api/main.py`'s `x-api-key` auth middleware |
+| `API_KEY` | Generated locally (`openssl rand -hex 24`) / GitHub secret | `api/main.py`'s `x-api-key` auth middleware — **dev only** |
+| `API_KEY_PROD` | Generated locally (`openssl rand -hex 24`) / GitHub secret | Same middleware — **prod's dedicated key**, deliberately different from dev's |
 
-All four live in Secrets Manager (`AgentSecretsArn` in the deploy output),
-loaded into `os.environ` at Lambda cold start by `api/secrets.py`. Verify
-after any deploy:
+`API_KEY` and `API_KEY_PROD` are intentionally separate values (see
+[`API_USAGE.md`](./API_USAGE.md#authentication)) — `infra/deploy.sh` reads
+`API_KEY_PROD` (falling back to `API_KEY` if unset) when deploying the prod
+stage, and `.github/workflows/aws-deploy.yml` selects
+`secrets.API_KEY_PROD` on the `main` branch. Both still live under the key
+name `API_KEY` *inside* each stage's own secret in Secrets Manager — the
+`_PROD` suffix only exists locally/in CI to disambiguate which value goes
+to which stage.
+
+All four secrets live in Secrets Manager (`AgentSecretsArn` in the deploy
+output), loaded into `os.environ` at Lambda cold start by `api/secrets.py`.
+Verify after any deploy:
 
 ```bash
 aws secretsmanager get-secret-value --secret-id <AgentSecretsArn> \

@@ -85,6 +85,14 @@ with open('$ROOT/output.json', encoding='utf-8') as f:
     print(json.load(f).get('$STACK_ID.AgentSecretsArn', ''))
 " 2>/dev/null || true)"
 
+# dev and prod are separate secrets with separate API_KEY values (see
+# docs/AWS_DEPLOYMENT.md). .env only has one API_KEY (used for dev); to keep
+# prod's dedicated key from being overwritten back to dev's value on every
+# `deploy.sh prod`, prefer API_KEY_PROD when it's set and we're deploying prod.
+if [[ "$STAGE" == "prod" && -n "${API_KEY_PROD:-}" ]]; then
+  export API_KEY="$API_KEY_PROD"
+fi
+
 if [[ -n "$SECRET_ARN" && -n "${ANTHROPIC_API_KEY:-}" ]]; then
   echo "Pushing secret values to Secrets Manager ($SECRET_ARN)..."
   SECRET_PAYLOAD_FILE="$(mktemp)"

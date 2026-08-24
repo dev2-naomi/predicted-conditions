@@ -1,0 +1,1034 @@
+[
+  {
+    "doctype_id": 146,
+    "document_type": "401K",
+    "category": "Assets",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1085,
+    "document_type": "Gift",
+    "category": "Assets",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2214,
+    "document_type": "Investment Account Statement",
+    "category": "Assets",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 450,
+    "document_type": "Verification of Deposit",
+    "category": "Assets",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 210,
+    "document_type": "Wire Transfer",
+    "category": "Assets",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2099,
+    "document_type": "4506-C IVES",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 229,
+    "document_type": "4506-T",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1106,
+    "document_type": "Affidavit of Occupancy",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2026,
+    "document_type": "Annual Certification of Occupancy",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2285,
+    "document_type": "Application for ITIN W7",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 478,
+    "document_type": "Authorization to Release Information",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1835,
+    "document_type": "Borrower Certification as to Business Purpose",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2128,
+    "document_type": "Borrower Certifications and Disclosure",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 237,
+    "document_type": "Borrowers Authorization",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2181,
+    "document_type": "Consent for Release of Information SSA-3288",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 323,
+    "document_type": "Drivers License",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2100,
+    "document_type": "IRS 4506-C Authorization",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2300,
+    "document_type": "ITIN",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2304,
+    "document_type": "Non-Driver ID",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1593,
+    "document_type": "Occupancy Certificate FBI Fraud Warning",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 390,
+    "document_type": "Owner Occupancy Certification",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 845,
+    "document_type": "Passport",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 844,
+    "document_type": "Permanent Resident Card",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 843,
+    "document_type": "Social Security ID",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2138,
+    "document_type": "Travel VISA",
+    "category": "Compliance",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 113,
+    "document_type": "Bankruptcy Documents",
+    "category": "Credit",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 803,
+    "document_type": "Credit Payoffs",
+    "category": "Credit",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 117,
+    "document_type": "Credit Report",
+    "category": "Credit",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 448,
+    "document_type": "Verification of Mortgage",
+    "category": "Credit",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 449,
+    "document_type": "Verification of Rent",
+    "category": "Credit",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 312,
+    "document_type": "Amortization Schedule",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 153,
+    "document_type": "Assets LOE",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2020,
+    "document_type": "Cover Letter for Transcript of Tax Return Form",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2281,
+    "document_type": "Derogatory Credit LOE",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 525,
+    "document_type": "Divorce Decree",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2209,
+    "document_type": "Evidence of Delivery and Receipt of VOE",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 366,
+    "document_type": "Income LOE",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 551,
+    "document_type": "LOE Addresses on Credit Report",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 681,
+    "document_type": "LOE Budget",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 553,
+    "document_type": "LOE Cash Out",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 373,
+    "document_type": "LOE Collateral",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 395,
+    "document_type": "LOE Credit Docs",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 554,
+    "document_type": "LOE Name Variation",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 555,
+    "document_type": "LOE Relationship of Parties",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 546,
+    "document_type": "LOE Source of Large Deposits",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2185,
+    "document_type": "LOE for HOA Dues",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1967,
+    "document_type": "LOE on Employment Gap",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 387,
+    "document_type": "Loan Info LOE",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2289,
+    "document_type": "Overdraft LOE",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 193,
+    "document_type": "Power of Attorney",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1511,
+    "document_type": "Property LOE",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 200,
+    "document_type": "Purchase Contract",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1007,
+    "document_type": "Trust Documents",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1027,
+    "document_type": "Voluntary Information For Government Monitoring Purposes",
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1,
+    "document_type": "1120 Corporate Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2216,
+    "document_type": "Alabama State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2217,
+    "document_type": "Arizona State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2218,
+    "document_type": "Arkansas State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 3,
+    "document_type": "Award Letter",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2290,
+    "document_type": "Balance Sheet",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2219,
+    "document_type": "California State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2220,
+    "document_type": "Colorado State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2221,
+    "document_type": "Connecticut State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2107,
+    "document_type": "Consolidated 1099",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2222,
+    "document_type": "Delaware State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2309,
+    "document_type": "District of Columbia Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 6,
+    "document_type": "Employment Contract",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 10,
+    "document_type": "Form 1040",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 438,
+    "document_type": "Form 1040A",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 459,
+    "document_type": "Form 1040EZ",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 570,
+    "document_type": "Form 1040NR",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 460,
+    "document_type": "Form 1040X",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2187,
+    "document_type": "Form 1099-A",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2188,
+    "document_type": "Form 1099-B",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2189,
+    "document_type": "Form 1099-C",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2190,
+    "document_type": "Form 1099-CAP",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1002,
+    "document_type": "Form 1099-DIV",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1003,
+    "document_type": "Form 1099-G",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1001,
+    "document_type": "Form 1099-INT",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2191,
+    "document_type": "Form 1099-K",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2192,
+    "document_type": "Form 1099-LTC",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1005,
+    "document_type": "Form 1099-MISC",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2103,
+    "document_type": "Form 1099-NEC",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2193,
+    "document_type": "Form 1099-OID",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2194,
+    "document_type": "Form 1099-PATR",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2195,
+    "document_type": "Form 1099-Q",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1004,
+    "document_type": "Form 1099-R",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2196,
+    "document_type": "Form 1099-S",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2197,
+    "document_type": "Form 1099-SA",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2108,
+    "document_type": "Form RRB-1099",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2109,
+    "document_type": "Form RRB-1099-R",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2223,
+    "document_type": "Georgia State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2224,
+    "document_type": "Hawaii State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2225,
+    "document_type": "Idaho State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2226,
+    "document_type": "Illinois State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2227,
+    "document_type": "Indiana State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2228,
+    "document_type": "Iowa State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2229,
+    "document_type": "Kansas State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2230,
+    "document_type": "Kentucky State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2231,
+    "document_type": "Louisiana State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2232,
+    "document_type": "Maine State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2233,
+    "document_type": "Maryland State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2234,
+    "document_type": "Massachusetts State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2235,
+    "document_type": "Michigan State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2101,
+    "document_type": "Military LES Paystub",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2236,
+    "document_type": "Minnesota State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2237,
+    "document_type": "Mississippi State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2238,
+    "document_type": "Missouri State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2239,
+    "document_type": "Montana State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2240,
+    "document_type": "Nebraska State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2241,
+    "document_type": "New Jersey State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2242,
+    "document_type": "New Mexico State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2243,
+    "document_type": "New York State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2173,
+    "document_type": "Non QM Bank Statement Analysis Worksheet",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2244,
+    "document_type": "North Carolina State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2245,
+    "document_type": "North Dakota State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2246,
+    "document_type": "Ohio State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2247,
+    "document_type": "Oklahoma State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2248,
+    "document_type": "Oregon State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 16,
+    "document_type": "Paystub",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2249,
+    "document_type": "Pennsylvania State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 17,
+    "document_type": "Profit and Loss",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2258,
+    "document_type": "RSU Vesting Schedule",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1087,
+    "document_type": "Rental Agreement",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 611,
+    "document_type": "Rental Income Calculations Worksheet",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2250,
+    "document_type": "Rhode Island State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 21,
+    "document_type": "SSA 1099",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 856,
+    "document_type": "Schedule of Real Estate Owned",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2251,
+    "document_type": "South Carolina State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1012,
+    "document_type": "State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2310,
+    "document_type": "Tennessee State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2311,
+    "document_type": "Texas State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2263,
+    "document_type": "Utah State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1560,
+    "document_type": "Verbal Verification of Employment",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 436,
+    "document_type": "Verification of Employment",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2252,
+    "document_type": "Vermont State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2253,
+    "document_type": "Virginia State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 25,
+    "document_type": "W2",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2254,
+    "document_type": "Washington DC Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2255,
+    "document_type": "West Virginia State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2256,
+    "document_type": "Wisconsin State Tax Return",
+    "category": "Income",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 502,
+    "document_type": "Bank Statement",
+    "category": "Income/Assets",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2288,
+    "document_type": "Appraisal Desk Review",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 33,
+    "document_type": "Appraisal Invoice",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 162,
+    "document_type": "Appraisal Report",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1472,
+    "document_type": "Appraisal Review",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 957,
+    "document_type": "Appraisal Update",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 128,
+    "document_type": "Condo PUD Questionnaire",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2180,
+    "document_type": "DSCR Calculator",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2200,
+    "document_type": "DSCR Documentation",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 538,
+    "document_type": "Flood Certification",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1800,
+    "document_type": "Flood Hazard Determination",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 249,
+    "document_type": "Flood Insurance Disclosure",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1561,
+    "document_type": "Hazard Insurance",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2087,
+    "document_type": "Property Inspection",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 687,
+    "document_type": "UCDP SSR",
+    "category": "Property",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2168,
+    "document_type": "ALTA Settlement Statement",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 2156,
+    "document_type": "Addendum to Closing Disclosure",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 645,
+    "document_type": "Assignments of Deeds",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 164,
+    "document_type": "Chain of Title",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 819,
+    "document_type": "Closing Disclosure",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1000,
+    "document_type": "Deed",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 171,
+    "document_type": "Deed of Trust",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 180,
+    "document_type": "Grant Deed",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 397,
+    "document_type": "Payoff Statement",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 201,
+    "document_type": "Quit Claim Deed",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 42,
+    "document_type": "Request for Payoff",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1036,
+    "document_type": "Settlement Statement",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 1513,
+    "document_type": "Tax Cert",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 522,
+    "document_type": "Title Commitment",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 534,
+    "document_type": "Title Insurance",
+    "category": "Title",
+    "nqm_relevant": true
+  },
+  {
+    "doctype_id": 536,
+    "document_type": "Warranty Deed",
+    "category": "Title",
+    "nqm_relevant": true
+  }
+]

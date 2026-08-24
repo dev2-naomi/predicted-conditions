@@ -104,7 +104,11 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
-          API_KEY: ${{ secrets.API_KEY }}
+          # dev and prod are separate secrets with separate API_KEY values
+          # (see docs/AWS_DEPLOYMENT.md) — main deploys must use the
+          # dedicated API_KEY_PROD secret, not dev's API_KEY, or this step
+          # would silently overwrite prod's key back to dev's on every push.
+          API_KEY: ${{ github.ref_name == 'main' && secrets.API_KEY_PROD || secrets.API_KEY }}
         run: |
           SECRET_ARN=$(python3 -c "import json; print(json.load(open('cdk-outputs.json'))['$STACK_ID']['AgentSecretsArn'])")
           python3 -c "
@@ -122,7 +126,7 @@ jobs:
 
       - name: Smoke test
         env:
-          API_KEY: ${{ secrets.API_KEY }}
+          API_KEY: ${{ github.ref_name == 'main' && secrets.API_KEY_PROD || secrets.API_KEY }}
         run: |
           API_URL=$(python3 -c "import json; print(json.load(open('cdk-outputs.json'))['$STACK_ID']['ApiUrl'])")
           echo "API_URL=$API_URL" >> "$GITHUB_ENV"
