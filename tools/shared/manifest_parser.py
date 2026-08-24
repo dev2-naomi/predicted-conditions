@@ -4,14 +4,23 @@ submitted_documents_json format expected by the pipeline's
 parse_submitted_documents tool.
 
 De-duplication strategy:
-  - Group documents by (category_id, group_name). Documents with the
-    same category AND group_name represent the same physical document
-    extracted in multiple processing passes.
+  - Group documents by (category_id, group_name, specific_document_type).
+    Documents with the same category AND group_name AND specific type
+    represent the same physical document extracted in multiple processing
+    passes. ``specific_document_type`` (from ``metadata.specificDocumentType``
+    when present) matters because the upstream classifier can assign the
+    SAME category_id and group_name to genuinely different documents — e.g.
+    an original "Residential Lease Agreement" and its later "Addendum to
+    Renew Lease Agreement" both land in category "Rental Agreement", group
+    "1". Without this extra key, one would silently be discarded as a
+    duplicate of the other, even though an addendum only supplements the
+    original and can't satisfy specs that require the original agreement
+    itself (parties' signatures, original lease term, etc.).
   - Within each group, keep the document whose indexing task has the
     latest end_time (most recent / most accurate extraction).
   - Across groups within the same category, keep all entries — they
     represent distinct physical documents (e.g., two different paystubs
-    for different pay periods).
+    for different pay periods, or an original lease and its addendum).
 
 Output format per document:
   {
@@ -436,7 +445,11 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
 
     task_index = _build_task_index(tasks)
 
-    # Group documents by (category_id, group_name)
+    # Group documents by (category_id, group_name, specific_document_type).
+    # The specific-type component keeps distinct sub-types (e.g. an original
+    # lease vs. a renewal addendum, both category "Rental Agreement") from
+    # being collapsed together just because a classifier happened to tag
+    # them with the same group_name — see the module docstring.
     # key → (doc dict, latest_ts)
     groups: dict[tuple, tuple[dict, int]] = {}
 
@@ -448,8 +461,9 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
 
         metadata = doc.get("metadata") or {}
         group_name = str(metadata.get("group_name", ""))
+        specific_type = str(metadata.get("specificDocumentType") or "").strip().lower()
 
-        key = (category_id, group_name)
+        key = (category_id, group_name, specific_type)
         doc_id = doc.get("id", "")
         ts = task_index.get(doc_id, 0)
 
@@ -457,13 +471,13 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
         if existing is None or ts > existing[1]:
             groups[key] = (doc, ts)
 
-    # Build output — one entry per unique (category_id, group_name)
+    # Build output — one entry per unique (category_id, group_name, specific_type)
     # Collect paystubs separately so they can be merged into a 30-day window.
     result: list[dict] = []
     paystub_entries: list[dict] = []
 
-    for (category_id, _group_name), (doc, _ts) in sorted(
-        groups.items(), key=lambda x: (x[0][0], x[0][1])
+    for (category_id, _group_name, _specific_type), (doc, _ts) in sorted(
+        groups.items(), key=lambda x: (x[0][0], x[0][1], x[0][2])
     ):
         cat = doc.get("category") or {}
         category_name = cat.get("category_name", "unknown")

@@ -595,16 +595,18 @@ _SPEC_FIELD_MAP: dict[str, list[str]] = {
 # Documents whose name signals they're a supplement to a primary agreement
 # rather than the agreement itself — e.g. "Addendum to Renew Lease
 # Agreement" is a renewal rider, not the "Residential Lease Agreement" it
-# renews. Both may independently get classified/named with "lease agreement"
-# in them, so alias matching alone can't tell them apart; this keyword check
-# lets _find_submitted_doc prefer the primary document when both are present
-# in the manifest.
+# renews. Both commonly get classified under the SAME generic name/doc_type
+# ("Rental Agreement") by the upstream manifest classifier — the only place
+# the distinction survives is metadata.specificDocumentType, which
+# tools/shared/manifest_parser.py passes through into extracted_fields (see
+# its NON_ENTITY_META_KEYS). So this check also inspects extracted_fields,
+# not just name/doc_type. This keyword check lets _find_submitted_doc
+# prefer the primary document when both are present in the manifest.
 _ADDENDUM_LIKE_KEYWORDS = ("addendum", "amendment", "rider", "renewal", "extension")
 
 
-def _is_addendum_like(name: str) -> bool:
-    n = (name or "").lower()
-    return any(kw in n for kw in _ADDENDUM_LIKE_KEYWORDS)
+def _is_addendum_like(*texts: str) -> bool:
+    return any(kw in t.lower() for t in texts if t for kw in _ADDENDUM_LIKE_KEYWORDS)
 
 
 def _find_submitted_doc(
@@ -631,7 +633,8 @@ def _find_submitted_doc(
         sdoc_names = {name, dtype, name.replace(" ", "_"), dtype.replace("_", " ")}
         if not (all_names & sdoc_names):
             continue
-        if _is_addendum_like(name) or _is_addendum_like(dtype):
+        specific_type = str((sdoc.get("extracted_fields") or {}).get("specificDocumentType") or "")
+        if _is_addendum_like(name, dtype, specific_type):
             if fallback is None:
                 fallback = sdoc
             continue
