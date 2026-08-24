@@ -4,23 +4,43 @@ submitted_documents_json format expected by the pipeline's
 parse_submitted_documents tool.
 
 De-duplication strategy:
-  - Group documents by (category_id, group_name, specific_document_type).
-    Documents with the same category AND group_name AND specific type
-    represent the same physical document extracted in multiple processing
-    passes. ``specific_document_type`` (from ``metadata.specificDocumentType``
-    when present) matters because the upstream classifier can assign the
-    SAME category_id and group_name to genuinely different documents — e.g.
-    an original "Residential Lease Agreement" and its later "Addendum to
-    Renew Lease Agreement" both land in category "Rental Agreement", group
-    "1". Without this extra key, one would silently be discarded as a
-    duplicate of the other, even though an addendum only supplements the
-    original and can't satisfy specs that require the original agreement
-    itself (parties' signatures, original lease term, etc.).
+  - Group documents by (category_id, group_name, specific_document_type,
+    person_signature). Documents with the same category AND group_name AND
+    specific type AND identified person represent the same physical document
+    extracted in multiple processing passes.
+      * ``specific_document_type`` (from ``metadata.specificDocumentType``
+        when present) matters because the upstream classifier can assign the
+        SAME category_id and group_name to genuinely different documents —
+        e.g. an original "Residential Lease Agreement" and its later
+        "Addendum to Renew Lease Agreement" both land in category "Rental
+        Agreement", group "1". Without this extra key, one would silently be
+        discarded as a duplicate of the other, even though an addendum only
+        supplements the original and can't satisfy specs that require the
+        original agreement itself (parties' signatures, original lease term,
+        etc.).
+      * ``person_signature`` (from ``metadata.owner``/``customer``, see
+        ``_person_signature``) matters because the upstream classifier can
+        ALSO assign the SAME category_id and group_name to two entirely
+        different people's documents — e.g. the borrower's and co-borrower's
+        driver's licenses both land in category "Drivers License", group
+        "1". Without this extra key, one license would silently be
+        discarded as a "duplicate" of the other even though they belong to
+        different people, leaving one party's Photo ID requirement
+        permanently unsatisfiable (no document ever reaches the
+        satisfaction/party-matching stage for them). A bucket is only split
+        by person when it contains 2+ *distinct real* names — a bucket with
+        just one real name (even if some re-extraction passes of that same
+        document have a blank/placeholder owner) is NOT split, so repeated
+        extraction attempts of a single person's document still collapse to
+        the latest one as before. Docs with no identifiable single-person
+        name (loan-level docs like appraisal or title) get an empty
+        signature, preserving prior dedup behavior.
   - Within each group, keep the document whose indexing task has the
     latest end_time (most recent / most accurate extraction).
   - Across groups within the same category, keep all entries — they
     represent distinct physical documents (e.g., two different paystubs
-    for different pay periods, or an original lease and its addendum).
+    for different pay periods, an original lease and its addendum, or each
+    borrower's own driver's license).
 
 Output format per document:
   {
@@ -257,6 +277,80 @@ def _extract_entity_fields(metadata: dict) -> dict:
     return {k: v for k, v in metadata.items() if k not in NON_ENTITY_META_KEYS}
 
 
+def _person_signature(metadata: dict) -> str:
+    """Extract a normalized single-person signature from a doc's metadata, to
+    disambiguate two different people's documents that happen to land in the
+    same (category_id, group_name) bucket — e.g. each borrower's own driver's
+    license, both classified as category "Drivers License", group "1".
+
+    Checks the common single-owner keys first (``owner`` for IDs, ``customer``
+    for income docs), falling back to a bare firstName/lastName pair directly
+    on metadata. Returns "" when no identifiable single-person name is found
+    (loan-level/joint docs like appraisals or title reports keep the prior
+    dedup behavior — grouped by category/group only, no person split).
+    """
+
+    def _name_from(obj: object) -> str | None:
+        if not isinstance(obj, dict):
+            return None
+        first = obj.get("firstName")
+        last = obj.get("lastName")
+        if (
+            isinstance(first, str) and isinstance(last, str)
+            and first.strip() and last.strip()
+            and not _is_placeholder_name(first) and not _is_placeholder_name(last)
+        ):
+            return f"{first.strip()} {last.strip()}"
+        return None
+
+    for key in ("owner", "customer"):
+        val = metadata.get(key)
+        if isinstance(val, dict):
+            nm = _name_from(val)
+            if nm:
+                return _normalize_person_name(nm)
+        elif isinstance(val, str) and val.strip() and not _is_placeholder_name(val):
+            return _normalize_person_name(val)
+
+    nm = _name_from(metadata)
+    if nm:
+        return _normalize_person_name(nm)
+
+    return ""
+
+
+_PLACEHOLDER_NAME_TOKENS = frozenset({
+    "blank", "n a", "na", "none", "null", "unknown", "unavailable",
+    "notavailable", "notprovided", "redacted", "illegible",
+})
+
+
+def _is_placeholder_name(raw: str) -> bool:
+    """True when a name field is a placeholder rather than a real extracted
+    name — e.g. "[BLANK]", "N/A", "UNKNOWN" — which a failed/partial
+    extraction pass may emit instead of leaving the field empty. Treating
+    these as a real (distinct) person would wrongly keep a bad extraction
+    pass alongside the good one for the same physical document instead of
+    deduping them together.
+    """
+    s = "".join(c if c.isalnum() else " " for c in raw.lower())
+    s = " ".join(s.split()).replace(" ", "")
+    return s in _PLACEHOLDER_NAME_TOKENS
+
+
+def _normalize_person_name(name: str) -> str:
+    """Lowercase, replace commas/punctuation with spaces, collapse whitespace.
+
+    Handles OCR/extraction quirks like "NICOLE,LEIGH" (comma-joined
+    first+middle name) so the same person's name normalizes consistently
+    across re-extractions, while still differing from an unrelated person's
+    name.
+    """
+    s = name.lower()
+    s = "".join(c if c.isalnum() else " " for c in s)
+    return " ".join(s.split())
+
+
 def _parse_date(val: object) -> date | None:
     """Parse a YYYY-MM-DD string into a date, returning None on failure."""
     if not val or not isinstance(val, str):
@@ -450,7 +544,31 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
     # lease vs. a renewal addendum, both category "Rental Agreement") from
     # being collapsed together just because a classifier happened to tag
     # them with the same group_name — see the module docstring.
-    # key → (doc dict, latest_ts)
+
+    # Pass 1: for each (category_id, group_name, specific_type) bucket,
+    # collect the set of distinct REAL (non-empty, non-placeholder) person
+    # signatures seen. Only split a bucket by person when it genuinely
+    # contains 2+ different people's documents (e.g. borrower's + co-
+    # borrower's driver's license, both category "Drivers License" group
+    # "1"). A bucket with just ONE real name — even if some entries in it
+    # have a blank/placeholder name because that extraction pass failed to
+    # read it — is NOT split; those are re-extractions of the SAME physical
+    # document and should still collapse to the latest one, as before.
+    base_key_names: dict[tuple, set[str]] = {}
+    for doc in documents:
+        cat = doc.get("category") or {}
+        category_id = cat.get("category_id")
+        if category_id is None:
+            continue
+        metadata = doc.get("metadata") or {}
+        group_name = str(metadata.get("group_name", ""))
+        specific_type = str(metadata.get("specificDocumentType") or "").strip().lower()
+        person_sig = _person_signature(metadata)
+        if person_sig:
+            base_key = (category_id, group_name, specific_type)
+            base_key_names.setdefault(base_key, set()).add(person_sig)
+
+    # Pass 2: build the actual dedup groups. key → (doc dict, latest_ts)
     groups: dict[tuple, tuple[dict, int]] = {}
 
     for doc in documents:
@@ -462,8 +580,10 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
         metadata = doc.get("metadata") or {}
         group_name = str(metadata.get("group_name", ""))
         specific_type = str(metadata.get("specificDocumentType") or "").strip().lower()
+        base_key = (category_id, group_name, specific_type)
+        person_sig = _person_signature(metadata) if len(base_key_names.get(base_key, ())) >= 2 else ""
 
-        key = (category_id, group_name, specific_type)
+        key = (category_id, group_name, specific_type, person_sig)
         doc_id = doc.get("id", "")
         ts = task_index.get(doc_id, 0)
 
@@ -476,8 +596,8 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
     result: list[dict] = []
     paystub_entries: list[dict] = []
 
-    for (category_id, _group_name, _specific_type), (doc, _ts) in sorted(
-        groups.items(), key=lambda x: (x[0][0], x[0][1], x[0][2])
+    for (category_id, _group_name, _specific_type, _person_sig), (doc, _ts) in sorted(
+        groups.items(), key=lambda x: (x[0][0], x[0][1], x[0][2], x[0][3])
     ):
         cat = doc.get("category") or {}
         category_name = cat.get("category_name", "unknown")
