@@ -174,6 +174,16 @@ The document's `status` is **not changed** by this step — it stays as whatever
 `rank_document_requests` assigned (e.g. `needed` or `satisfied_but_review_required`).
 The `satisfied_specifications` array is purely informational.
 
+Image/document-quality specs (e.g. "must be legible", "clear photo",
+"identifiable information") have no dedicated extracted field to point to —
+they are satisfied indirectly: if the submitted document's `extracted_fields`
+contain real, specific identifying data (name, ID number, DOB, expiration
+date, etc.) rather than being empty or garbled, that successful extraction is
+itself evidence the source image was legible. Otherwise a fully legible
+government ID (e.g. a driver's license with a clear photo) would stay flagged
+as an open requirement forever, since "legibility" was never a field the
+extraction pipeline reports on its own.
+
 Tool call sequence for STEP_08:
 1. `merge_document_requests`
 2. `rank_document_requests`

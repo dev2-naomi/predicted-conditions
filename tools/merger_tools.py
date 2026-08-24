@@ -592,21 +592,52 @@ _SPEC_FIELD_MAP: dict[str, list[str]] = {
 }
 
 
+# Documents whose name signals they're a supplement to a primary agreement
+# rather than the agreement itself — e.g. "Addendum to Renew Lease
+# Agreement" is a renewal rider, not the "Residential Lease Agreement" it
+# renews. Both may independently get classified/named with "lease agreement"
+# in them, so alias matching alone can't tell them apart; this keyword check
+# lets _find_submitted_doc prefer the primary document when both are present
+# in the manifest.
+_ADDENDUM_LIKE_KEYWORDS = ("addendum", "amendment", "rider", "renewal", "extension")
+
+
+def _is_addendum_like(name: str) -> bool:
+    n = (name or "").lower()
+    return any(kw in n for kw in _ADDENDUM_LIKE_KEYWORDS)
+
+
 def _find_submitted_doc(
     doc_type_canonical: str,
     submitted_docs: list[dict],
 ) -> dict | None:
     """Find a submitted doc matching the canonical document_type,
-    including alias lookups from _DOCTYPE_ALIASES."""
+    including alias lookups from _DOCTYPE_ALIASES.
+
+    When multiple submitted docs match (e.g. both the original
+    "Residential Lease Agreement" and a later "Addendum to Renew Lease
+    Agreement" are present), prefer the primary document — an addendum
+    alone shouldn't be treated as satisfying specs describing the full
+    agreement (parties, full property address, original term, etc.) when
+    the original document is also available. Only fall back to an
+    addendum/amendment/rider/renewal-like match if it's the only candidate.
+    """
     all_names = _get_aliases(doc_type_canonical)
 
+    fallback: dict | None = None
     for sdoc in submitted_docs:
         name = (sdoc.get("name") or "").strip().lower()
         dtype = (sdoc.get("doc_type") or "").strip().lower()
         sdoc_names = {name, dtype, name.replace(" ", "_"), dtype.replace("_", " ")}
-        if all_names & sdoc_names:
-            return sdoc
-    return None
+        if not (all_names & sdoc_names):
+            continue
+        if _is_addendum_like(name) or _is_addendum_like(dtype):
+            if fallback is None:
+                fallback = sdoc
+            continue
+        return sdoc
+
+    return fallback
 
 
 def _submitted_doc_ids(sdoc: dict) -> list[str]:
@@ -676,6 +707,18 @@ the document itself is satisfied.
 However, do NOT mark a spec as satisfied if:
 - The relevant extracted field is completely empty ([] or null or "")
 - There is genuinely no evidence in the fields for that requirement
+
+Specs about image/document QUALITY — "must be legible", "clear photo",
+"readable", "identifiable information", "good quality scan", etc. — do not
+have a dedicated extracted field, but they ARE satisfied by indirect
+evidence: if the extracted fields contain real, specific identifying data
+(e.g. a full name, ID/license number, date of birth, expiration date,
+address) rather than being mostly empty or garbled, that successful
+extraction is itself proof the source image was legible and clear enough
+to read. Mark such a spec satisfied in that case, with a reason like
+"Legible — extracted fields (name, DOB, license #, expiration) were
+successfully read from the submitted image." Only leave it unsatisfied if
+the extracted fields are sparse, empty, or clearly placeholder/garbled.
 
 ## Extracted Fields
 {extracted_fields_json}
