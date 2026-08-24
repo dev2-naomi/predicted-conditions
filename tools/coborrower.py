@@ -318,27 +318,49 @@ def resolve_parties(state: dict) -> list[dict]:
 def _doc_party_names(doc: dict) -> list[str]:
     """Pull the person name(s) recorded on a parsed manifest document.
 
-    Reads ``extracted_fields.customer`` (firstName/lastName) and every entry in
-    ``extracted_fields.borrowers`` (both survive manifest parsing because they
-    are not housekeeping keys).
+    Different document types nest the person's name under different keys
+    depending on the extraction schema — e.g. ``customer`` for income docs,
+    ``owner`` for IDs (driver's license), ``applicant1``/``applicant2`` for
+    multi-borrower credit reports, plain ``borrowers``/entries for others.
+    Rather than hardcode every schema (and silently miss the next one — this
+    is exactly how a driver's license's ``owner`` name went undetected and
+    the document fell back to "assign to ALL parties", satisfying the
+    co-borrower's photo-ID requirement with the primary borrower's license),
+    recursively scan extracted_fields for any dict carrying a real
+    (non-placeholder) firstName+lastName pair, wherever it's nested.
+
+    Placeholder entries (e.g. a credit report's ``alerts[].applicant`` stub
+    with every field ``null``) are naturally skipped since firstName/lastName
+    aren't non-empty strings there.
     """
     ef = doc.get("extracted_fields", {}) or {}
     names: list[str] = []
 
-    cust = ef.get("customer")
-    if isinstance(cust, dict):
-        nm = f"{cust.get('firstName', '')} {cust.get('lastName', '')}".strip()
-        if nm:
-            names.append(nm)
-    elif isinstance(cust, str) and cust.strip():
-        names.append(cust.strip())
+    def _walk(obj: Any) -> None:
+        if isinstance(obj, dict):
+            first = obj.get("firstName")
+            last = obj.get("lastName")
+            if isinstance(first, str) and isinstance(last, str) and first.strip() and last.strip():
+                middle = obj.get("middleName") or ""
+                parts = [first.strip(), str(middle).strip(), last.strip()]
+                nm = " ".join(p for p in parts if p)
+                if nm:
+                    names.append(nm)
+            for v in obj.values():
+                _walk(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                _walk(item)
 
+    _walk(ef)
+
+    # A couple of schemas store the name as a single already-joined field
+    # rather than firstName/lastName parts.
+    cust = ef.get("customer")
+    if isinstance(cust, str) and cust.strip():
+        names.append(cust.strip())
     for b in ef.get("borrowers") or []:
-        if isinstance(b, dict):
-            nm = f"{b.get('firstName', '')} {b.get('lastName', '')}".strip()
-            if nm:
-                names.append(nm)
-        elif isinstance(b, str) and b.strip():
+        if isinstance(b, str) and b.strip():
             names.append(b.strip())
 
     return names
