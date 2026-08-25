@@ -36,6 +36,7 @@ from tools.shared.normalize import (
     apply_output_display_name,
     normalize_document_structure,
 )
+from tools.shared.party_scope import is_borrower_specific
 from tools.shared.xml_parser import parse_mismo_xml
 
 logger = logging.getLogger(__name__)
@@ -404,9 +405,22 @@ def apply_coborrower_pass(state: dict) -> dict:
     """Post-pipeline pass. Auto-detects the loan's parties and builds a full
     condition set per party, each satisfied only by that party's documents.
 
-    Single-party loans keep today's behavior (all requests tagged
-    ``party="borrower"``). Returns a state update dict ({} when there is nothing
-    to do). Never raises — on any error it falls back to the borrower output.
+    Loan-level (non-borrower-specific) document types — appraisal, title,
+    hazard insurance, wire transfer, etc., per data/document_party_scope.json
+    — are NOT split per party: one shared document covers every party on the
+    loan, so duplicating it under both ``party="borrower"`` and
+    ``party="coborrower"`` would just be two identical copies. Those get
+    ``party=None`` / ``applicable_parties=None`` instead, straight from the
+    already-computed (whole-submitted-doc-set) borrower_final entry. Only
+    borrower-specific types (IDs, tax docs, paystubs, etc.) get the per-party
+    split below.
+
+    Single-party loans keep today's behavior for borrower-specific docs (all
+    tagged ``party="borrower"``); shared docs are still ``party=None`` even
+    then, since "not tied to a specific person" doesn't depend on how many
+    people are on the loan. Returns a state update dict ({} when there is
+    nothing to do). Never raises — on any error it falls back to the
+    borrower output.
     """
     final_output = dict(state.get("final_output") or {})
     borrower_final = list(final_output.get("document_requests") or [])
@@ -421,6 +435,19 @@ def apply_coborrower_pass(state: dict) -> dict:
     )
     submitted_docs = scenario_summary.get("_submitted_docs", []) or []
 
+    # Loan-level docs: one shared copy, already satisfied against the full
+    # submitted-doc set, not attributed to any one party.
+    shared_docs: list[dict] = []
+    borrower_specific_final: list[dict] = []
+    for dr in borrower_final:
+        dr = dict(dr)
+        if is_borrower_specific(dr.get("document_type", "")):
+            borrower_specific_final.append(dr)
+        else:
+            dr["party"] = None
+            dr["applicable_parties"] = None
+            shared_docs.append(dr)
+
     try:
         parties = resolve_parties(state)
     except Exception as e:  # noqa: BLE001 — never break borrower output
@@ -429,34 +456,40 @@ def apply_coborrower_pass(state: dict) -> dict:
 
     if len(parties) < 2 or not canonical:
         # Single-party loan (or no canonical set to rebuild from): tag the
-        # existing borrower set and, when known, stamp the primary's name.
+        # existing borrower-specific set and, when known, stamp the
+        # primary's name. Shared docs stay party=None regardless.
         primary_name = parties[0]["name"] if parties else ""
-        for dr in borrower_final:
+        for dr in borrower_specific_final:
             dr.setdefault("party", "borrower")
             if primary_name and not dr.get("applicable_parties"):
                 dr["applicable_parties"] = [primary_name]
-        combined = borrower_final
+        combined = shared_docs + borrower_specific_final
     else:
+        canonical_borrower_specific = [
+            dr for dr in canonical
+            if is_borrower_specific(dr.get("document_type", ""))
+        ]
         assignments = assign_docs_to_parties(submitted_docs, parties)
-        combined = []
+        per_party: list[dict] = []
         for party in parties:
             party_docs = assignments.get(party["name"], [])
             try:
-                combined.extend(
+                per_party.extend(
                     build_party_document_requests(
-                        canonical, borrower_final, party_docs,
-                        party["name"], party["tag"], scenario_summary,
+                        canonical_borrower_specific, borrower_specific_final,
+                        party_docs, party["name"], party["tag"], scenario_summary,
                     )
                 )
             except Exception as e:  # noqa: BLE001 — never break borrower output
                 logger.warning(
                     "Party document build failed for %s: %s", party.get("name"), e
                 )
-        if not combined:
-            # Fall back to the untouched borrower set on total failure.
-            for dr in borrower_final:
+        if not per_party and borrower_specific_final:
+            # Fall back to the untouched borrower-specific set on total failure.
+            for dr in borrower_specific_final:
                 dr.setdefault("party", "borrower")
-            combined = borrower_final
+            per_party = borrower_specific_final
+        combined = shared_docs + per_party
 
     # Surface the party tag inside `display` (the frontend renders only display).
     for dr in combined:
@@ -464,11 +497,11 @@ def apply_coborrower_pass(state: dict) -> dict:
 
     final_output["document_requests"] = combined
 
-    # Refresh stats, adding a per-party breakdown.
+    # Refresh stats, adding a per-party breakdown ("shared" for loan-level docs).
     stats = dict(final_output.get("stats") or {})
     by_party: dict[str, int] = {}
     for dr in combined:
-        p = dr.get("party", "borrower")
+        p = dr.get("party") or "shared"
         by_party[p] = by_party.get(p, 0) + 1
     stats["total_document_requests"] = len(combined)
     stats["by_party"] = by_party
