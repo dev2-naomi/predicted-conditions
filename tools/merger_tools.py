@@ -609,24 +609,28 @@ def _is_addendum_like(*texts: str) -> bool:
     return any(kw in t.lower() for t in texts if t for kw in _ADDENDUM_LIKE_KEYWORDS)
 
 
-def _find_submitted_doc(
+def _find_all_submitted_docs(
     doc_type_canonical: str,
     submitted_docs: list[dict],
-) -> dict | None:
-    """Find a submitted doc matching the canonical document_type,
-    including alias lookups from _DOCTYPE_ALIASES.
+) -> list[dict]:
+    """Find ALL submitted docs matching the canonical document_type (not just
+    the first), including alias lookups from _DOCTYPE_ALIASES.
 
-    When multiple submitted docs match (e.g. both the original
-    "Residential Lease Agreement" and a later "Addendum to Renew Lease
-    Agreement" are present), prefer the primary document — an addendum
-    alone shouldn't be treated as satisfying specs describing the full
-    agreement (parties, full property address, original term, etc.) when
-    the original document is also available. Only fall back to an
-    addendum/amendment/rider/renewal-like match if it's the only candidate.
+    A spec can require evidence that spans multiple physical documents of
+    the same type — e.g. "most recent 2 years W-2 forms" when two separate
+    W2 files (one per tax year) were submitted, or multiple paystubs that
+    weren't pre-merged into a single coverage window. Returning every match
+    (instead of just one) lets the satisfaction check reason over the full
+    set instead of silently only ever seeing one year/period.
+
+    Same addendum precedence rule as before: addendum/amendment/rider/
+    renewal-like matches are excluded unless they're the only candidates
+    (a full agreement should win over an addendum when both exist).
     """
     all_names = _get_aliases(doc_type_canonical)
 
-    fallback: dict | None = None
+    primary: list[dict] = []
+    fallback: list[dict] = []
     for sdoc in submitted_docs:
         name = (sdoc.get("name") or "").strip().lower()
         dtype = (sdoc.get("doc_type") or "").strip().lower()
@@ -635,12 +639,24 @@ def _find_submitted_doc(
             continue
         specific_type = str((sdoc.get("extracted_fields") or {}).get("specificDocumentType") or "")
         if _is_addendum_like(name, dtype, specific_type):
-            if fallback is None:
-                fallback = sdoc
+            fallback.append(sdoc)
             continue
-        return sdoc
+        primary.append(sdoc)
 
-    return fallback
+    return primary or fallback
+
+
+def _find_submitted_doc(
+    doc_type_canonical: str,
+    submitted_docs: list[dict],
+) -> dict | None:
+    """Find a single representative submitted doc matching the canonical
+    document_type. Kept for callers that only need one match (e.g. pulling
+    identity fields off the 1003) — see _find_all_submitted_docs for the
+    multi-document-aware version used by the satisfaction pass.
+    """
+    matches = _find_all_submitted_docs(doc_type_canonical, submitted_docs)
+    return matches[0] if matches else None
 
 
 def _submitted_doc_ids(sdoc: dict) -> list[str]:
@@ -749,8 +765,10 @@ program, and subject property).
 
 Use this ONLY to verify cross-document CONSISTENCY requirements — specs that ask
 whether a value on the submitted document matches the loan (for example "name
-matches the loan application", "property address matches the subject property",
-"loan amount matches", "named insured matches the borrower").
+matches the loan application", "matches employer on application" — compare the
+submitted document's employer to that SAME borrower's employers_on_application
+list, "property address matches the subject property", "loan amount matches",
+"named insured matches the borrower").
 
 Rules:
 - Do NOT use this reference to satisfy a specification that requires the submitted
@@ -759,20 +777,45 @@ Rules:
 - Only apply a reference fact when a specification actually asks for that kind of
   cross-check. Ignore reference facts that are irrelevant to the spec.
 - If the submitted document's value CONFLICTS with this reference (for example a
-  different legal name, address, or loan amount), do NOT mark that specification
-  as satisfied — leave it for reviewer reconciliation and note the discrepancy in
-  your reason.
+  different legal name, address, employer, or loan amount), OR the reference data
+  needed for the comparison is MISSING/empty (e.g. this borrower has no employer
+  listed on the application), that specification is NOT satisfied — DO NOT include
+  it in the output array at all, even to note the discrepancy. A spec you are
+  reporting as mismatched, unmatched, or "not listed" is by definition not
+  satisfied and must be OMITTED from the response, never added to it with a
+  discrepancy explanation as the reason.
 {reference_json}
 """
+
+
+def _summarize_fields(fields: dict) -> dict:
+    """Truncate long lists/dicts in an extracted_fields dict for prompt size."""
+    summary: dict = {}
+    for k, v in fields.items():
+        if isinstance(v, list) and len(v) > 5:
+            summary[k] = v[:5] + [f"... ({len(v)} items total)"]
+        elif isinstance(v, dict) and len(str(v)) > 500:
+            summary[k] = {dk: dv for i, (dk, dv) in enumerate(v.items()) if i < 10}
+        else:
+            summary[k] = v
+    return summary
 
 
 def _llm_check_specs(
     doc_type: str,
     specifications: list,
-    extracted_fields: dict,
+    extracted_fields: dict | list[dict],
     reference_context: dict | None = None,
 ) -> list[dict]:
     """Use an LLM to determine which specs are satisfied by extracted fields.
+
+    ``extracted_fields`` is normally a single document's field dict, but when
+    multiple physical documents of the same type were submitted (e.g. two W-2
+    forms for two different tax years, or several unmerged paystubs), pass a
+    *list* of field dicts — one per document — instead. The model is told to
+    treat the array as one collective submission set, so a spec that spans
+    several documents (e.g. "most recent 2 years") can be satisfied by the
+    array as a whole even though no single document covers it alone.
 
     When ``reference_context`` is provided (authoritative borrower identity from
     the loan application), the model may use it to verify cross-document
@@ -788,14 +831,23 @@ def _llm_check_specs(
     if not specs_text:
         return []
 
-    ef_summary = {}
-    for k, v in extracted_fields.items():
-        if isinstance(v, list) and len(v) > 5:
-            ef_summary[k] = v[:5] + [f"... ({len(v)} items total)"]
-        elif isinstance(v, dict) and len(str(v)) > 500:
-            ef_summary[k] = {dk: dv for i, (dk, dv) in enumerate(v.items()) if i < 10}
-        else:
-            ef_summary[k] = v
+    multi_doc_note = ""
+    if isinstance(extracted_fields, list):
+        ef_summary = [_summarize_fields(f) for f in extracted_fields if isinstance(f, dict)]
+        if not ef_summary:
+            return []
+        multi_doc_note = (
+            f"\nNote: {len(ef_summary)} separate submitted documents of this "
+            "type are shown below as a JSON array — one object per physical "
+            "document (e.g. different tax years, different pay periods, "
+            "different statement months). A specification that spans "
+            "multiple documents (e.g. \"most recent 2 years\", \"last 2 "
+            "months\") is satisfied if the array COLLECTIVELY covers it (e.g. "
+            "two distinct tax years present across the array), even though "
+            "no single document in the array covers it alone.\n"
+        )
+    else:
+        ef_summary = _summarize_fields(extracted_fields)
 
     reference_block = ""
     if reference_context:
@@ -805,7 +857,7 @@ def _llm_check_specs(
 
     prompt = _SATISFACTION_PROMPT.format(
         doc_type=doc_type,
-        extracted_fields_json=json.dumps(ef_summary, indent=2, default=str),
+        extracted_fields_json=multi_doc_note + json.dumps(ef_summary, indent=2, default=str),
         reference_block=reference_block,
         specs_json=json.dumps(specs_text, indent=2),
     )
@@ -839,10 +891,34 @@ def _llm_check_specs(
     return []
 
 
+def _1003_employer_names(b: dict) -> list[str]:
+    """Pull distinct, non-empty employer names off a single 1003 borrower
+    entry — current job (section1b), additional/second job (section1c), and
+    previous job (section1d) — so a submitted W2/paystub/VOE's employer can
+    be cross-checked against ANY employer this borrower listed on the
+    application, not just their current one.
+    """
+    names: list[str] = []
+    seen: set[str] = set()
+    for section_key in ("section1b", "section1c", "section1d"):
+        section = b.get(section_key)
+        if not isinstance(section, dict):
+            continue
+        employer = section.get("employer")
+        name = employer.get("name") if isinstance(employer, dict) else None
+        if isinstance(name, str) and name.strip():
+            norm = name.strip().lower()
+            if norm not in seen:
+                seen.add(norm)
+                names.append(name.strip())
+    return names
+
+
 def _extract_identity_reference(submitted_docs: list[dict]) -> dict:
     """Pull authoritative borrower identity from the submitted 1003, so
     identity/consistency specs on other documents (e.g. "name matches the loan
-    application") can be truly cross-checked instead of confirmed in isolation.
+    application", "matches employer on application") can be truly cross-checked
+    instead of confirmed in isolation.
     """
     doc = _find_submitted_doc("Loan Application (1003)", submitted_docs)
     if not doc:
@@ -867,6 +943,9 @@ def _extract_identity_reference(submitted_docs: list[dict]) -> dict:
         ssn = b.get("last4SSN") or b.get("last4_ssn")
         if ssn:
             entry["last4_ssn"] = ssn
+        employers = _1003_employer_names(b)
+        if employers:
+            entry["employers_on_application"] = employers
         if entry:
             borrowers.append(entry)
 
@@ -1180,21 +1259,29 @@ def run_satisfaction_pass(
 
     for dr in document_requests:
         doc_type = dr.get("document_type") or ""
-        sdoc = _find_submitted_doc(doc_type, submitted_docs)
-        if not sdoc:
+        matches = _find_all_submitted_docs(doc_type, submitted_docs)
+        if not matches:
             dr["satisfied_specifications"] = []
             continue
 
         total_checked += 1
 
-        # Physical UUID(s) of the manifest document that matched this request,
-        # so the condition points back to the exact submitted file(s) — the
-        # ones a reviewer should open to confirm/close it. Stamped on match
-        # (not only on a confirmed spec) so a "satisfied_but_review_required"
-        # condition still carries the file the reviewer needs.
-        matched_ids = _submitted_doc_ids(sdoc)
+        # Physical UUID(s) of every matched manifest document, so the
+        # condition points back to all the submitted files — the ones a
+        # reviewer should open to confirm/close it. Stamped on match (not
+        # only on a confirmed spec) so a "satisfied_but_review_required"
+        # condition still carries the file(s) the reviewer needs.
+        matched_ids: list[str] = []
+        for m in matches:
+            for mid in _submitted_doc_ids(m):
+                if mid not in matched_ids:
+                    matched_ids.append(mid)
         if matched_ids:
             dr["document_ids"] = matched_ids
+
+        # The "primary" match drives blanket-alias / 1003 handling below —
+        # same document that _find_submitted_doc would have picked.
+        sdoc = matches[0]
 
         # When the match came through a blanket alias (functionally
         # equivalent document), treat ALL specs as satisfied.
@@ -1215,10 +1302,16 @@ def run_satisfaction_pass(
             total_satisfied_specs += len(satisfied_specs)
             continue
 
-        extracted = sdoc.get("extracted_fields", {})
-        if not extracted:
+        # Collect extracted_fields across ALL matched documents (not just the
+        # primary one) so specs spanning several physical documents of the
+        # same type — e.g. "most recent 2 years W-2 forms" when two separate
+        # W2 files (one per tax year) were submitted — can be verified
+        # against the full set instead of only ever seeing one of them.
+        all_fields = [m.get("extracted_fields") for m in matches if m.get("extracted_fields")]
+        if not all_fields:
             dr["satisfied_specifications"] = []
             continue
+        extracted: dict | list[dict] = all_fields[0] if len(all_fields) == 1 else all_fields
 
         # The 1003 is special: its own consistency/completeness spec is
         # evaluated deterministically against the extracted URLA sections and
@@ -1227,8 +1320,11 @@ def run_satisfaction_pass(
         # consistency specs (name/address/amount matching) are cross-checked
         # against the loan file rather than confirmed from the doc alone.
         if _canonical_doc_type(doc_type) == "loan application (1003)":
+            # 1003 completeness/consistency is always evaluated against a
+            # single document (the primary match) — it doesn't have a
+            # multi-document "coverage" concept like W2s/paystubs do.
             satisfied_specs = _check_1003_specs(
-                doc_type, dr.get("specifications", []), extracted, reference_context
+                doc_type, dr.get("specifications", []), all_fields[0], reference_context
             )
         else:
             satisfied_specs = _llm_check_specs(
