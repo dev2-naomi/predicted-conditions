@@ -361,6 +361,126 @@ def _parse_date(val: object) -> date | None:
         return None
 
 
+# ---------------------------------------------------------------------------
+# 1003 / URLA multi-borrower merge
+# ---------------------------------------------------------------------------
+#
+# A joint 1003/URLA has a "new1003Borrowers" list with an entry per borrower.
+# Tasktile can produce SEVERAL raw manifest entries for what is logically the
+# same application (different jobs/blobs — e.g. an 11-page and a 12-page
+# revision, each itself re-processed) — and critically, any given extraction
+# pass tends to fully capture only ONE borrower's identity/employer/income
+# fields (DOB, SSN, employer name, ...), leaving the other borrower's entry
+# in that pass blank. The generic (category_id, group_name, specific_type,
+# person_signature) dedup above can't tell these apart (a joint 1003's
+# metadata has no single owner/customer name for _person_signature to key
+# on), so it collapses them all down to one arbitrary "winner" — silently
+# discarding whichever passes captured the OTHER borrower's data.
+#
+# _merge_1003_documents fixes this by merging every borrower entry (matched
+# by normalized name) across all raw entries in the bucket, keeping the most
+# complete version of each borrower's data regardless of which raw entry it
+# came from, so the final combined document has both borrowers' full data.
+
+
+def _is_multi_borrower_1003(metadata: dict) -> bool:
+    """True when this doc's metadata carries a joint 1003 "new1003Borrowers"
+    list with 2 or more borrower entries."""
+    borrowers = metadata.get("new1003Borrowers")
+    return isinstance(borrowers, list) and len(borrowers) >= 2
+
+
+def _1003_borrower_name_key(b: dict) -> str:
+    """Normalized name key for a single new1003Borrowers entry."""
+    nm = b.get("name") if isinstance(b.get("name"), dict) else {}
+    parts = [nm.get("firstName"), nm.get("middleName"), nm.get("lastName")]
+    full = " ".join(str(p).strip() for p in parts if p and str(p).strip())
+    return _normalize_person_name(full) if full else ""
+
+
+def _1003_borrower_completeness(b: dict) -> int:
+    """Rough completeness score for one borrower entry — counts truthy leaf
+    values anywhere in the (nested) dict. Used to decide which of several
+    extraction passes has this borrower's REAL data filled in, versus a pass
+    where this borrower was left as an (almost) empty stub.
+    """
+    def _count(obj: object) -> int:
+        if isinstance(obj, dict):
+            return sum(_count(v) for v in obj.values())
+        if isinstance(obj, list):
+            return sum(_count(v) for v in obj)
+        return 1 if obj not in (None, "", [], {}) else 0
+
+    return _count(b)
+
+
+def _merge_1003_borrower_lists(borrower_lists: list[list[dict]]) -> list[dict]:
+    """Merge several new1003Borrowers lists (one per raw manifest entry for
+    the same joint application) into a single list with the most complete
+    version of EACH named borrower, regardless of which raw entry it came
+    from. Preserves first-seen borrower order.
+    """
+    best: dict[str, dict] = {}
+    best_score: dict[str, int] = {}
+    order: list[str] = []
+
+    for blist in borrower_lists:
+        for b in blist:
+            if not isinstance(b, dict):
+                continue
+            key = _1003_borrower_name_key(b)
+            if not key:
+                continue
+            score = _1003_borrower_completeness(b)
+            if key not in best or score > best_score[key]:
+                best[key] = b
+                best_score[key] = score
+            if key not in order:
+                order.append(key)
+
+    return [best[k] for k in order]
+
+
+def _merge_1003_documents(entries: list[dict]) -> dict:
+    """Merge a bucket of raw manifest documents that all represent the same
+    joint 1003/URLA application into ONE synthetic document whose
+    ``new1003Borrowers`` has the most complete data for every borrower,
+    pooled across all the raw entries.
+
+    If *entries* has only one item, it's returned unchanged (with
+    ``_all_document_ids`` set to just its own id) — no merge needed.
+    """
+    if len(entries) == 1:
+        doc = entries[0]
+        return {**doc, "_all_document_ids": [doc.get("id", "")] if doc.get("id") else []}
+
+    # Prefer the most-complete entry as the metadata "base" (page count is a
+    # reasonable proxy for a more complete/recent revision of the form).
+    def _entry_score(doc: dict) -> tuple:
+        meta = doc.get("metadata") or {}
+        pages = meta.get("total_pages") or 0
+        borrowers = meta.get("new1003Borrowers") or []
+        total_completeness = sum(_1003_borrower_completeness(b) for b in borrowers if isinstance(b, dict))
+        return (pages, total_completeness)
+
+    base = max(entries, key=_entry_score)
+
+    borrower_lists = [
+        (doc.get("metadata") or {}).get("new1003Borrowers") or []
+        for doc in entries
+    ]
+    merged_borrowers = _merge_1003_borrower_lists(borrower_lists)
+
+    merged_metadata = dict(base.get("metadata") or {})
+    merged_metadata["new1003Borrowers"] = merged_borrowers
+
+    merged_doc = dict(base)
+    merged_doc["metadata"] = merged_metadata
+    merged_doc["_all_document_ids"] = [doc.get("id", "") for doc in entries if doc.get("id")]
+
+    return merged_doc
+
+
 def _merge_paystubs(
     paystub_entries: list[dict],
     target_days: int = 30,
@@ -539,6 +659,33 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
 
     task_index = _build_task_index(tasks)
 
+    # Pre-pass: merge joint-1003/URLA entries (see _merge_1003_documents) so
+    # that whichever borrower's data an extraction pass captured never gets
+    # silently discarded — each (category_id, group_name, specific_type)
+    # bucket of multi-borrower-1003 raw entries becomes ONE synthetic entry
+    # carrying the most complete data for BOTH borrowers, before the general
+    # single-person dedup below (which can't tell these apart on its own).
+    _1003_buckets: dict[tuple, list[dict]] = {}
+    _1003_doc_ids: set[str] = set()
+    for doc in documents:
+        cat = doc.get("category") or {}
+        category_id = cat.get("category_id")
+        metadata = doc.get("metadata") or {}
+        if category_id is None or not _is_multi_borrower_1003(metadata):
+            continue
+        group_name = str(metadata.get("group_name", ""))
+        specific_type = str(metadata.get("specificDocumentType") or "").strip().lower()
+        bucket_key = (category_id, group_name, specific_type)
+        _1003_buckets.setdefault(bucket_key, []).append(doc)
+        if doc.get("id"):
+            _1003_doc_ids.add(doc["id"])
+
+    if _1003_buckets:
+        documents = [d for d in documents if d.get("id") not in _1003_doc_ids]
+        for entries in _1003_buckets.values():
+            merged = _merge_1003_documents(entries)
+            documents.append(merged)
+
     # Group documents by (category_id, group_name, specific_document_type).
     # The specific-type component keeps distinct sub-types (e.g. an original
     # lease vs. a renewal addendum, both category "Rental Agreement") from
@@ -609,14 +756,19 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
         # Physical document identity (the manifest's per-file UUID + blob id).
         # `doc_id` is the CATEGORY id (e.g. "349" = URLA 1003); `document_id`
         # is the unique uploaded-file UUID used to point a satisfied condition
-        # back to the exact document that satisfied it.
+        # back to the exact document that satisfied it. When this entry came
+        # from _merge_1003_documents (multiple raw files merged into one
+        # logical application), `_all_document_ids` carries every physical
+        # file's id so the condition still points back to all of them.
         document_id = doc.get("id", "") or ""
         blob_id = doc.get("blob_id", "") or ""
+        all_ids = doc.get("_all_document_ids")
+        document_ids = list(all_ids) if all_ids else ([document_id] if document_id else [])
 
         entry = {
             "doc_id": str(category_id),
             "document_id": document_id,
-            "document_ids": [document_id] if document_id else [],
+            "document_ids": document_ids,
             "blob_id": blob_id,
             "name": category_name,
             "doc_type": doc_type,
