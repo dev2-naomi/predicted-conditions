@@ -846,15 +846,29 @@ def build_scenario_summary(
         cash_out = supplemental.get("cash_out_amount")
         purpose = "Cash-OutRefinance" if (cash_out and cash_out > 0) else "NoCash-OutRefinance"
 
-    # Borrowers from profile metadata
+    # Borrowers from profile metadata. The caller's own top-level `borrower` /
+    # `coborrower` payload objects (explicit first_name/middle_name/last_name)
+    # are the most authoritative identity source -- prefer them over the name
+    # inferred from the XML/eligibility text, which can tokenize a middle name
+    # differently depending on the source system (e.g. folding it into the
+    # first-name string). This is also what downstream identity/consistency
+    # checks (name matches the loan application, etc. -- see
+    # tools/merger_tools.py's reference context) end up keying off of via
+    # this same `borrowers` list, so getting it right here fixes it
+    # everywhere at once. Falls back to the XML-derived profile borrower when
+    # the caller didn't send one.
+    payload_borrower = s.get("borrower") if isinstance(s.get("borrower"), dict) else {}
+    payload_coborrower = s.get("coborrower") if isinstance(s.get("coborrower"), dict) else {}
+
     borrowers: list[dict] = []
     profile_borrower = meta.get("borrower", {})
     supplemental_ssns = supplemental.get("borrower_ssns", [])
     supplemental_dobs = supplemental.get("borrower_dobs", [])
 
-    if profile_borrower and any(profile_borrower.values()):
+    primary_source = payload_borrower if any(payload_borrower.values()) else profile_borrower
+    if primary_source and any(primary_source.values()):
         borrowers.append({
-            "name": _build_borrower_name(profile_borrower),
+            "name": _build_borrower_name(primary_source),
             "ssn": supplemental_ssns[0] if supplemental_ssns else None,
             "dob": supplemental_dobs[0] if supplemental_dobs else None,
             "role": "primary",
@@ -864,9 +878,10 @@ def build_scenario_summary(
         })
 
     co_borrower = meta.get("co_borrower")
-    if co_borrower and isinstance(co_borrower, dict) and any(co_borrower.values()):
+    co_source = payload_coborrower if any(payload_coborrower.values()) else co_borrower
+    if co_source and isinstance(co_source, dict) and any(co_source.values()):
         borrowers.append({
-            "name": _build_borrower_name(co_borrower),
+            "name": _build_borrower_name(co_source),
             "ssn": supplemental_ssns[1] if len(supplemental_ssns) > 1 else None,
             "dob": supplemental_dobs[1] if len(supplemental_dobs) > 1 else None,
             "role": "co-borrower",
