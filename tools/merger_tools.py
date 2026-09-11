@@ -914,39 +914,69 @@ def _1003_employer_names(b: dict) -> list[str]:
     return names
 
 
-def _extract_identity_reference(submitted_docs: list[dict]) -> dict:
-    """Pull authoritative borrower identity from the submitted 1003, so
-    identity/consistency specs on other documents (e.g. "name matches the loan
-    application", "matches employer on application") can be truly cross-checked
-    instead of confirmed in isolation.
+def _extract_identity_reference(
+    submitted_docs: list[dict],
+    scenario_summary: dict | None = None,
+) -> dict:
+    """Pull authoritative borrower identity for cross-checking identity/
+    consistency specs on other documents (e.g. "name matches the loan
+    application", "matches employer on application") instead of confirming
+    them in isolation.
+
+    Prefers the submitted 1003 (URLA), which additionally carries per-borrower
+    employer names for employer cross-checks. Falls back to the already
+    resolved ``scenario_summary.borrowers`` (built from the eligibility file /
+    loan XML / the payload's ``borrower``/``coborrower`` objects — see
+    ``resolve_parties`` / ``_build_borrower_name``) when no 1003 was
+    submitted — e.g. business-purpose / bank-statement loans that package
+    Articles of Organization, an Operating Agreement, a Business Narrative,
+    etc. instead of a URLA. Without this fallback, "name matches the loan
+    application" specs have no reference to check against on those loans and
+    are unconditionally treated as unsatisfied (per the reference-block
+    instructions below), even though the name is in fact consistent across
+    every submitted document.
     """
-    doc = _find_submitted_doc("Loan Application (1003)", submitted_docs)
-    if not doc:
-        return {}
-
-    ef = doc.get("extracted_fields", {}) or {}
-    raw_borrowers = ef.get("new1003Borrowers") or ef.get("borrowers") or []
-
     borrowers: list[dict] = []
-    for b in _as_list(raw_borrowers):
-        if not isinstance(b, dict):
-            continue
-        nm = b.get("name") if isinstance(b.get("name"), dict) else b
-        parts = [nm.get("firstName"), nm.get("middleName"), nm.get("lastName")]
-        full = " ".join(str(p).strip() for p in parts if p)
-        entry: dict = {}
-        if full.strip():
-            entry["name"] = full.strip()
-        dob = b.get("DOB") or b.get("dob")
-        if dob:
-            entry["dob"] = dob
-        ssn = b.get("last4SSN") or b.get("last4_ssn")
-        if ssn:
-            entry["last4_ssn"] = ssn
-        employers = _1003_employer_names(b)
-        if employers:
-            entry["employers_on_application"] = employers
-        if entry:
+
+    doc = _find_submitted_doc("Loan Application (1003)", submitted_docs)
+    if doc:
+        ef = doc.get("extracted_fields", {}) or {}
+        raw_borrowers = ef.get("new1003Borrowers") or ef.get("borrowers") or []
+        for b in _as_list(raw_borrowers):
+            if not isinstance(b, dict):
+                continue
+            nm = b.get("name") if isinstance(b.get("name"), dict) else b
+            parts = [nm.get("firstName"), nm.get("middleName"), nm.get("lastName")]
+            full = " ".join(str(p).strip() for p in parts if p)
+            entry: dict = {}
+            if full.strip():
+                entry["name"] = full.strip()
+            dob = b.get("DOB") or b.get("dob")
+            if dob:
+                entry["dob"] = dob
+            ssn = b.get("last4SSN") or b.get("last4_ssn")
+            if ssn:
+                entry["last4_ssn"] = ssn
+            employers = _1003_employer_names(b)
+            if employers:
+                entry["employers_on_application"] = employers
+            if entry:
+                borrowers.append(entry)
+
+    if not borrowers:
+        for b in (scenario_summary or {}).get("borrowers") or []:
+            if not isinstance(b, dict):
+                continue
+            name = (b.get("name") or "").strip()
+            if not name or name.lower() == "unknown":
+                continue
+            entry: dict = {"name": name}
+            dob = b.get("dob")
+            if dob:
+                entry["dob"] = dob
+            ssn = b.get("ssn") or b.get("last4_ssn")
+            if ssn:
+                entry["last4_ssn"] = str(ssn)[-4:]
             borrowers.append(entry)
 
     return {"loan_application_borrowers": borrowers} if borrowers else {}
@@ -955,14 +985,15 @@ def _extract_identity_reference(submitted_docs: list[dict]) -> dict:
 def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict]) -> dict:
     """Assemble the authoritative cross-reference facts for satisfaction checks.
 
-    Combines borrower identity (from the 1003) with eligibility-locked loan facts
-    (loan amount, LTV, occupancy, purpose, program, subject property) so that
+    Combines borrower identity (from the 1003, or scenario_summary.borrowers
+    when no 1003 was submitted) with eligibility-locked loan facts (loan
+    amount, LTV, occupancy, purpose, program, subject property) so that
     consistency specs on ANY document — title, deed, hazard insurance, purchase
     contract, appraisal, etc. — can be verified against the loan file rather than
     confirmed from the submitted document alone.
     """
     ctx: dict = {}
-    ctx.update(_extract_identity_reference(submitted_docs))
+    ctx.update(_extract_identity_reference(submitted_docs, scenario_summary))
 
     ss = scenario_summary or {}
     loan_facts: dict = {}
