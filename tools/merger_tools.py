@@ -843,10 +843,14 @@ def _is_all_null(val: Any) -> bool:
 # NOTE: inquiries/credit_inquiries are deliberately EXCLUDED here. Unlike
 # public records/collections/derogatory (an open-ended "were there ever
 # any" question), inquiry specs are recency-qualified ("within the most
-# recent 90 days") — a null-stub inquiries entry has no dates in it, so it
-# cannot actually confirm there were no inquiries IN THAT WINDOW specifically
-# (vs. the extractor simply failing to parse a real inquiry). Treat a null
-# inquiries field as unsatisfied/missing data, not confirmed-clean.
+# recent 90 days") — a null-stub inquiries entry has no dates in it, so on
+# its own it cannot confirm there were no inquiries IN THAT WINDOW
+# specifically (vs. the extractor simply failing to parse a real inquiry).
+# Instead, the satisfaction prompt (_SATISFACTION_PROMPT below) satisfies
+# inquiry specs off the credit report's `reportIssued` date — the same
+# evidence used for "must be dated within allowable recency window" — since
+# a recently-issued report's inquiry section reliably reflects the most
+# recent 90 days regardless of whether it's populated or empty.
 _CONFIRMED_NONE_FIELDS = {
     "publicrecords", "public_records", "collectionaccounts", "collections",
     "derogatoryaccounts", "derogatorysummary", "charge_offs", "disputes",
@@ -936,15 +940,24 @@ use the words "null", "null entries", or "no entries" instead. Only treat it as
 unsatisfied if the field is entirely absent from the extracted fields (not
 present at all, not even as an empty/placeholder entry).
 
-IMPORTANT — this exception does NOT apply to the `inquiries`/`credit_inquiries`
-field or any spec about credit inquiries. Inquiry specs are recency-qualified
-(e.g. "must show inquiries within the most recent 90 days") — a present-but-
-null inquiries entry has no dates in it, so it cannot confirm there were no
-inquiries SPECIFICALLY WITHIN THAT WINDOW (as opposed to the extractor simply
-failing to parse a real inquiry, or the window not being evaluable at all).
-Treat a null/empty inquiries field as NOT satisfying an inquiry-related spec —
-leave it unsatisfied rather than marking it "confirmed clean" or using "empty
-data" as a satisfying reason for inquiries specifically.
+IMPORTANT — credit INQUIRIES specs (e.g. "must show inquiries within the most
+recent 90 days") do NOT use the confirmed-clean/empty-data exception above.
+Do NOT rely on the `inquiries`/`credit_inquiries` array's own contents to
+satisfy these — a present-but-null inquiries entry has no dates in it, so it
+cannot on its own confirm there were no inquiries specifically within that
+window. Instead, use the credit report's `reportIssued` date (the SAME field
+used to satisfy "must be dated within allowable recency window per Age of
+Documentation Policy") as the basis: if `reportIssued` is present and recent
+enough to satisfy that recency spec, that same recency is sufficient evidence
+that the report's inquiry section reflects the most recent 90 days as of the
+report date — mark the inquiries spec satisfied too, with a reason like
+"Report issued on the reportIssued date is within the most recent 90 days,
+so the inquiries section (whether populated or empty) reflects that window"
+(include the actual issue date value in your reason text), using "empty
+data" instead of "null"/"no entries" if the inquiries array itself has no
+real entries. If `reportIssued` is missing entirely, or the report is
+stale/outside the recency policy window, leave the inquiries spec
+unsatisfied — there is no basis to confirm the 90-day window either way.
 
 Specs about image/document QUALITY — "must be legible", "clear photo",
 "readable", "identifiable information", "good quality scan", etc. — do not
