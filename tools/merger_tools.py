@@ -557,25 +557,45 @@ _SPEC_FIELD_MAP: dict[str, list[str]] = {
     "earnest money": ["earnestMoney", "emd_amount", "earnest_money"],
     "closing date": ["closingDate", "closing_date", "settlement_date"],
     "addenda": ["addenda", "amendments", "counter_offers"],
-    "credit score": ["credit_scores", "fico", "FicoScore", "creditScore"],
+    # Credit report fields — names below match the real Tasktile Credit
+    # Report (category_id 117) extraction schema (verified against actual
+    # manifests), not the previously-guessed snake_case/mixed names that
+    # never appear in real data (e.g. "charge_offs", "credit_scores",
+    # "bureaus" as a top-level key).
+    "credit score": ["scores", "credit_scores", "fico", "FicoScore", "creditScore"],
     "all borrowers": ["borrower_name", "borrowers", "applicants"],
-    "tri-merge": ["bureaus", "experian", "transunion", "equifax"],
-    "three bureaus": ["bureaus", "experian", "transunion", "equifax"],
-    "tradeline": ["tradelines", "trade_lines"],
-    "payment history": ["tradelines", "payment_history", "mortgage_history"],
-    "public record": ["public_records", "publicRecords"],
+    # Bureau names live nested inside each scores[] entry (scores[i].sourceName
+    # = "TRANSUNION"/"EXPERIAN"/"EQUIFAX"), not as a top-level field, so this
+    # can only confirm "some score data is present" rather than "all three
+    # bureaus specifically" — best available signal without adding nested
+    # traversal to _check_spec_satisfied.
+    "tri-merge": ["scores", "bureaus", "experian", "transunion", "equifax"],
+    "three bureaus": ["scores", "bureaus", "experian", "transunion", "equifax"],
+    "tradeline": ["creditTradeLines", "tradeSummary", "tradelines", "trade_lines"],
+    "payment history": ["mortgageSummary", "creditTradeLines", "tradelines", "payment_history", "mortgage_history"],
+    "public record": ["publicRecords", "public_records"],
     "inquiries": ["inquiries", "credit_inquiries"],
     "disputes": ["disputes", "disputed_accounts"],
-    "collections": ["collections", "charge_offs"],
-    "mortgage history": ["mortgage_history", "housing_history"],
+    "collections": ["collectionAccounts", "derogatoryAccounts", "derogatorySummary", "collections", "charge_offs"],
+    "charge-off": ["derogatoryAccounts", "collectionAccounts", "derogatorySummary"],
+    "derogatory": ["derogatoryAccounts", "derogatorySummary", "collectionAccounts"],
+    "mortgage history": ["mortgageSummary", "mortgage_history", "housing_history"],
     "social security": ["ssn", "socialSecurityNumber", "social_security"],
     "vested": ["vested_parties", "vesting", "grantee"],
     "legal description": ["legal_description", "legalDescription"],
     "effective date": ["effective_date", "effectiveDate"],
     "insurer": ["insurer", "title_company", "underwriter"],
     "title insurer": ["insurer", "title_company", "underwriter"],
-    "liens": ["liens", "encumbrances", "exceptions"],
-    "judgments": ["judgments", "liens", "tax_liens"],
+    # NOTE: title-context "liens" (recorded against the property, e.g. a
+    # Preliminary Title Report/Grant Deed) has no dedicated field in the
+    # samples seen — "exceptions" here refers to the doc-QC flags block,
+    # which manifest_parser.py strips out of extracted_fields entirely
+    # (see NON_ENTITY_META_KEYS), so it can never actually match; kept only
+    # as a harmless placeholder until a real title-exceptions field is seen.
+    "liens": ["liens", "encumbrances", "exceptions", "publicRecords"],
+    "judgments": ["publicRecords", "judgments", "liens", "tax_liens"],
+    "bankruptc": ["publicRecords"],
+    "foreclosure": ["publicRecords"],
     "chain of title": ["chain_of_title", "title_history"],
     "borrower signature": ["signed", "dateSigned", "borrower_signed"],
     "borrower name": ["borrower_name", "borrowers", "buyers"],
@@ -602,11 +622,45 @@ _SPEC_FIELD_MAP: dict[str, list[str]] = {
 # its NON_ENTITY_META_KEYS). So this check also inspects extracted_fields,
 # not just name/doc_type. This keyword check lets _find_submitted_doc
 # prefer the primary document when both are present in the manifest.
-_ADDENDUM_LIKE_KEYWORDS = ("addendum", "amendment", "rider", "renewal", "extension")
+_ADDENDUM_LIKE_KEYWORDS = (
+    "addendum", "amendment", "rider", "renewal", "extension",
+    "counteroffer", "counter offer", "counter-offer",
+)
 
 
 def _is_addendum_like(*texts: str) -> bool:
     return any(kw in t.lower() for t in texts if t for kw in _ADDENDUM_LIKE_KEYWORDS)
+
+
+def _split_primary_fallback_docs(
+    doc_type_canonical: str,
+    submitted_docs: list[dict],
+) -> tuple[list[dict], list[dict]]:
+    """Same matching/alias logic as _find_all_submitted_docs, but returns the
+    primary and fallback (addendum-like) buckets separately instead of
+    collapsing them, so callers can tell whether a match is a genuine
+    primary document or only an addendum/amendment/counter-offer standing
+    in for one — needed to avoid reporting a document_request as
+    "satisfied_but_review_required" on the strength of a counter-offer
+    alone (see run_satisfaction_pass's status-downgrade logic below).
+    """
+    all_names = _get_aliases(doc_type_canonical)
+
+    primary: list[dict] = []
+    fallback: list[dict] = []
+    for sdoc in submitted_docs:
+        name = (sdoc.get("name") or "").strip().lower()
+        dtype = (sdoc.get("doc_type") or "").strip().lower()
+        sdoc_names = {name, dtype, name.replace(" ", "_"), dtype.replace("_", " ")}
+        if not (all_names & sdoc_names):
+            continue
+        specific_type = str((sdoc.get("extracted_fields") or {}).get("specificDocumentType") or "")
+        if _is_addendum_like(name, dtype, specific_type):
+            fallback.append(sdoc)
+            continue
+        primary.append(sdoc)
+
+    return primary, fallback
 
 
 def _find_all_submitted_docs(
@@ -627,22 +681,7 @@ def _find_all_submitted_docs(
     renewal-like matches are excluded unless they're the only candidates
     (a full agreement should win over an addendum when both exist).
     """
-    all_names = _get_aliases(doc_type_canonical)
-
-    primary: list[dict] = []
-    fallback: list[dict] = []
-    for sdoc in submitted_docs:
-        name = (sdoc.get("name") or "").strip().lower()
-        dtype = (sdoc.get("doc_type") or "").strip().lower()
-        sdoc_names = {name, dtype, name.replace(" ", "_"), dtype.replace("_", " ")}
-        if not (all_names & sdoc_names):
-            continue
-        specific_type = str((sdoc.get("extracted_fields") or {}).get("specificDocumentType") or "")
-        if _is_addendum_like(name, dtype, specific_type):
-            fallback.append(sdoc)
-            continue
-        primary.append(sdoc)
-
+    primary, fallback = _split_primary_fallback_docs(doc_type_canonical, submitted_docs)
     return primary or fallback
 
 
@@ -681,6 +720,72 @@ def _spec_text(spec: Any) -> str:
     return str(spec)
 
 
+def _has_real_data(val: Any) -> bool:
+    """Return True if val contains actual extracted evidence, not just an
+    empty/placeholder shell.
+
+    Tasktile extractors often emit a list with one stub item (every leaf
+    value null) when a report section is detected but nothing inside it
+    could be parsed — e.g. a Credit Report's "publicRecords":
+    [{"name": null, "status": null, "statusDate": null, "publicRecordType":
+    null}]. A naive `val not in (None, "", [])` check treats that as
+    "present" (it's a non-empty list) even though there's zero real
+    evidence — that's a false positive, not a satisfied spec.
+    """
+    if val is None or val == "" or val == []:
+        return False
+    if isinstance(val, dict):
+        return any(_has_real_data(v) for v in val.values())
+    if isinstance(val, list):
+        return any(_has_real_data(item) for item in val)
+    return True
+
+
+def _is_all_null(val: Any) -> bool:
+    """True if val is None/"" , or a dict/list composed entirely (recursively)
+    of None/"" leaves. Used by _is_confirmed_none_found below — distinct from
+    _has_real_data's "is this a stub" check because it must also match a bare
+    None/"" leaf, not just container shells."""
+    if val is None or val == "":
+        return True
+    if isinstance(val, dict):
+        return all(_is_all_null(v) for v in val.values())
+    if isinstance(val, list):
+        return all(_is_all_null(item) for item in val)
+    return False
+
+
+# Adverse-item list fields where a present-but-all-null entry is a legitimate
+# "this section was evaluated and there is nothing to report" signal, not an
+# extraction failure — e.g. a clean borrower's Credit Report genuinely has no
+# public records or collection accounts, and the Tasktile extractor still
+# emits one placeholder object (every leaf null) for the section rather than
+# an empty list. Deliberately scoped to fields where "confirmed none" is a
+# real, common, valid outcome — NOT applied broadly to every field, since for
+# something like a credit score a null value means the extraction failed
+# (every borrower has a score), not that the score has been confirmed absent.
+_CONFIRMED_NONE_FIELDS = {
+    "publicrecords", "public_records", "collectionaccounts", "collections",
+    "derogatoryaccounts", "derogatorysummary", "charge_offs", "disputes",
+    "disputed_accounts", "inquiries", "credit_inquiries",
+}
+
+
+def _is_confirmed_none_found(fname: str, val: Any) -> bool:
+    """True when val is a non-empty list/dict for one of the known
+    adverse-item fields, but every leaf value inside it is null/empty —
+    i.e. the document explicitly reports zero items of that type, which
+    SATISFIES a spec asking to "identify"/"show" those items (a confirmed
+    clean result answers the question just as validly as a populated list
+    would), rather than being treated as missing/unusable data.
+    """
+    if fname.lower() not in _CONFIRMED_NONE_FIELDS:
+        return False
+    if val is None or val == "" or val == []:
+        return False
+    return _is_all_null(val)
+
+
 def _check_spec_satisfied(
     spec: Any,
     extracted_fields: dict,
@@ -700,10 +805,16 @@ def _check_spec_satisfied(
                     if real_key.lower() == fname.lower():
                         val = extracted_fields[real_key]
                         break
-                if val is not None and val != "" and val != []:
+                if _has_real_data(val):
                     return (
                         f"Dropped — submitted document contains {fname} "
                         f"field confirming this requirement is present"
+                    )
+                if _is_confirmed_none_found(fname, val):
+                    return (
+                        f"Dropped — submitted document's {fname} field is present "
+                        f"and confirms none found (all entries null/empty), "
+                        f"satisfying this requirement with a clean result"
                     )
     return None
 
@@ -724,8 +835,21 @@ relevant fields exist (even with limited data), the requirement to OBTAIN/PROVID
 the document itself is satisfied.
 
 However, do NOT mark a spec as satisfied if:
-- The relevant extracted field is completely empty ([] or null or "")
+- The relevant extracted field is completely MISSING/absent from the extracted fields
 - There is genuinely no evidence in the fields for that requirement
+
+EXCEPTION — confirmed-clean adverse-item fields: for fields like publicRecords,
+collectionAccounts, derogatoryAccounts/derogatorySummary, disputes, and inquiries,
+a present entry (or entries) where every value is null/empty is NOT the same as a
+missing field — it means the credit report explicitly evaluated that section and
+found NOTHING to report (e.g. a borrower with no bankruptcies/judgments/liens/
+foreclosures, or no collections/charge-offs). That IS a satisfying answer for specs
+like "must show public records including bankruptcies, judgments, liens,
+foreclosures" or "must identify any collections, charge-offs, or derogatory
+accounts" — mark these satisfied with a reason like "Confirmed clean — {field} is
+present with no entries (all null), indicating none were found on this credit
+report." Only treat it as unsatisfied if the field is entirely absent from the
+extracted fields (not present at all, not even as an empty/null-stub entry).
 
 Specs about image/document QUALITY — "must be legible", "clear photo",
 "readable", "identifiable information", "good quality scan", etc. — do not
@@ -980,6 +1104,72 @@ def _extract_identity_reference(
             borrowers.append(entry)
 
     return {"loan_application_borrowers": borrowers} if borrowers else {}
+
+
+_K1_NAME_KEYWORDS = ("k-1", "k1 form", "schedule k-1", "1120s", "1120-s")
+
+
+def _last4(value: Any) -> str:
+    digits = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return digits[-4:] if len(digits) >= 4 else digits
+
+
+def _collect_ssns_last4(fields: dict, _depth: int = 0) -> set[str]:
+    """Recursively pull every SSN-like value out of a fields dict (checking
+    keys named ssn/SSN/last4SSN/last4_ssn at any nesting level, up to 3
+    levels deep — enough to reach e.g. extracted_fields.owner1.SSN) and
+    normalize to the last 4 digits, so a full 9-digit SSN on one document
+    can be matched against a last-4-only SSN on another."""
+    found: set[str] = set()
+    if not isinstance(fields, dict) or _depth > 3:
+        return found
+    for k, v in fields.items():
+        kl = k.lower()
+        if kl in ("ssn", "last4ssn", "last4_ssn") and v:
+            last4 = _last4(v)
+            if last4:
+                found.add(last4)
+        elif isinstance(v, dict):
+            found |= _collect_ssns_last4(v, _depth + 1)
+        elif isinstance(v, list):
+            for item in v:
+                if isinstance(item, dict):
+                    found |= _collect_ssns_last4(item, _depth + 1)
+    return found
+
+
+def _find_k1_companion_fields(
+    primary_fields: dict,
+    submitted_docs: list[dict],
+) -> list[dict]:
+    """Find Schedule K-1 / 1120S documents belonging to the SAME borrower(s)
+    as the given tax-return document (matched by last-4 SSN), so a spec like
+    "Must include Schedule K-1 showing S-Corporation distributions and
+    ownership percentage" can be checked against the K-1's own extracted
+    fields — the ownership %/distributions live entirely on the separately
+    submitted K-1 document (a different doc_type/category in the manifest),
+    never embedded inside the 1040's own extracted_fields, so without this
+    the spec has no evidence to find even when a matching K-1 was submitted.
+
+    Scoped by SSN (not just "any K-1 in the file") so a borrower's Form 1040
+    doesn't get credited with a business partner's/co-shareholder's K-1 —
+    e.g. a 33% shareholder's 1040 shouldn't be satisfied by a 67% co-owner's
+    K-1 for the same S-corp.
+    """
+    borrower_ssns = _collect_ssns_last4(primary_fields)
+    if not borrower_ssns:
+        return []
+
+    companions: list[dict] = []
+    for sdoc in submitted_docs:
+        name = (sdoc.get("name") or "").strip().lower()
+        if not any(kw in name for kw in _K1_NAME_KEYWORDS):
+            continue
+        ef = sdoc.get("extracted_fields") or {}
+        k1_ssns = _collect_ssns_last4(ef)
+        if k1_ssns & borrower_ssns:
+            companions.append(ef)
+    return companions
 
 
 def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict]) -> dict:
@@ -1290,7 +1480,20 @@ def run_satisfaction_pass(
 
     for dr in document_requests:
         doc_type = dr.get("document_type") or ""
-        matches = _find_all_submitted_docs(doc_type, submitted_docs)
+        primary_matches, fallback_matches = _split_primary_fallback_docs(doc_type, submitted_docs)
+        matches = primary_matches or fallback_matches
+        # True when the ONLY thing standing in for this document_type is an
+        # addendum/amendment/counter-offer (no genuine primary document was
+        # submitted) — e.g. a Counteroffer with no underlying Purchase
+        # Contract. assign_statuses() (run earlier, before real specs are
+        # checked) optimistically set status="satisfied_but_review_required"
+        # just because *some* document with a matching alias/category
+        # existed in document_inventory — it has no concept of "addendum
+        # only". If this fallback-only document also contributes zero real
+        # satisfied specs below, we downgrade status back to "needed" so the
+        # requirement doesn't look closed when nothing has actually been
+        # confirmed.
+        fallback_only = bool(fallback_matches) and not primary_matches
         if not matches:
             dr["satisfied_specifications"] = []
             continue
@@ -1301,7 +1504,11 @@ def run_satisfaction_pass(
         # condition points back to all the submitted files — the ones a
         # reviewer should open to confirm/close it. Stamped on match (not
         # only on a confirmed spec) so a "satisfied_but_review_required"
-        # condition still carries the file(s) the reviewer needs.
+        # condition still carries the file(s) the reviewer needs. Cleared
+        # again below (alongside the status downgrade) if this turns out to
+        # be a fallback-only match — e.g. a Counteroffer — that ends up
+        # satisfying zero specs, so the UI doesn't show it as "the"
+        # connected document for a Purchase Contract that's still missing.
         matched_ids: list[str] = []
         for m in matches:
             for mid in _submitted_doc_ids(m):
@@ -1341,7 +1548,25 @@ def run_satisfaction_pass(
         all_fields = [m.get("extracted_fields") for m in matches if m.get("extracted_fields")]
         if not all_fields:
             dr["satisfied_specifications"] = []
+            if fallback_only:
+                dr["status"] = "needed"
+                dr["document_ids"] = []
             continue
+
+        # Tax-return documents (Form 1040 / 1120 / 1065) commonly carry a
+        # spec asking to confirm an attached Schedule K-1 (S-corp/partnership
+        # ownership % and distributions) — but a K-1 is its own physical
+        # document/category in the manifest, never embedded in the tax
+        # return's own extracted_fields. Without pulling in the borrower's
+        # matching K-1 document(s) here, that spec can never be satisfied
+        # even when a real, fully-populated K-1 was submitted alongside it.
+        spec_blob = " ".join(_spec_text(s).lower() for s in _as_list(dr.get("specifications", [])))
+        if "k-1" in spec_blob or "k1" in spec_blob or "schedule k" in spec_blob:
+            for primary in all_fields:
+                for companion in _find_k1_companion_fields(primary, submitted_docs):
+                    if companion not in all_fields:
+                        all_fields.append(companion)
+
         extracted: dict | list[dict] = all_fields[0] if len(all_fields) == 1 else all_fields
 
         # The 1003 is special: its own consistency/completeness spec is
@@ -1371,6 +1596,10 @@ def run_satisfaction_pass(
         dr["specifications"] = remaining_specs
         dr["satisfied_specifications"] = satisfied_specs
         total_satisfied_specs += len(satisfied_specs)
+
+        if fallback_only and not satisfied_specs:
+            dr["status"] = "needed"
+            dr["document_ids"] = []
 
     return total_checked, total_satisfied_specs
 

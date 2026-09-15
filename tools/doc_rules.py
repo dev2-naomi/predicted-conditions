@@ -153,8 +153,32 @@ def _income_docs_for_entry(resolved_doc: str, borrower_type: str) -> list[dict]:
         if is_self_employed:
             docs.append(_doc(
                 "Form 1040", "Income", "P1", "HARD-STOP",
-                ["Most recent 2 years personal federal tax returns", "All pages and schedules",
-                 "Signed or IRS transcript accepted"],
+                # This is the deterministic FLOOR/backstop for Form 1040 —
+                # it only fires when the LLM income-requirements step
+                # (STEP_02) didn't already produce its own Form 1040 entry
+                # (see apply_deterministic_rules' existing-key dedup), so
+                # it's the only thing guaranteeing this borrower's Form
+                # 1040 requirement even shows up at all. Wording below is
+                # matched 1:1 to the richer LLM-authored version (module 02)
+                # seen in production, rather than a distinct shorthand, so
+                # the floor and the LLM path never present differently
+                # worded/differently-scoped requirements for the same
+                # document depending purely on which one happened to fire.
+                ["Must include complete personal tax returns for the most recent 2 tax years",
+                 "Must include all schedules and attachments (Schedule E, Schedule K-1, etc.)",
+                 "Must show borrower name and SSN matching loan application",
+                 "Must be signed and dated or include electronic filing confirmation",
+                 # Self-employed borrowers are frequently S-corp/partnership
+                 # shareholders (25%+ ownership already qualifies as
+                 # self-employed per NQMF guidelines), whose K-1 is a
+                 # SEPARATE physical document from the 1040 itself. Kept as
+                 # its own explicit spec (not folded into the "all schedules"
+                 # line above) so it can't be silently dropped, and so it
+                 # gives cross_check_satisfaction's K-1-companion-document
+                 # lookup (merger_tools._find_k1_companion_fields) a "k-1"
+                 # keyword to trigger on and verify against any K-1 actually
+                 # submitted in the file.
+                 "Must include Schedule K-1 showing S-Corporation distributions and ownership percentage"],
                 ["Full documentation self-employed borrowers require personal tax returns"],
             ))
             docs.append(_doc(

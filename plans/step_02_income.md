@@ -112,6 +112,34 @@ Typical income document types:
 ### Step 1 — Identify income type
 
 Use scenario summary and documents.
+
+DO NOT CONFUSE `income_doc` LABELS WITH THE "P&L ONLY (ALT DOC)" PROGRAM:
+scenario_summary._loan_profile.metadata.income_doc may contain a label
+like "Full Doc: 12 Mo. (Limited)". The words "Full Doc" here are literal
+and controlling — this is a standard Full Documentation loan (personal +
+business tax returns required, per Section B), NOT the separate "P&L Only
+(Alt Doc)" guideline program (which is a 12/24-month CPA-signed P&L with
+NO tax returns at all, and would be labeled distinctly, e.g. "P&L Only" or
+"Alt Doc", not "Full Doc"). The "12 Mo." / "(Limited)" portion of a
+"Full Doc" label refers to a shortened self-employment history exception
+or similar full-doc sub-option — it does NOT change the requirement for
+personal (and business) tax returns. Only skip the tax-return requirement
+if income_doc literally says "P&L Only" or "Alt Doc" — never infer that
+from a "12 Mo." or "(Limited)" qualifier alone.
+
+CHECK THIS FIRST, EVERY TIME: scenario_summary._loan_profile.metadata
+carries authoritative, pre-computed borrower flags — `borrower_type`
+(e.g. "Self-Employed", "Wage Earner") and `self_employed` (true/false).
+These are NOT a hint to weigh against your own inference from the
+documents — they are the ground truth for that borrower. If
+`self_employed` is true OR `borrower_type` is "Self-Employed" for a
+borrower, you MUST generate the full Section B (Self-Employed / Business
+Income) document set for that borrower — including the Personal Tax
+Return - 1040 with its own explicit Schedule K-1 specification — even if
+you also see W-2/paystub-shaped income data elsewhere in the file. Never
+let the presence of a wages line item on the 1040, or any other income
+signal, override or replace this authoritative flag.
+
 Possible income types:
 - W2
 - self_employed
@@ -122,6 +150,17 @@ Possible income types:
 - DSCR
 - mixed
 - unknown
+
+A borrower is "mixed" whenever MORE THAN ONE income type applies — e.g. W-2
+wages plus self-employed S-corp/partnership ownership (K-1) income, or W-2
+wages plus rental income. Do NOT collapse a mixed-income borrower down to
+only their largest or most obvious income source. Check every document and
+scenario_summary income line for each borrower independently — a borrower
+can be "self_employed" for one business AND "W2" for a separate job in the
+same file. See "F. Mixed Income" below for how to handle this — it is NOT
+optional and is the single most common source of missed document requests
+(e.g. silently dropping the Form 1040 + Schedule K-1 requirement because a
+W-2 job was also present).
 
 If income type is unknown, request income documentation clarification.
 
@@ -164,14 +203,32 @@ Reasons may include:
 
 ### B. Self-Employed / Business Income
 
+A borrower with 25% or more ownership interest in a business is
+self-employed for this purpose (per NQMF guidelines) — this includes S-corp
+/ partnership shareholders receiving a Schedule K-1, not just sole
+proprietors.
+
+Personal Tax Return - 1040 (covering the most recent 1-2 years per
+program, INCLUDING ALL SCHEDULES) and, if the business is a corporation
+or partnership, the Business Tax Return - 1120/1120S/1065 (also with all
+schedules) are the PRIMARY, ALWAYS-REQUIRED documents for self-employed
+income — never optional and never substituted by anything else. YTD
+Profit and Loss Statement / Balance Sheet are SUPPLEMENTARY, not a
+replacement: only add them on top of (never instead of) the tax returns,
+and specifically when the tax return on file is more than 120 days old
+relative to the Note Date. If the borrower pays themselves a W-2 salary
+out of their own business, ALSO include one or two years of W-2s (Section
+A) in addition to the Section B documents — this is additive, not a
+substitute for the tax returns either.
+
 Potential documents:
 - Personal Tax Return - 1040
 - Schedule C
 - Schedule E
 - Schedule K-1
 - Business Tax Return - 1120 / 1120S / 1065
-- YTD Profit and Loss Statement
-- Balance Sheet
+- YTD Profit and Loss Statement (supplementary only — see above)
+- Balance Sheet (supplementary only — see above)
 - Business License / CPA Letter
 - Business Bank Statements
 - LOE - Business Income
@@ -262,6 +319,35 @@ Specifications:
 Reasons:
 - Fixed income must be verified for amount, recipient, frequency, and continuance.
 - Receipt may be required to validate usable income.
+
+### F. Mixed Income — REQUIRED WHEN MULTIPLE INCOME TYPES APPLY
+
+Do NOT pick a single "primary" income type and generate documents for only
+that one. Instead, run the reasoning for EVERY applicable subsection above
+(A-E) independently for each borrower, and take the UNION of every
+resulting document request. A borrower with a W-2 job and a 33% S-corp
+ownership stake needs BOTH the full W-2 document set (Section A) AND the
+full self-employed document set (Section B) — never just one or the other.
+
+Most common real-world mixed case — W-2 plus self-employed/business
+ownership (Schedule C/E, K-1, or 1120/1120S/1065 activity visible in tax
+returns, schedules, or scenario_summary):
+- Always include the Section A documents for the wage income (Paystub, W-2,
+  VOE/VVOE) if a W-2 job is present.
+- Always include the Section B documents for the business income (Personal
+  Tax Return - 1040, Business Tax Return - 1120/1120S/1065, YTD P&L,
+  Balance Sheet as applicable).
+- The Personal Tax Return - 1040 document request specifications MUST
+  explicitly include a Schedule K-1 requirement whenever the borrower has
+  any S-corp/partnership ownership (K-1) income — phrase it like "Must
+  include Schedule K-1 showing S-Corporation/partnership distributions and
+  ownership percentage" — do not rely on a generic "must include all
+  schedules" line to implicitly cover this; state it as its own
+  specification so it cannot be silently dropped or merged away.
+- Never substitute the Business Tax Return / P&L / Balance Sheet documents
+  FOR the Personal Tax Return - 1040 — the corporate/business return and
+  the borrower's own 1040 (with its K-1 attachment) are both required and
+  are never interchangeable.
 
 ## Overlay Handling
 
