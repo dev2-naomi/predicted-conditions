@@ -813,8 +813,8 @@ def _check_spec_satisfied(
                 if _is_confirmed_none_found(fname, val):
                     return (
                         f"Dropped — submitted document's {fname} field is present "
-                        f"and confirms none found (all entries null/empty), "
-                        f"satisfying this requirement with a clean result"
+                        f"with empty data, confirming none found and satisfying "
+                        f"this requirement with a clean result"
                     )
     return None
 
@@ -847,9 +847,11 @@ foreclosures, or no collections/charge-offs). That IS a satisfying answer for sp
 like "must show public records including bankruptcies, judgments, liens,
 foreclosures" or "must identify any collections, charge-offs, or derogatory
 accounts" — mark these satisfied with a reason like "Confirmed clean — the field is
-present with no entries (all null), indicating none were found on this credit
-report." Only treat it as unsatisfied if the field is entirely absent from the
-extracted fields (not present at all, not even as an empty/null-stub entry).
+present with empty data, indicating none were found on this credit report." Do
+NOT use the words "null"/"null entries" in the reason text — say "empty data" or
+"no entries" instead. Only treat it as unsatisfied if the field is entirely
+absent from the extracted fields (not present at all, not even as an empty/
+placeholder entry).
 
 Specs about image/document QUALITY — "must be legible", "clear photo",
 "readable", "identifiable information", "good quality scan", etc. — do not
