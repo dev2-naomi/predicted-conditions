@@ -914,6 +914,52 @@ Rules:
 """
 
 
+_MISMATCH_REASON_PATTERNS = (
+    "does not match",
+    "doesn't match",
+    "do not match",
+    "don't match",
+    "does not correspond",
+    "is a mismatch",
+    "is mismatched",
+    "not the same as",
+    "not a match",
+    "no match found",
+    "not consistent with",
+    "inconsistent with",
+    "differs from",
+    "different from the",
+    "not satisfied",
+    "isn't satisfied",
+    "is unsatisfied",
+    "not met",
+    "unmatched",
+    "not listed",
+    "conflicts with",
+)
+
+
+def _reason_indicates_mismatch(reason: str) -> bool:
+    """Defense-in-depth guard for `_llm_check_specs`.
+
+    The satisfaction prompt explicitly instructs the model to OMIT a spec
+    from the output array entirely when the submitted document's value
+    conflicts with the reference data (see `_REFERENCE_BLOCK_TEMPLATE`) —
+    never to include it with a discrepancy explanation. Models occasionally
+    ignore that instruction and still emit the spec as "satisfied" while the
+    reason text itself plainly describes a mismatch/discrepancy (e.g. "the
+    property address ... does not match the subject property ... this
+    specification is not satisfied"). Catch that self-contradiction here so
+    a single non-compliant LLM response can't wrongly mark a spec satisfied
+    — e.g. letting a Counteroffer with a different property address stay
+    "connected" to a Purchase Contract requirement it doesn't actually meet.
+    """
+    if not reason:
+        return False
+    low = reason.lower()
+    return any(pat in low for pat in _MISMATCH_REASON_PATTERNS)
+
+
 def _summarize_fields(fields: dict) -> dict:
     """Truncate long lists/dicts in an extracted_fields dict for prompt size."""
     summary: dict = {}
@@ -1006,9 +1052,20 @@ def _llm_check_specs(
             valid = []
             for item in result:
                 if isinstance(item, dict) and "specification" in item:
+                    reason = item.get("reason", "Confirmed by submitted document")
+                    if _reason_indicates_mismatch(reason):
+                        # The model marked this "satisfied" but its own reason
+                        # text describes a mismatch/discrepancy — treat as
+                        # NOT satisfied instead of trusting the label.
+                        logger.warning(
+                            "Ignoring self-contradictory satisfied spec for %s: "
+                            "%r (reason describes a mismatch: %r)",
+                            doc_type, item.get("specification"), reason,
+                        )
+                        continue
                     valid.append({
                         "specification": item["specification"],
-                        "reason": item.get("reason", "Confirmed by submitted document"),
+                        "reason": reason,
                     })
             return valid
     except Exception as e:
