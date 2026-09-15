@@ -1548,10 +1548,9 @@ def run_satisfaction_pass(
         # checked) optimistically set status="satisfied_but_review_required"
         # just because *some* document with a matching alias/category
         # existed in document_inventory — it has no concept of "addendum
-        # only". If this fallback-only document also contributes zero real
-        # satisfied specs below, we downgrade status back to "needed" so the
-        # requirement doesn't look closed when nothing has actually been
-        # confirmed.
+        # only". Handled immediately below: a fallback-only match is always
+        # forced back to "needed" with no satisfied specs and no
+        # document_ids, regardless of what a satisfaction check might say.
         fallback_only = bool(fallback_matches) and not primary_matches
         if not matches:
             dr["satisfied_specifications"] = []
@@ -1559,15 +1558,32 @@ def run_satisfaction_pass(
 
         total_checked += 1
 
+        # A fallback-only match (e.g. a Counteroffer standing in for a
+        # Purchase Contract, with no genuine primary document submitted)
+        # can never satisfy the parent document's specs, full stop — even
+        # when the fallback document genuinely, non-contradictorily
+        # contains some of the requested data (e.g. a buyer name that
+        # happens to also appear on the counteroffer). Running the spec
+        # check against it risks the LLM legitimately confirming a spec or
+        # two off real (non-mismatched) data, which would keep the request
+        # "satisfied_but_review_required" and leave the counteroffer's
+        # document_ids as "the" connected document — exactly what the
+        # addendum/fallback carve-out exists to prevent. So skip the
+        # satisfaction check entirely for fallback-only matches: leave
+        # specifications untouched, report zero satisfied specs, and force
+        # status back to "needed" with no document_ids, regardless of what
+        # module 01 happened to generate as specs on this run.
+        if fallback_only:
+            dr["satisfied_specifications"] = []
+            dr["status"] = "needed"
+            dr["document_ids"] = []
+            continue
+
         # Physical UUID(s) of every matched manifest document, so the
         # condition points back to all the submitted files — the ones a
-        # reviewer should open to confirm/close it. Stamped on match (not
-        # only on a confirmed spec) so a "satisfied_but_review_required"
-        # condition still carries the file(s) the reviewer needs. Cleared
-        # again below (alongside the status downgrade) if this turns out to
-        # be a fallback-only match — e.g. a Counteroffer — that ends up
-        # satisfying zero specs, so the UI doesn't show it as "the"
-        # connected document for a Purchase Contract that's still missing.
+        # reviewer should open to confirm/close it. Stamped on match so a
+        # "satisfied_but_review_required" condition carries the file(s) the
+        # reviewer needs.
         matched_ids: list[str] = []
         for m in matches:
             for mid in _submitted_doc_ids(m):
@@ -1607,9 +1623,6 @@ def run_satisfaction_pass(
         all_fields = [m.get("extracted_fields") for m in matches if m.get("extracted_fields")]
         if not all_fields:
             dr["satisfied_specifications"] = []
-            if fallback_only:
-                dr["status"] = "needed"
-                dr["document_ids"] = []
             continue
 
         # Tax-return documents (Form 1040 / 1120 / 1065) commonly carry a
@@ -1655,10 +1668,6 @@ def run_satisfaction_pass(
         dr["specifications"] = remaining_specs
         dr["satisfied_specifications"] = satisfied_specs
         total_satisfied_specs += len(satisfied_specs)
-
-        if fallback_only and not satisfied_specs:
-            dr["status"] = "needed"
-            dr["document_ids"] = []
 
     return total_checked, total_satisfied_specs
 
