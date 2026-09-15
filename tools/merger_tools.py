@@ -839,10 +839,18 @@ def _is_all_null(val: Any) -> bool:
 # real, common, valid outcome — NOT applied broadly to every field, since for
 # something like a credit score a null value means the extraction failed
 # (every borrower has a score), not that the score has been confirmed absent.
+#
+# NOTE: inquiries/credit_inquiries are deliberately EXCLUDED here. Unlike
+# public records/collections/derogatory (an open-ended "were there ever
+# any" question), inquiry specs are recency-qualified ("within the most
+# recent 90 days") — a null-stub inquiries entry has no dates in it, so it
+# cannot actually confirm there were no inquiries IN THAT WINDOW specifically
+# (vs. the extractor simply failing to parse a real inquiry). Treat a null
+# inquiries field as unsatisfied/missing data, not confirmed-clean.
 _CONFIRMED_NONE_FIELDS = {
     "publicrecords", "public_records", "collectionaccounts", "collections",
     "derogatoryaccounts", "derogatorysummary", "charge_offs", "disputes",
-    "disputed_accounts", "inquiries", "credit_inquiries",
+    "disputed_accounts",
 }
 
 
@@ -914,8 +922,8 @@ However, do NOT mark a spec as satisfied if:
 - There is genuinely no evidence in the fields for that requirement
 
 EXCEPTION — confirmed-clean adverse-item fields: for fields like publicRecords,
-collectionAccounts, derogatoryAccounts/derogatorySummary, disputes, and inquiries,
-a present entry (or entries) where every value is null/empty is NOT the same as a
+collectionAccounts, derogatoryAccounts/derogatorySummary, and disputes, a
+present entry (or entries) where every value is null/empty is NOT the same as a
 missing field — it means the credit report explicitly evaluated that section and
 found NOTHING to report (e.g. a borrower with no bankruptcies/judgments/liens/
 foreclosures, or no collections/charge-offs). That IS a satisfying answer for specs
@@ -927,6 +935,16 @@ MUST use the exact phrase "empty data" in the reason text for this case — do N
 use the words "null", "null entries", or "no entries" instead. Only treat it as
 unsatisfied if the field is entirely absent from the extracted fields (not
 present at all, not even as an empty/placeholder entry).
+
+IMPORTANT — this exception does NOT apply to the `inquiries`/`credit_inquiries`
+field or any spec about credit inquiries. Inquiry specs are recency-qualified
+(e.g. "must show inquiries within the most recent 90 days") — a present-but-
+null inquiries entry has no dates in it, so it cannot confirm there were no
+inquiries SPECIFICALLY WITHIN THAT WINDOW (as opposed to the extractor simply
+failing to parse a real inquiry, or the window not being evaluable at all).
+Treat a null/empty inquiries field as NOT satisfying an inquiry-related spec —
+leave it unsatisfied rather than marking it "confirmed clean" or using "empty
+data" as a satisfying reason for inquiries specifically.
 
 Specs about image/document QUALITY — "must be legible", "clear photo",
 "readable", "identifiable information", "good quality scan", etc. — do not
