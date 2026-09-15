@@ -383,6 +383,70 @@ def _merge_two(base: dict, other: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Image/document-quality specs are never spawned at all.
+#
+# There is no automated way to check "is this scan legible", "is this
+# photocopy clear", or "is the photograph clearly identifiable as the
+# borrower" — the extraction pipeline only produces OCR'd text fields
+# (name, DOB, license #, amounts, dates, etc.), never anything about scan
+# clarity, image resolution, or whether a face is visible/matches the
+# borrower. A spec like this can never be satisfied or meaningfully left
+# "needs review" from data alone, so instead of generating it and forcing
+# it to sit open forever (or guessing at satisfaction from unrelated text
+# fields), it's stripped out of every document request's specifications at
+# merge time, for every document type — not just Photo ID.
+# ---------------------------------------------------------------------------
+_IMAGE_QUALITY_SPEC_PATTERNS = (
+    "legible",
+    "legibly",
+    "clear photo",
+    "clear image",
+    "clear scan",
+    "clear copy",
+    "clear copies",
+    "clearly identifiable",
+    "clearly readable",
+    "readable copy",
+    "readable scan",
+    "good quality scan",
+    "good quality image",
+    "good quality copy",
+    "identifiable photograph",
+    "identifiable information",
+    "identifiable as borrower",
+    "identifiable as the borrower",
+    "photograph clearly",
+    "photo clearly",
+    "photo identifiable",
+    "photo match",
+    "photo matches",
+    "quality scan",
+    "quality copy",
+    "quality image",
+)
+
+
+def _is_image_quality_spec(text: str) -> bool:
+    """True for specs about scan/image/photo clarity — see module-level
+    comment above for why these are filtered out entirely rather than
+    checked for satisfaction."""
+    low = (text or "").lower()
+    return any(pat in low for pat in _IMAGE_QUALITY_SPEC_PATTERNS)
+
+
+def _strip_image_quality_specs(document_requests: list[dict]) -> int:
+    """Remove image/scan/photo-quality specs from every request's
+    specifications list in place. Returns the number of specs removed."""
+    removed = 0
+    for dr in document_requests:
+        specs = _as_list(dr.get("specifications", []))
+        kept = [s for s in specs if not _is_image_quality_spec(_spec_text(s))]
+        removed += len(specs) - len(kept)
+        dr["specifications"] = kept
+    return removed
+
+
+# ---------------------------------------------------------------------------
 # Deterministic document rules live in tools/doc_rules.py and are applied
 # inside merge_document_requests via apply_deterministic_rules().
 # ---------------------------------------------------------------------------
@@ -447,6 +511,12 @@ def merge_document_requests(
     injected_count = len(det_stats.get("injected", []))
     removed_count = len(det_stats.get("removed", []))
 
+    # Strip image/scan/photo-quality specs from every request — see the
+    # module-level comment above _strip_image_quality_specs for why these
+    # are never worth generating in the first place (no automated way to
+    # verify legibility/clarity/photo-identity from extracted data alone).
+    stripped_quality_specs = _strip_image_quality_specs(merged)
+
     sources_summary = ", ".join(
         f"{k}: {v}" for k, v in source_counts.items() if v > 0
     )
@@ -459,6 +529,11 @@ def merge_document_requests(
         msg += f" Removed {removed_count} doc(s) via negative gates ({', '.join(det_stats['removed'])})."
     if injected_count:
         msg += f" Injected {injected_count} deterministic doc(s) ({', '.join(det_stats['injected'])})."
+    if stripped_quality_specs:
+        msg += (
+            f" Stripped {stripped_quality_specs} image/scan/photo-quality "
+            f"spec(s) (no automated way to verify legibility/clarity)."
+        )
     msg += f" Final set: {len(merged)} documents."
 
     return Command(update={
@@ -864,22 +939,6 @@ to read. Mark such a spec satisfied in that case, with a reason like
 "Legible — extracted fields (name, DOB, license #, expiration) were
 successfully read from the submitted image." Only leave it unsatisfied if
 the extracted fields are sparse, empty, or clearly placeholder/garbled.
-
-Specs about the ID PHOTOGRAPH/PORTRAIT itself — "must show photograph
-clearly identifiable as borrower", "photo must match borrower",
-"clear/identifiable photograph", etc. — use the SAME indirect-evidence rule
-as document quality above, even though there is no dedicated
-photo/face-match field: on a government-issued Photo ID document type
-specifically (driver's license, passport, state ID), successfully
-extracting the borrower's name, DOB, license/ID number, and expiration
-date from the document is treated as sufficient proxy evidence that the
-ID's photo page was captured, legible, and presumptively shows the
-document holder — mark it satisfied with a reason like "Photograph present
-— borrower identity fields (name, DOB, license #, expiration) were
-successfully extracted from the ID, indicating the photo page was captured
-and legible." Only leave it unsatisfied if the identity fields themselves
-are sparse, empty, or clearly placeholder/garbled (which would also mean
-the ID couldn't be reliably read at all).
 
 ## Extracted Fields
 {extracted_fields_json}
