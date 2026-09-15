@@ -922,11 +922,11 @@ foreclosures, or no collections/charge-offs). That IS a satisfying answer for sp
 like "must show public records including bankruptcies, judgments, liens,
 foreclosures" or "must identify any collections, charge-offs, or derogatory
 accounts" — mark these satisfied with a reason like "Confirmed clean — the field is
-present with empty data, indicating none were found on this credit report." Do
-NOT use the words "null"/"null entries" in the reason text — say "empty data" or
-"no entries" instead. Only treat it as unsatisfied if the field is entirely
-absent from the extracted fields (not present at all, not even as an empty/
-placeholder entry).
+present with empty data, indicating none were found on this credit report." You
+MUST use the exact phrase "empty data" in the reason text for this case — do NOT
+use the words "null", "null entries", or "no entries" instead. Only treat it as
+unsatisfied if the field is entirely absent from the extracted fields (not
+present at all, not even as an empty/placeholder entry).
 
 Specs about image/document QUALITY — "must be legible", "clear photo",
 "readable", "identifiable information", "good quality scan", etc. — do not
