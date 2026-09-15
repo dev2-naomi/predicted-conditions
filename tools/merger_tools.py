@@ -865,6 +865,22 @@ to read. Mark such a spec satisfied in that case, with a reason like
 successfully read from the submitted image." Only leave it unsatisfied if
 the extracted fields are sparse, empty, or clearly placeholder/garbled.
 
+Specs about the ID PHOTOGRAPH/PORTRAIT itself — "must show photograph
+clearly identifiable as borrower", "photo must match borrower",
+"clear/identifiable photograph", etc. — use the SAME indirect-evidence rule
+as document quality above, even though there is no dedicated
+photo/face-match field: on a government-issued Photo ID document type
+specifically (driver's license, passport, state ID), successfully
+extracting the borrower's name, DOB, license/ID number, and expiration
+date from the document is treated as sufficient proxy evidence that the
+ID's photo page was captured, legible, and presumptively shows the
+document holder — mark it satisfied with a reason like "Photograph present
+— borrower identity fields (name, DOB, license #, expiration) were
+successfully extracted from the ID, indicating the photo page was captured
+and legible." Only leave it unsatisfied if the identity fields themselves
+are sparse, empty, or clearly placeholder/garbled (which would also mean
+the ID couldn't be reliably read at all).
+
 ## Extracted Fields
 {extracted_fields_json}
 {reference_block}
