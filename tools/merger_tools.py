@@ -846,7 +846,7 @@ found NOTHING to report (e.g. a borrower with no bankruptcies/judgments/liens/
 foreclosures, or no collections/charge-offs). That IS a satisfying answer for specs
 like "must show public records including bankruptcies, judgments, liens,
 foreclosures" or "must identify any collections, charge-offs, or derogatory
-accounts" — mark these satisfied with a reason like "Confirmed clean — {field} is
+accounts" — mark these satisfied with a reason like "Confirmed clean — the field is
 present with no entries (all null), indicating none were found on this credit
 report." Only treat it as unsatisfied if the field is entirely absent from the
 extracted fields (not present at all, not even as an empty/null-stub entry).
