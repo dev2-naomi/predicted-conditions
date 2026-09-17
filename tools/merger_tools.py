@@ -989,6 +989,30 @@ document is classified as a Drivers License, which is an acceptable form of
 government-issued photo ID." If `_submittedDocumentCategory` is absent, or it
 names a form NOT on the spec's acceptable list, leave the spec unsatisfied.
 
+CREDIT REFERENCES specs — e.g. "Must include verification of all credit
+references on loan application": the credit report itself has no field that
+says "these are all the borrower's declared creditors" — that list only
+exists on the loan application. When reference data is provided, it may
+include `loan_facts.liability_holders_on_application` — the creditor/holder
+names (e.g. "ROCKET MTG", "ONITY MORTGAGE CORPORA") the borrower declared as
+liabilities on their loan application. Cross-check those names against the
+credit report's OWN tradeline lender names (e.g. `creditTradeLines[].lender.
+name`, or any per-account creditor-name field actually present in the
+extracted fields) — fuzzy-match leniently (abbreviations, punctuation,
+suffixes like "CORP"/"INC"/"NA" don't need to match exactly; "ROCKET MTG"
+satisfies "Rocket Mortgage"). Mark satisfied ONLY if the credit report's own
+tradeline data actually contains real (non-null) lender names that you can
+compare against — and at least the majority of the declared holders are
+found among them — with a reason like "Credit references verified — N of M
+declared liability holders (e.g. Rocket Mortgage, Onity Mortgage) are
+confirmed present on the report's own tradelines." If the credit report's
+tradeline fields are null/empty/placeholder-only (no real lender names
+extracted at all), there is nothing to compare against — leave the spec
+unsatisfied; do NOT apply the confirmed-clean/empty-data exception here,
+since this spec asks you to VERIFY specific named references are present,
+not to confirm an adverse-item section is empty. Likewise leave it
+unsatisfied if `liability_holders_on_application` isn't provided at all.
+
 ASSIGNMENT-OF-CONTRACT specs — e.g. "Must confirm no assignment of contract
 unless to borrower's own entity": there is no dedicated "assignment" field on
 a purchase-contract extraction, so do NOT look for one. Instead, reuse the
@@ -1463,6 +1487,26 @@ def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict])
     }
     if prop_clean:
         loan_facts["subject_property"] = prop_clean
+
+    # Liability holders declared on the loan application (parsed from the
+    # loan file's LIABILITIES section — e.g. "ROCKET MTG", "ONITY MORTGAGE
+    # CORPORA") so a credit-report spec like "must include verification of
+    # all credit references on loan application" can be cross-checked
+    # against the credit report's own tradeline lender names, instead of
+    # having no evidence path at all (there is no field on the credit report
+    # itself that says "these are all the borrower's declared creditors" —
+    # the loan application is the only place that list exists).
+    holders: list[str] = []
+    seen_holders: set[str] = set()
+    for liab in _as_list(ss.get("liabilities")):
+        if not isinstance(liab, dict):
+            continue
+        holder = str(liab.get("holder") or "").strip()
+        if holder and holder.lower() not in seen_holders:
+            seen_holders.add(holder.lower())
+            holders.append(holder)
+    if holders:
+        loan_facts["liability_holders_on_application"] = holders
 
     if loan_facts:
         ctx["loan_facts"] = loan_facts
