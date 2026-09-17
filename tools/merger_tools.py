@@ -989,6 +989,23 @@ document is classified as a Drivers License, which is an acceptable form of
 government-issued photo ID." If `_submittedDocumentCategory` is absent, or it
 names a form NOT on the spec's acceptable list, leave the spec unsatisfied.
 
+ASSIGNMENT-OF-CONTRACT specs — e.g. "Must confirm no assignment of contract
+unless to borrower's own entity": there is no dedicated "assignment" field on
+a purchase-contract extraction, so do NOT look for one. Instead, reuse the
+SAME buyer-identity comparison you would use for a "buyer name matches the
+loan application" spec (see the reference data below, when provided): if the
+contract's buyer name(s) match the borrower(s) in the reference data, that
+itself proves no assignment to a third party occurred — mark this spec
+satisfied with a reason like "Buyer of record (<name>) matches the borrower
+on the loan application; no assignment to a third party is evidenced." Only
+leave it unsatisfied if the contract's buyer name does NOT match the borrower
+AND there is no reference/extracted data confirming the buyer is an entity
+actually owned by that borrower — do not guess entity ownership from name
+similarity alone (e.g. a company name merely containing the borrower's
+surname is not sufficient evidence of ownership; that needs manual review via
+separate entity documentation). If no reference data is provided at all for
+this check, leave the spec unsatisfied rather than guessing.
+
 CONDITIONAL specs — some specs are phrased as an if/then condition, e.g. "If
 garnishments or loan deductions are reflected, additional documentation is
 required to determine DTI impact" (or any similarly worded "if X is present/
