@@ -975,6 +975,34 @@ real entries. If `reportIssued` is missing entirely, or the report is
 stale/outside the recency policy window, leave the inquiries spec
 unsatisfied — there is no basis to confirm the 90-day window either way.
 
+DOCUMENT-TYPE/FORM specs — e.g. "Acceptable forms: Driver's License, Passport,
+State ID, Military ID": the extracted fields object may include a
+`_submittedDocumentCategory` key giving the CLASSIFIED form of the document
+the borrower actually submitted (e.g. "Drivers License", "US Passport",
+"State ID Card", "Military ID"), separate from the general document TYPE
+being requested (e.g. "Government-Issued Photo ID"). Use this key ONLY to
+confirm which acceptable form was submitted — match it against the spec's
+list of acceptable forms leniently (ignore apostrophes/spacing/case, e.g.
+"Drivers License" satisfies "Driver's License"; "State Identification Card"
+satisfies "State ID"). Mark the spec satisfied with a reason like "Submitted
+document is classified as a Drivers License, which is an acceptable form of
+government-issued photo ID." If `_submittedDocumentCategory` is absent, or it
+names a form NOT on the spec's acceptable list, leave the spec unsatisfied.
+
+CONDITIONAL specs — some specs are phrased as an if/then condition, e.g. "If
+garnishments or loan deductions are reflected, additional documentation is
+required to determine DTI impact" (or any similarly worded "if X is present/
+reflected, Y is required" pattern). These are satisfied whenever the
+triggering condition (X) does NOT appear anywhere in the extracted fields
+(e.g. no garnishment, wage-attachment, or loan-deduction line item present on
+a paystub) — the condition simply doesn't apply, so there is nothing further
+to obtain. Mark these satisfied with a reason like "Not applicable — no
+garnishments or loan deductions are reflected on this paystub, so no
+additional DTI documentation is required." Only leave such a spec unsatisfied
+if the triggering condition DOES appear in the extracted fields (e.g. a
+garnishment/deduction line item IS present) and the required follow-up
+documentation isn't otherwise evidenced.
+
 Specs about image/document QUALITY — "must be legible", "clear photo",
 "readable", "identifiable information", "good quality scan", etc. — do not
 have a dedicated extracted field, but they ARE satisfied by indirect
@@ -1093,6 +1121,30 @@ def _summarize_fields(fields: dict) -> dict:
         else:
             summary[k] = v
     return summary
+
+
+def _label_fields_with_doc_category(fields: dict, category_label: str) -> dict:
+    """Return a shallow-copied fields dict annotated with the submitted
+    document's classified category name (e.g. "Drivers License", "US
+    Passport") under ``_submittedDocumentCategory``.
+
+    The manifest-classification layer (``parse_manifest_from_string``)
+    already knows exactly what KIND of physical document was submitted —
+    that's how it matched the document_type/alias in the first place — but
+    that classification is otherwise dropped before reaching the LLM
+    satisfaction check, which only ever sees the document's own
+    extracted_fields (its CONTENT, not its classified TYPE). That leaves no
+    way to confirm specs like "Acceptable forms: Driver's License, Passport,
+    State ID, Military ID" even when the classification unambiguously
+    answers it. Injecting the label here (only for the LLM-check path, never
+    for the deterministic 1003 completeness check) closes that gap without
+    touching the underlying extracted_fields schema.
+    """
+    if not category_label or not isinstance(fields, dict):
+        return fields
+    labeled = dict(fields)
+    labeled["_submittedDocumentCategory"] = category_label
+    return labeled
 
 
 def _llm_check_specs(
@@ -1742,7 +1794,20 @@ def run_satisfaction_pass(
         # same type — e.g. "most recent 2 years W-2 forms" when two separate
         # W2 files (one per tax year) were submitted — can be verified
         # against the full set instead of only ever seeing one of them.
-        all_fields = [m.get("extracted_fields") for m in matches if m.get("extracted_fields")]
+        # Track each match's classified category name (e.g. "Drivers
+        # License") in parallel so it can be surfaced to the LLM check below
+        # — the raw extracted_fields alone never say WHAT KIND of document
+        # was submitted (only its content), so without this a spec like
+        # "Acceptable forms: Driver's License, Passport, State ID, Military
+        # ID" has no way to be confirmed even when the classification layer
+        # already knows exactly which form was submitted.
+        all_fields: list[dict] = []
+        all_field_labels: list[str] = []
+        for m in matches:
+            ef = m.get("extracted_fields")
+            if ef:
+                all_fields.append(ef)
+                all_field_labels.append(m.get("name") or "")
         if not all_fields:
             dr["satisfied_specifications"] = []
             continue
@@ -1756,10 +1821,11 @@ def run_satisfaction_pass(
         # even when a real, fully-populated K-1 was submitted alongside it.
         spec_blob = " ".join(_spec_text(s).lower() for s in _as_list(dr.get("specifications", [])))
         if "k-1" in spec_blob or "k1" in spec_blob or "schedule k" in spec_blob:
-            for primary in all_fields:
+            for primary in list(all_fields):
                 for companion in _find_k1_companion_fields(primary, submitted_docs):
                     if companion not in all_fields:
                         all_fields.append(companion)
+                        all_field_labels.append("Schedule K-1")
 
         extracted: dict | list[dict] = all_fields[0] if len(all_fields) == 1 else all_fields
 
@@ -1777,8 +1843,16 @@ def run_satisfaction_pass(
                 doc_type, dr.get("specifications", []), all_fields[0], reference_context
             )
         else:
+            labeled_extracted: dict | list[dict] = (
+                _label_fields_with_doc_category(all_fields[0], all_field_labels[0])
+                if len(all_fields) == 1
+                else [
+                    _label_fields_with_doc_category(f, all_field_labels[i] if i < len(all_field_labels) else "")
+                    for i, f in enumerate(all_fields)
+                ]
+            )
             satisfied_specs = _llm_check_specs(
-                doc_type, dr.get("specifications", []), extracted,
+                doc_type, dr.get("specifications", []), labeled_extracted,
                 reference_context=reference_context,
             )
         satisfied_spec_texts = {s["specification"] for s in satisfied_specs}
