@@ -859,17 +859,23 @@ _CONFIRMED_NONE_FIELDS = {
 
 
 def _is_confirmed_none_found(fname: str, val: Any) -> bool:
-    """True when val is a non-empty list/dict for one of the known
-    adverse-item fields, but every leaf value inside it is null/empty —
-    i.e. the document explicitly reports zero items of that type, which
-    SATISFIES a spec asking to "identify"/"show" those items (a confirmed
-    clean result answers the question just as validly as a populated list
-    would), rather than being treated as missing/unusable data.
+    """True when val is EITHER a bare empty list/dict, OR a non-empty
+    list/dict for one of the known adverse-item fields where every leaf
+    value inside it is null/empty — i.e. the document explicitly reports
+    zero items of that type, which SATISFIES a spec asking to "identify"/
+    "show" those items (a confirmed clean result answers the question just
+    as validly as a populated list would), rather than being treated as
+    missing/unusable data. Different extractions emit either shape (bare
+    [] vs. a null-stub placeholder entry) for the same real-world outcome,
+    so both must be recognized identically — only a field that's entirely
+    ABSENT (the key doesn't exist at all) is treated as missing.
     """
     if fname.lower() not in _CONFIRMED_NONE_FIELDS:
         return False
-    if val is None or val == "" or val == []:
+    if val is None or val == "":
         return False
+    if val == [] or val == {}:
+        return True
     return _is_all_null(val)
 
 
@@ -926,19 +932,29 @@ However, do NOT mark a spec as satisfied if:
 - There is genuinely no evidence in the fields for that requirement
 
 EXCEPTION — confirmed-clean adverse-item fields: for fields like publicRecords,
-collectionAccounts, derogatoryAccounts/derogatorySummary, and disputes, a
-present entry (or entries) where every value is null/empty is NOT the same as a
-missing field — it means the credit report explicitly evaluated that section and
-found NOTHING to report (e.g. a borrower with no bankruptcies/judgments/liens/
-foreclosures, or no collections/charge-offs). That IS a satisfying answer for specs
-like "must show public records including bankruptcies, judgments, liens,
-foreclosures" or "must identify any collections, charge-offs, or derogatory
-accounts" — mark these satisfied with a reason like "Confirmed clean — the field is
-present with empty data, indicating none were found on this credit report." You
-MUST use the exact phrase "empty data" in the reason text for this case — do NOT
-use the words "null", "null entries", or "no entries" instead. Only treat it as
-unsatisfied if the field is entirely absent from the extracted fields (not
-present at all, not even as an empty/placeholder entry).
+collectionAccounts, derogatoryAccounts/derogatorySummary, and disputes, EITHER
+a bare empty list/array (e.g. []) OR a present entry (or entries) where every
+value is null/empty are treated the SAME WAY — as "confirmed clean," NOT as a
+missing field. Different credit report extractions emit one or the other shape
+for the exact same real-world outcome (no items of that type found), so both
+must be handled identically. This means the credit report explicitly evaluated
+that section and found NOTHING to report (e.g. a borrower with no bankruptcies/
+judgments/liens/foreclosures, or no collections/charge-offs). That IS a
+satisfying answer for specs like "must show public records including
+bankruptcies, judgments, liens, foreclosures", "must identify any collections,
+charge-offs, or derogatory accounts", or "must certify public record searches
+for each city where the borrower resided in the last 2 years" — mark these
+satisfied with a reason like "Confirmed clean — the field is present with empty
+data, indicating none were found on this credit report." This applies even when
+the spec's wording asks for a per-city/per-jurisdiction breakdown of the search
+— do NOT require a separate address-history/city-by-city field to confirm that;
+an empty/null-stub publicRecords field on its own is sufficient, since the
+report's public-records section inherently covers the search regardless of
+which cities it spans. You MUST use the exact phrase "empty data" in the reason
+text for this case — do NOT use the words "null", "null entries", or "no
+entries" instead. Only treat it as unsatisfied if the field is entirely absent
+from the extracted fields (the key itself doesn't exist at all — not present as
+an empty list, not present as a null-stub entry, just missing outright).
 
 IMPORTANT — credit INQUIRIES specs (e.g. "must show inquiries within the most
 recent 90 days") do NOT use the confirmed-clean/empty-data exception above.
