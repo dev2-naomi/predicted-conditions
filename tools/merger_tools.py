@@ -1524,17 +1524,30 @@ def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict])
 # and the 1003 is deliberately not cross-referenced against itself), so it is
 # evaluated directly here against the extracted URLA fields:
 #
-#   Completeness — the core URLA sections every application must populate
-#     (borrower identity §1a, employment/income §1b–1e, assets §2a, subject
-#     property + loan terms §4a, declarations §5a) contain extracted data.
-#     Conditional sections (§1c/1d, §2c/2d, §3a–3c, §4b–4d) are only required
-#     when their ``isSectionXX`` applicability flag is explicitly true.
+#   Completeness — every borrower must have identity (§1a) populated; that's
+#     the one thing that can never legitimately be "not applicable" (an
+#     application has to say who's applying). All other sections — income
+#     §1b–1e, assets §2a, subject property/loan terms §4a, declarations §5a,
+#     and the isSectionXX-conditional ones (§1c/1d, §2c/2d, §3a, §4b) — are
+#     NOT required to contain data. A section with an isSectionXX flag set
+#     true but every leaf value null is the exact same "flag/content
+#     mismatch" pattern as a credit report's null-stub adverse-item field
+#     (see the confirmed-clean/empty-data exception in _SATISFACTION_PROMPT)
+#     or a Purchase Contract's absent assignment clause — the extractor
+#     couldn't map real content to the field, and there's no reliable way to
+#     tell that apart from a genuine "does not apply" from the structured
+#     JSON alone, so both are treated as satisfied rather than a completeness
+#     gap. (Previously these were hard-required, which meant a checkbox/
+#     content mismatch on the source PDF — or a borrower type like Retired/
+#     Fixed Income where §1b legitimately doesn't apply — permanently kept
+#     this spec unsatisfied with no way to clear it.)
 #   Consistency  — loan-level values the 1003 exposes (loan amount, subject
 #     property address, occupancy, purpose) do not conflict with the
-#     eligibility-locked loan facts.
+#     eligibility-locked loan facts. Still enforced — an actual conflict is
+#     real evidence of a problem, unlike an empty/null section.
 #
-# The spec clears only when the application is actually complete AND nothing on
-# it contradicts the loan; otherwise it stays open for reviewer follow-up.
+# The spec clears once every borrower has identity data AND nothing on the
+# 1003 contradicts the loan; otherwise it stays open for reviewer follow-up.
 
 _1003_BORROWER_KEYS = ("new1003Borrowers", "borrowers")
 
@@ -1559,17 +1572,6 @@ def _has_any_value(obj: Any) -> bool:
     if isinstance(obj, list):
         return any(_has_any_value(v) for v in obj)
     return bool(obj)
-
-
-def _flag_true(val: Any) -> bool:
-    """Interpret an ``isSectionXX`` applicability flag as an explicit True."""
-    if isinstance(val, bool):
-        return val
-    if isinstance(val, str):
-        return val.strip().lower() in ("true", "yes", "y", "1")
-    if isinstance(val, (int, float)):
-        return val == 1
-    return False
 
 
 def _1003_borrowers(extracted_fields: dict) -> list[dict]:
@@ -1602,14 +1604,6 @@ def _to_number(v: Any) -> float | None:
     return None
 
 
-def _first_present(d: dict, keys: tuple) -> Any:
-    for k in keys:
-        v = d.get(k)
-        if v not in (None, "", [], {}):
-            return v
-    return None
-
-
 def _norm_text(v: Any) -> str:
     return re.sub(r"[^a-z0-9]+", " ", str(v or "").lower()).strip()
 
@@ -1623,53 +1617,16 @@ def _evaluate_1003_completeness_consistency(
     if not borrowers:
         return False, "No borrower application data was extracted from the 1003."
 
-    # --- Completeness: required-always sections must contain data ---
-    # Conditional sections are required only when their isSectionXX flag is true.
+    # --- Completeness: only borrower identity is a hard requirement ---
+    # Every other section (income, assets, subject property/loan terms,
+    # declarations, and all isSectionXX-conditional sections) is allowed to
+    # be empty/null — see the module comment above for why an empty section
+    # is treated the same as "confirmed not applicable" rather than a gap.
     missing_all: list[str] = []
     for idx, b in enumerate(borrowers):
         label = _1003_borrower_name(b) or f"borrower #{idx + 1}"
-        missing: list[str] = []
         if not _1003_borrower_name(b):
-            missing.append("identity (§1a)")
-
-        # Primary borrower must show income, assets, subject property/loan
-        # terms, and declarations. Co-borrowers need only identity (they may
-        # not carry separate income/assets on the application).
-        if idx == 0:
-            income = any(
-                _has_any_value(b.get(s)) for s in ("section1b", "section1e")
-            )
-            if not income:
-                missing.append("employment/income (§1b–1e)")
-
-            if not _has_any_value(b.get("section2a")):
-                missing.append("assets (§2a)")
-
-            s4a = b.get("section4a") or {}
-            if not _has_any_value(s4a.get("propertyAddress")):
-                missing.append("subject property address (§4a)")
-            if not _has_any_value(_first_present(
-                s4a, ("loanAmount", "purposeOfLoan", "occupancy")
-            )):
-                missing.append("loan terms — amount/purpose/occupancy (§4a)")
-
-            if not _has_any_value(b.get("section5a")):
-                missing.append("declarations (§5a)")
-
-        # Conditional sections — required only when flagged applicable.
-        for flag, section, sec_label in (
-            ("isSection1c", "section1c", "additional employment (§1c)"),
-            ("isSection1d", "section1d", "previous employment (§1d)"),
-            ("isSection2c", "section2c", "liabilities (§2c)"),
-            ("isSection2d", "section2d", "other expenses (§2d)"),
-            ("isSection3a", "section3a", "real estate owned (§3a)"),
-            ("isSection4b", "section4b", "other new mortgages (§4b)"),
-        ):
-            if _flag_true(b.get(flag)) and not _has_any_value(b.get(section)):
-                missing.append(sec_label)
-
-        if missing:
-            missing_all.append(f"{label}: {', '.join(missing)}")
+            missing_all.append(f"{label}: identity (§1a)")
 
     if missing_all:
         return False, (
@@ -1712,12 +1669,11 @@ def _evaluate_1003_completeness_consistency(
         return False, "Inconsistent with the loan terms: " + "; ".join(conflicts)
 
     consistency_note = (
-        f" and consistent with the loan file ({', '.join(checked)})"
-        if checked else " with no detected conflicts against the loan file"
+        f" no conflicts found against the loan file ({', '.join(checked)})"
+        if checked else "no loan-level values were present on the 1003 to cross-check"
     )
     return True, (
-        "All core 1003 sections are populated (borrower identity, "
-        "employment/income, assets, subject property/loan terms, declarations)"
+        "Borrower identity is present for all applicants, and "
         + consistency_note + "."
     )
 
