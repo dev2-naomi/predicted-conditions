@@ -50,6 +50,8 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     "loan application (1003)": {
         "urla 1003", "urla", "1003", "loan application", "loan_application",
         "uniform residential loan application",
+        "initial loan application (1003)", "initial loan application",
+        "final loan application (1003)", "final loan application",
     },
     "personal bank statements": {
         "bank statement",
