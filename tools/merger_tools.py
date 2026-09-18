@@ -1705,7 +1705,7 @@ def _evaluate_1003_completeness_consistency(
         return False, "Inconsistent with the loan terms: " + "; ".join(conflicts)
 
     consistency_note = (
-        f" no conflicts found against the loan file ({', '.join(checked)})"
+        f"no conflicts found against the loan file ({', '.join(checked)})"
         if checked else "no loan-level values were present on the 1003 to cross-check"
     )
     return True, (
