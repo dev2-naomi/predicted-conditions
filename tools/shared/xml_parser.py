@@ -101,6 +101,31 @@ def _extract_sections(root: ET.Element) -> Dict[str, Any]:
                 sections.setdefault(tag, []).append(leaves)
             continue
 
+        # SUBJECT_PROPERTY is the one MISMO container that unambiguously
+        # identifies THE property being financed. Its nested <ADDRESS> gets
+        # captured into its own dedicated section (SUBJECT_PROPERTY_ADDRESS)
+        # BEFORE falling into the generic per-tag singleton merge below —
+        # otherwise that generic merge treats every <ADDRESS> anywhere in the
+        # file (owned properties, borrower mailing address, borrower
+        # residence, even an unrelated party's/legal entity's address) as
+        # the SAME bucket, so whichever one happens to appear last in
+        # document order silently overwrites the real subject property's
+        # street/city/zip with an unrelated address. Scoping it here fixes
+        # property_address/city/zip/state/county at the source instead of
+        # leaving every downstream consistency check (1003, appraisal,
+        # title, hazard insurance, purchase contract, etc.) to cross-check
+        # against a Frankenstein address. See _FIELD_MAP entries below,
+        # which try this section first and fall back to the generic
+        # ("ADDRESS", ...) candidates for MISMO variants without a
+        # SUBJECT_PROPERTY wrapper.
+        if tag == "SUBJECT_PROPERTY" and "SUBJECT_PROPERTY_ADDRESS" not in sections:
+            for sub in elem:
+                if _strip_ns(sub.tag) == "ADDRESS":
+                    addr_leaves = _collect_leaves(sub)
+                    if addr_leaves:
+                        sections["SUBJECT_PROPERTY_ADDRESS"] = addr_leaves
+                    break
+
         for child in elem:
             child_tag = _strip_ns(child.tag)
             if _is_leaf(child) and child.text and child.text.strip():
@@ -182,18 +207,23 @@ _FIELD_MAP: Dict[str, List[tuple]] = {
         ("SUBJECT_PROPERTY_DETAIL", "PropertyUsageType"),
     ],
     "property_state": [
+        ("SUBJECT_PROPERTY_ADDRESS", "StateCode"),
         ("ADDRESS", "StateCode"),
     ],
     "property_county": [
+        ("SUBJECT_PROPERTY_ADDRESS", "CountyName"),
         ("ADDRESS", "CountyName"),
     ],
     "property_city": [
+        ("SUBJECT_PROPERTY_ADDRESS", "CityName"),
         ("ADDRESS", "CityName"),
     ],
     "property_zip": [
+        ("SUBJECT_PROPERTY_ADDRESS", "PostalCode"),
         ("ADDRESS", "PostalCode"),
     ],
     "property_address": [
+        ("SUBJECT_PROPERTY_ADDRESS", "AddressLineText"),
         ("ADDRESS", "AddressLineText"),
     ],
     "year_built": [

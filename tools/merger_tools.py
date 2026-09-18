@@ -1610,6 +1610,40 @@ def _norm_text(v: Any) -> str:
     return re.sub(r"[^a-z0-9]+", " ", str(v or "").lower()).strip()
 
 
+# Occupancy is recorded very differently across systems — the loan file
+# commonly uses the URLA/investor codes ("NOO", "OO", "SH"), while a 1003
+# extraction typically spells out the plain-English occupancy intent
+# ("Investment Property", "Primary Residence", "Second Home"). A raw
+# substring compare (e.g. "investment property" vs "noo") never overlaps
+# even though they mean the same thing, which made the 1003 consistency
+# check flag a false conflict on every investment-property loan. Bucket both
+# sides into the same small set of canonical occupancy types before
+# comparing so real synonyms match and only genuine mismatches (e.g. the
+# 1003 saying "Primary Residence" when the loan file says "NOO") still flag.
+_OCCUPANCY_BUCKETS: dict[str, str] = {
+    "noo": "investment", "non owner occupied": "investment",
+    "nonowneroccupied": "investment", "investment": "investment",
+    "investment property": "investment", "rental property": "investment",
+    "oo": "primary", "owner occupied": "primary",
+    "primary residence": "primary", "primary home": "primary",
+    "principal residence": "primary",
+    "sh": "second_home", "second home": "second_home",
+    "secondary residence": "second_home", "vacation home": "second_home",
+}
+
+
+def _occupancy_bucket(v: Any) -> str:
+    t = _norm_text(v)
+    if t in _OCCUPANCY_BUCKETS:
+        return _OCCUPANCY_BUCKETS[t]
+    # Fall back to substring containment against the known phrases (handles
+    # values with extra words, e.g. "Investment Property - Non Owner").
+    for phrase, bucket in _OCCUPANCY_BUCKETS.items():
+        if phrase in t or t in phrase:
+            return bucket
+    return t
+
+
 def _evaluate_1003_completeness_consistency(
     extracted_fields: dict,
     reference_context: dict | None,
@@ -1664,7 +1698,7 @@ def _evaluate_1003_completeness_consistency(
     occ_ref = _norm_text(loan_facts.get("occupancy"))
     if occ_1003 and occ_ref:
         checked.append("occupancy")
-        if occ_1003 not in occ_ref and occ_ref not in occ_1003:
+        if _occupancy_bucket(s4a.get("occupancy")) != _occupancy_bucket(loan_facts.get("occupancy")):
             conflicts.append(f"occupancy ({s4a.get('occupancy')} vs loan file {loan_facts.get('occupancy')})")
 
     if conflicts:
