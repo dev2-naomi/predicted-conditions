@@ -991,6 +991,31 @@ document is classified as a Drivers License, which is an acceptable form of
 government-issued photo ID." If `_submittedDocumentCategory` is absent, or it
 names a form NOT on the spec's acceptable list, leave the spec unsatisfied.
 
+NAME-MATCHING specs — e.g. "Must display full legal name matching loan
+application", "name matches the loan application", or any spec comparing a
+person's name on the submitted document against a borrower's name (whether
+from the reference data below or from the document's own extracted fields):
+apply the SAME leniency consistently for every borrower/party, not just some
+of them. In particular:
+- A middle name spelled out in full on one side and abbreviated to a single
+  initial on the other are a MATCH as long as that initial is the first
+  letter of the full middle name (e.g. "MERYL ROSE GOLDBERG" matches "Meryl R
+  Goldberg"; "MICHAEL JOHN KELLY" matches "Michael J Kelly"). Do not require
+  the middle name to be spelled out identically, or require an initial to be
+  spelled out, on either side.
+- A missing middle name/initial on one side when the other side has one is
+  still a match on first + last name alone (the middle name is not required
+  to be present at all for the spec to be satisfied).
+- Minor formatting differences (case, punctuation, suffixes like Jr./Sr./III,
+  extra whitespace) never count as a mismatch.
+- Only treat it as a genuine mismatch when the FIRST or LAST name itself is
+  substantively different (not just abbreviated/absent) from every
+  borrower/party the spec could reasonably refer to.
+Apply this identically regardless of whether the person being checked is the
+primary borrower, a co-borrower, or any other party — the same name-match
+leniency must produce the same outcome for equivalent abbreviation patterns
+across all borrowers on the same file.
+
 CREDIT REFERENCES specs — e.g. "Must include verification of all credit
 references on loan application": the credit report itself has no field that
 says "these are all the borrower's declared creditors" — that list only
@@ -1014,6 +1039,67 @@ unsatisfied; do NOT apply the confirmed-clean/empty-data exception here,
 since this spec asks you to VERIFY specific named references are present,
 not to confirm an adverse-item section is empty. Likewise leave it
 unsatisfied if `liability_holders_on_application` isn't provided at all.
+
+BUSINESS-OWNERSHIP / CPA LETTER specs — e.g. "Ownership must be documented
+via CPA letter, Operating Agreement, or equivalent", "Must verify borrower
+has minimum 25% ownership of business", or "Balance must be multiplied by
+borrower ownership percentage unless letter provided from other owners
+granting full access": a self-employed borrower's business bank statement
+extracted fields never carry an ownership-percentage field themselves — that
+gets documented on a SEPARATE physical document (a CPA letter or Operating
+Agreement) submitted alongside the bank statement, and it may be included
+here as an additional entry in the extracted fields (identifiable by its
+`_submittedDocumentCategory` label naming a CPA letter, Operating Agreement,
+or similar) — see `_names_in_fields`/`_find_ownership_companion_fields`,
+which already scoped/matched that companion document to this SAME borrower
+before it ever reached you, so its mere PRESENCE here is the confirmation
+you need:
+- If such a companion document is present: mark "Ownership must be
+  documented via CPA letter, Operating Agreement, or equivalent" satisfied
+  with a reason like "Ownership documented via the submitted CPA letter for
+  this borrower." Also mark "Must verify borrower has minimum 25%
+  ownership of business" satisfied — the CPA letter/Operating Agreement IS
+  the guideline-accepted way to verify ownership, even when it doesn't state
+  an exact percentage figure; do not require a numeric percentage field to
+  exist. Also mark "Balance must be multiplied by borrower ownership
+  percentage unless letter provided from other owners granting full access"
+  satisfied — the presence of this letter fulfills the "unless a letter is
+  provided" branch, so no percentage multiplication is required.
+- The SAME companion document also satisfies EVERY spec asking the
+  statement to show the account in the borrower's own name/ownership when
+  the account holder is actually a business name — regardless of exact
+  wording. This covers "must show account holder name matching borrower or
+  business name", "must show borrower name as account holder", "must show
+  account ownership in borrower name", "must show clear account ownership by
+  borrower", and any other phrasing of "the account must be shown as
+  belonging to the borrower." Do NOT treat these as distinct unresolved
+  requirements just because the bank statement itself displays a business
+  name instead of the borrower's personal name — a business bank account
+  showing the BUSINESS as account holder is normal and expected; the
+  companion ownership document is precisely what closes the gap between
+  "business name on the statement" and "this business belongs to the
+  borrower." Mark ALL such specs satisfied once the companion document
+  confirms the connection — most strongly when it explicitly states the
+  borrower's name, the business name, and an ownership stake (e.g. "Mr.
+  Pisa owns 100% of Westchester Jewelry Inc."), but even a companion
+  document that only lists the borrower as a signatory/preparer-client
+  without stating a percentage is still sufficient (see the "minimum 25%
+  ownership" handling above — presence of the letter itself is the accepted
+  verification path). Use a reason like "Account holder 'WESTCHESTER JEWELRY
+  INC' is the borrower's own business per the submitted CPA letter, which
+  states William Pisa owns 100% of Westchester Jewelry Inc — satisfies the
+  requirement to show the account in the borrower's name/ownership."
+- If no such companion document is present among the extracted fields, leave
+  all of these specs unsatisfied — there is no evidence path without it.
+- Apply every rule above IDENTICALLY for the primary borrower and for a
+  co-borrower — do not satisfy "must show borrower name as account holder"
+  for one party's copy of this bank statement request while leaving an
+  equivalent-meaning spec (e.g. "must show account holder name matching
+  borrower or business entity") unsatisfied for the other party's copy of
+  the SAME requirement, or vice versa. If a companion ownership document
+  covers both borrowers (e.g. a joint CPA letter naming both spouses), mark
+  ALL of this spec family satisfied for BOTH parties' bank statement
+  requests, not just one.
 
 ASSIGNMENT-OF-CONTRACT specs — e.g. "Must confirm no assignment of contract
 unless to borrower's own entity": there is no dedicated "assignment" field on
@@ -1188,6 +1274,69 @@ def _label_fields_with_doc_category(fields: dict, category_label: str) -> dict:
     labeled = dict(fields)
     labeled["_submittedDocumentCategory"] = category_label
     return labeled
+
+
+def _borrower_matches_party(borrower_name: str, party_name: str) -> bool:
+    """Fuzzy first+last name match between a `loan_application_borrowers`
+    reference entry's name and an `applicable_parties` display name for the
+    same person (both ultimately derive from the same underlying borrower
+    identity, but aren't guaranteed to be spelled identically — e.g. a
+    middle initial present on one side only)."""
+    a = _norm_text(borrower_name).split()
+    b = _norm_text(party_name).split()
+    if not a or not b:
+        return False
+    if a[-1] != b[-1]:  # last name must match
+        return False
+    return a[0] == b[0] or a[0].startswith(b[0]) or b[0].startswith(a[0])
+
+
+def _scope_reference_context_to_parties(
+    reference_context: dict | None,
+    applicable_parties: Any,
+) -> dict | None:
+    """Narrow `loan_application_borrowers` in *reference_context* down to
+    just the borrower(s) a specific document request actually applies to.
+
+    The 1003 (URLA) lists EVERY borrower on the loan in one document, so
+    `_build_reference_context` always returns the full borrower list — the
+    SAME list gets passed to every document request's satisfaction check,
+    regardless of which single party (borrower vs. coborrower) that request
+    is actually for (see `applicable_parties`, stamped per-party in
+    `coborrower.py`). Without scoping, a per-party document like a
+    coborrower's Government-Issued Photo ID gets checked for a "name matches
+    the loan application" spec against BOTH borrowers' names at once, which
+    lets an LLM cross-match/report the WRONG borrower's name in its reason
+    (e.g. surfacing the primary borrower's name on a coborrower's own ID).
+    Scoping to only the borrower(s) this request is tagged for removes that
+    ambiguity — the model can only compare against the one name that's
+    actually relevant.
+
+    Falls back to the unscoped reference_context when `applicable_parties`
+    is empty/absent (loan-level, non-borrower-specific documents — e.g.
+    appraisal, title — legitimately have no single party and may need to
+    match against any borrower), or when none of the reference borrowers
+    fuzzy-match any applicable party (safer to keep the full identity
+    reference than to drop it entirely on a name-matching miss).
+    """
+    if not reference_context or not applicable_parties:
+        return reference_context
+    borrowers = reference_context.get("loan_application_borrowers")
+    if not borrowers:
+        return reference_context
+    parties = [p for p in _as_list(applicable_parties) if isinstance(p, str) and p.strip()]
+    if not parties:
+        return reference_context
+    scoped = [
+        b for b in borrowers
+        if isinstance(b, dict)
+        and any(_borrower_matches_party(b.get("name", ""), p) for p in parties)
+    ]
+    if not scoped:
+        return reference_context
+    new_ctx = dict(reference_context)
+    new_ctx["loan_application_borrowers"] = scoped
+    return new_ctx
 
 
 def _llm_check_specs(
@@ -1384,6 +1533,19 @@ def _extract_identity_reference(
 
 _K1_NAME_KEYWORDS = ("k-1", "k1 form", "schedule k-1", "1120s", "1120-s")
 
+# Documents that serve as the accepted way to document a self-employed
+# borrower's business ownership (see step_03_assets.md Section D — "Ownership
+# must be documented via CPA letter, Operating Agreement, or equivalent").
+# Matched by submitted-document NAME the same way _K1_NAME_KEYWORDS is.
+_OWNERSHIP_DOC_NAME_KEYWORDS = (
+    "cpa letter", "operating agreement", "business funds authorization",
+    "articles of organization", "articles of incorporation",
+)
+# Spec-text keywords that trigger pulling in an ownership companion document
+# (see _find_ownership_companion_fields below) for a business/bank-statement
+# document request.
+_OWNERSHIP_SPEC_KEYWORDS = ("ownership", "cpa letter", "operating agreement")
+
 
 def _last4(value: Any) -> str:
     digits = "".join(ch for ch in str(value or "") if ch.isdigit())
@@ -1446,6 +1608,109 @@ def _find_k1_companion_fields(
         if k1_ssns & borrower_ssns:
             companions.append(ef)
     return companions
+
+
+def _names_in_fields(fields: dict) -> list[str]:
+    """Best-effort extraction of every person full-name present in a fields
+    dict — checks a top-level `borrowers`/`owner`/`owners` list (firstName/
+    middleName/lastName or name dict), since ownership-type documents (CPA
+    letters, Operating Agreements) commonly extract to that shape rather
+    than a single flat name field."""
+    names: list[str] = []
+
+    def _name_from_entry(entry: Any) -> str:
+        if not isinstance(entry, dict):
+            return ""
+        nm = entry.get("name") if isinstance(entry.get("name"), dict) else entry
+        if not isinstance(nm, dict):
+            return ""
+        parts = [nm.get("firstName"), nm.get("middleName"), nm.get("lastName")]
+        return " ".join(str(p).strip() for p in parts if p).strip()
+
+    for key in ("borrowers", "owners", "owner"):
+        raw = fields.get(key)
+        for entry in _as_list(raw):
+            n = _name_from_entry(entry)
+            if n:
+                names.append(n)
+    if not names:
+        n = _name_from_entry(fields)
+        if n:
+            names.append(n)
+    return names
+
+
+def _find_ownership_companion_fields(
+    applicable_parties: Any,
+    submitted_docs: list[dict],
+) -> list[tuple[dict, str]]:
+    """Find CPA Letter / Operating Agreement / equivalent business-ownership
+    documents belonging to the SAME borrower(s) named in *applicable_parties*
+    (matched by fuzzy name, not SSN — these document types don't reliably
+    carry an SSN field).
+
+    A self-employed borrower's business-ownership percentage/access is
+    typically documented on a SEPARATE physical document (a CPA letter or
+    Operating Agreement), never embedded inside the bank statement's own
+    extracted_fields — see step_03_assets.md Section D. Without pulling that
+    companion document in here, a spec like "Ownership must be documented
+    via CPA letter, Operating Agreement, or equivalent" (or the related
+    "minimum 25% ownership" / "balance multiplied by ownership percentage"
+    specs) has no evidence to find even when a matching CPA letter was
+    actually submitted alongside the bank statement.
+
+    Returns a list of (extracted_fields, matched_doc_name) tuples so the
+    caller can label each companion with its classified document name.
+    """
+    parties = [p for p in _as_list(applicable_parties) if isinstance(p, str) and p.strip()]
+    if not parties:
+        return []
+
+    companions: list[tuple[dict, str]] = []
+    for sdoc in submitted_docs:
+        name = (sdoc.get("name") or "").strip()
+        name_lower = name.lower()
+        if not any(kw in name_lower for kw in _OWNERSHIP_DOC_NAME_KEYWORDS):
+            continue
+        ef = sdoc.get("extracted_fields") or {}
+        doc_names = _names_in_fields(ef)
+        if not doc_names:
+            continue
+        if any(_borrower_matches_party(dn, p) for dn in doc_names for p in parties):
+            companions.append((ef, name))
+    return companions
+
+
+# Keyword pattern for the "account must be shown as belonging to the
+# borrower" spec family — every phrasing variant we've seen asks for some
+# combination of {account holder|account owner|account ownership|authorized
+# signer} tied to {borrower|business|business name/entity}. Used as a
+# deterministic backstop in run_satisfaction_pass (see comment there) so
+# this spec family isn't left to the LLM's inconsistent per-run wording
+# matching once a real ownership companion document has already been found.
+_ACCOUNT_HOLDER_NAME_SPEC_RE = re.compile(
+    r"account\s*(holder|owner(ship)?|as\s*(the\s*)?owner)"
+)
+
+
+def _spec_text_already_satisfied(text: str, satisfied_specs: list[dict]) -> bool:
+    return any(s.get("specification") == text for s in satisfied_specs)
+
+
+def _is_account_holder_name_spec(text: str) -> bool:
+    """True for specs asking the statement to show the account in the
+    borrower's own name/ownership (vs. the business's name), regardless of
+    exact wording — e.g. "must show account holder name matching borrower
+    or business name", "must show borrower name as account holder", "must
+    show clear account ownership by borrower", "must show borrower as
+    account owner or authorized signer". Deliberately narrow: only matches
+    specs that mention "account" together with a holder/owner/ownership
+    term, so it never fires on unrelated bank-statement specs (balance,
+    dates, deposits, transaction history, etc.)."""
+    t = text.lower()
+    if "account" not in t:
+        return False
+    return bool(_ACCOUNT_HOLDER_NAME_SPEC_RE.search(t))
 
 
 def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict]) -> dict:
@@ -1880,6 +2145,27 @@ def run_satisfaction_pass(
                         all_fields.append(companion)
                         all_field_labels.append("Schedule K-1")
 
+        # Business bank statement requests commonly carry ownership specs
+        # ("Must verify borrower has minimum 25% ownership of business",
+        # "Ownership must be documented via CPA letter, Operating Agreement,
+        # or equivalent") whose evidence lives on a SEPARATE physical
+        # document (a CPA letter/Operating Agreement), never inside the
+        # bank statement's own extracted_fields — see
+        # _find_ownership_companion_fields. Pull that companion in by the
+        # SAME applicable_parties this document request is tagged for
+        # (matches _scope_reference_context_to_parties below), so a
+        # coborrower's bank statement doesn't get credited with the
+        # primary borrower's ownership letter or vice versa.
+        ownership_companion_found = False
+        if any(kw in spec_blob for kw in _OWNERSHIP_SPEC_KEYWORDS):
+            for companion_ef, companion_name in _find_ownership_companion_fields(
+                dr.get("applicable_parties"), submitted_docs
+            ):
+                ownership_companion_found = True
+                if companion_ef not in all_fields:
+                    all_fields.append(companion_ef)
+                    all_field_labels.append(companion_name)
+
         extracted: dict | list[dict] = all_fields[0] if len(all_fields) == 1 else all_fields
 
         # The 1003 is special: its own consistency/completeness spec is
@@ -1904,10 +2190,42 @@ def run_satisfaction_pass(
                     for i, f in enumerate(all_fields)
                 ]
             )
+            doc_reference_context = _scope_reference_context_to_parties(
+                reference_context, dr.get("applicable_parties")
+            )
             satisfied_specs = _llm_check_specs(
                 doc_type, dr.get("specifications", []), labeled_extracted,
-                reference_context=reference_context,
+                reference_context=doc_reference_context,
             )
+        # Deterministic backstop for the "account must be shown in the
+        # borrower's own name" spec family (see BUSINESS-OWNERSHIP / CPA
+        # LETTER guidance in _SATISFACTION_PROMPT above). The LLM applies
+        # this leniency inconsistently across near-duplicate phrasings and
+        # across borrower vs. co-borrower copies of the SAME request (e.g.
+        # satisfying "must show account holder name matching borrower or
+        # business name" while leaving the equivalent-meaning "must show
+        # borrower name as account holder" unsatisfied for one party but not
+        # the other). Once a matching ownership companion document (CPA
+        # letter/Operating Agreement/etc.) was actually found for this
+        # party, force-satisfy every remaining spec in this family
+        # deterministically so the outcome no longer depends on which exact
+        # wording variant the LLM happened to generate this run.
+        if ownership_companion_found:
+            for spec in _as_list(dr.get("specifications", [])):
+                text = _spec_text(spec)
+                if _spec_text_already_satisfied(text, satisfied_specs):
+                    continue
+                if _is_account_holder_name_spec(text):
+                    satisfied_specs.append({
+                        "specification": text,
+                        "reason": (
+                            "Account is held in the borrower's business name; ownership of "
+                            "that business by the borrower is documented via the submitted "
+                            "CPA letter/Operating Agreement, satisfying the requirement to "
+                            "show the account in the borrower's name/ownership."
+                        ),
+                    })
+
         satisfied_spec_texts = {s["specification"] for s in satisfied_specs}
         remaining_specs = [
             spec for spec in _as_list(dr.get("specifications", []))

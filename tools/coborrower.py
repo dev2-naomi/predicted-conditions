@@ -139,6 +139,18 @@ def build_party_document_requests(
         # Clear any satisfaction stamped against the full manifest so each party
         # is evaluated purely against its own assigned documents.
         dr["document_ids"] = []
+        # Stamp party/applicable_parties BEFORE running the satisfaction pass
+        # below (not after) — run_satisfaction_pass's per-party-scoped checks
+        # (_scope_reference_context_to_parties for name-matching specs,
+        # _find_ownership_companion_fields for CPA-letter/ownership specs)
+        # both key off dr["applicable_parties"] to know which single borrower
+        # a request belongs to. Setting this only in the final loop below
+        # (after the satisfaction pass already ran) left it unset/None during
+        # the actual check on every multi-party loan, silently no-oping both
+        # of those per-party lookups for the exact co-borrower/2-party case
+        # they exist to handle.
+        dr["party"] = party_tag
+        dr["applicable_parties"] = [party_name] if party_name else []
 
     # Re-evaluate satisfaction + status against this party's assigned documents.
     run_satisfaction_pass(docs, party_submitted_docs, scenario_summary)
@@ -156,8 +168,6 @@ def build_party_document_requests(
     for dr in docs:
         dr = normalize_document_structure(dr)
         dr["document_type"] = apply_output_display_name(dr.get("document_type", ""))
-        dr["party"] = party_tag
-        dr["applicable_parties"] = [party_name] if party_name else []
         borrower_disp = final_display_by_type.get(
             (dr.get("document_type") or "").strip().lower()
         )

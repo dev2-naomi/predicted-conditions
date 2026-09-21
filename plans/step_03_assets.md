@@ -86,6 +86,35 @@ Typical asset document types:
 - Source of Funds Documentation
 - Reserve Calculation Worksheet
 
+## Consolidation Rule — ONE request per physical document
+
+Rule sections A (Bank Statements), D (Business Funds), and E (Reserves) below
+are organized by REQUIREMENT TOPIC, not by physical document. Multiple topics
+routinely resolve to the exact same physical document — most commonly a
+self-employed borrower's Business Bank Statements, which simultaneously serve
+funds-to-close (A), business-fund access (D), AND reserves (E) verification
+all from the same submitted statements.
+
+Before emitting `document_requests`, group by canonical document_type + the
+specific account/borrower it applies to. If more than one rule section
+applies to the SAME canonical document for the SAME account (e.g., a
+self-employed borrower's Business Bank Statements cover both funds-to-close
+and reserves), emit exactly ONE document_request for that document — with a
+`specifications` list that is the UNION of every applicable section's specs,
+deduplicated by MEANING, not just exact text (e.g. "must show borrower/account
+holder name" from section A and "must show account ownership" from section E
+are the same requirement — keep it once, phrased once). Do NOT emit a separate
+document_request per rule section (A/D/E) when they land on the same physical
+document — the borrower only submits it once, and a separate request per
+topic produces duplicate/near-duplicate requests (and, after merging with
+other modules' requests for the same document type, an inflated
+specifications list) for what is really one document.
+
+Only emit separate document_requests when the underlying documents are
+genuinely different physical submissions (e.g. Personal Bank Statements vs.
+Business Bank Statements vs. Reserve Calculation Worksheet — those ARE
+distinct documents and should stay separate).
+
 ## Document Request Rules
 
 ### A. Bank Statements
