@@ -316,6 +316,16 @@ def mandatory_docs() -> list[dict]:
         _doc("Owner Occupancy Certification", "Compliance", "P1", "SOFT-STOP",
              ["Borrower certifies intended occupancy", "Signed and dated by all borrowers"],
              ["Occupancy certification required to confirm loan purpose"]),
+        _doc("LoanNex Product & Pricing Results", "Cross-Cutting", "P1", "HARD-STOP",
+             ["LoanNex product and pricing results matching the loan program, rate, and price "
+              "reflected in the loan file — or, if LoanNex results are unavailable, the "
+              "completed Submission Form (Program, Loan Purpose, Loan Amount, Appraised Value, "
+              "Purchase Price, Occupancy, Property Type, Product Type, Term, Interest Rate, "
+              "Interest Only, 2/1 Buydown, and Prepayment Penalty selections), or a signed Rate "
+              "Lock Confirmation / Interest Rate Lock In Agreement confirming the locked rate "
+              "and terms"],
+             ["Required for all transactions per NQMF submission requirements — confirms the "
+              "priced product/rate/terms match the loan file"]),
     ]
 
 

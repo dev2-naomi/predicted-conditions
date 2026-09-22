@@ -104,6 +104,16 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     "title commitment": {
         "title report", "preliminary title report",
     },
+    "loannex product & pricing results": {
+        "loannex product and pricing results", "loannex results",
+        "product and pricing results", "product & pricing results",
+        "pricing results", "rate lock confirmation", "lock confirmation",
+        "interest rate lock in agreement", "interest rate lock agreement",
+        "rate lock agreement", "new york interest rate lock in agreement",
+        "ca lock in agreement", "california lock in agreement",
+        "loan pricing worksheet", "completed submission form",
+        "submission form",
+    },
 }
 
 
@@ -1142,6 +1152,32 @@ companion is present among the extracted fields, leave the spec unsatisfied
 — there is no evidence path without it, and do not use the host document's
 own fields (e.g. purchase price, closing date) as a substitute, since they
 have no bearing on a bank-statement requirement.
+
+LOANNEX PRODUCT & PRICING RESULTS specs — e.g. "LoanNex product and pricing
+results matching the loan program, rate, and price reflected in the loan
+file", or "If LoanNex results are unavailable, the completed Submission Form
+... must be included instead": this is an EITHER/OR requirement, not two
+separate documents — satisfy it if EITHER piece of evidence is present:
+- A LoanNex export itself (fields naming the product/program, rate, and
+  price), OR the manually completed Submission Form (Program, Loan Amount,
+  Interest Rate, etc. — the same fields, just hand-entered instead of
+  system-generated), OR
+- A Rate Lock Confirmation / Interest Rate Lock In Agreement (any state
+  variant, e.g. "Lock Confirmation", "New York Interest Rate Lock In
+  Agreement", "CA Lock In Agreement") — a locked loan's lock confirmation IS
+  the priced/locked terms this spec is asking to confirm (look for fields
+  like lockRate/noteRateInterestRate, lockAmount, lockTerm, lockLender,
+  lockExpirationDate — their presence alone, even without an exact program-
+  name match, is sufficient; do not require every field to be populated).
+Mark satisfied with a reason naming which of the two evidence types was
+found and the key terms it confirms (e.g. "Lock Confirmation shows a
+6.749% rate locked for a 30-year term with NQM Funding, expiring
+2026-07-15 — confirms the priced/locked terms for this loan."). If NONE of
+these are present among the extracted fields, leave the spec unsatisfied —
+per NQMF submission requirements this is required for every transaction
+regardless of loan purpose or program, and going without a real LoanNex
+export, a manually completed Submission Form, or a signed lock confirmation
+means the requirement genuinely wasn't met yet.
 
 CONDITIONAL specs — some specs are phrased as an if/then condition, e.g. "If
 garnishments or loan deductions are reflected, additional documentation is
