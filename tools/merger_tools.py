@@ -1118,6 +1118,31 @@ surname is not sufficient evidence of ownership; that needs manual review via
 separate entity documentation). If no reference data is provided at all for
 this check, leave the spec unsatisfied rather than guessing.
 
+MISPLACED BANK-STATEMENT specs — occasionally a bank-statement-worded spec
+(e.g. "Must provide 12 consecutive months of business bank statements from
+the same account", "Must reflect the most recent months available with the
+most recent statement within 90 days of Note Date") ends up attached to a
+document request whose document type is something else entirely — most
+commonly Purchase Contract — due to an upstream merge/classification
+mistake. You can recognize this case: the spec talks about bank statements,
+deposits, account balances, or transaction history, but the extracted fields
+you were given are clearly for a DIFFERENT document (e.g. a purchase
+contract's buyer/seller/price/closing-date fields). When this happens, look
+for an ADDITIONAL entry among the extracted fields whose
+`_submittedDocumentCategory` names a Bank Statement — see
+`_find_bank_statement_companion_fields`, which already pulled in every
+submitted Bank Statement for exactly this situation — and evaluate the
+bank-statement-worded spec against THAT companion's fields, never against
+the purchase contract's (or other host document's) own fields. Apply the
+same evidence standard you'd use for a real Bank Statement request (e.g. a
+statement period covering the required date range satisfies "12 consecutive
+months" style specs; do not require the companion to be a perfect match if
+the guideline's evidence bar is otherwise met). If NO Bank Statement
+companion is present among the extracted fields, leave the spec unsatisfied
+— there is no evidence path without it, and do not use the host document's
+own fields (e.g. purchase price, closing date) as a substitute, since they
+have no bearing on a bank-statement requirement.
+
 CONDITIONAL specs — some specs are phrased as an if/then condition, e.g. "If
 garnishments or loan deductions are reflected, additional documentation is
 required to determine DTI impact" (or any similarly worded "if X is present/
@@ -1681,6 +1706,36 @@ def _find_ownership_companion_fields(
     return companions
 
 
+def _find_bank_statement_companion_fields(submitted_docs: list[dict]) -> list[tuple[dict, str]]:
+    """Find every submitted Bank Statement document, for use ONLY when a
+    bank-statement-worded spec ends up attached to a document request whose
+    OWN canonical document_type is NOT a bank statement (e.g. a guideline/
+    merge-time misclassification puts "Must provide 12 consecutive months of
+    business bank statements" on the Purchase Contract request instead of
+    the Bank Statement request).
+
+    Purchase Contract (and most other document types this can happen to)
+    isn't party-scoped the way a Bank Statement request is (its
+    applicable_parties is typically empty — it applies to the whole loan),
+    so unlike _find_ownership_companion_fields this deliberately does NOT
+    filter by borrower name/SSN match: it pulls in every submitted Bank
+    Statement so the misplaced spec has SOME real evidence to check against
+    rather than silently checking it against the wrong document's fields
+    (a purchase contract's own buyer/seller/price data has nothing to say
+    about bank statements) — see run_satisfaction_pass and the MISPLACED
+    BANK-STATEMENT SPECS guidance in _SATISFACTION_PROMPT.
+    """
+    companions: list[tuple[dict, str]] = []
+    for sdoc in submitted_docs:
+        name = (sdoc.get("name") or "").strip()
+        if "bank statement" not in name.lower():
+            continue
+        ef = sdoc.get("extracted_fields") or {}
+        if ef:
+            companions.append((ef, name))
+    return companions
+
+
 # Keyword pattern for the "account must be shown as belonging to the
 # borrower" spec family — every phrasing variant we've seen asks for some
 # combination of {account holder|account owner|account ownership|authorized
@@ -2162,6 +2217,27 @@ def run_satisfaction_pass(
                 dr.get("applicable_parties"), submitted_docs
             ):
                 ownership_companion_found = True
+                if companion_ef not in all_fields:
+                    all_fields.append(companion_ef)
+                    all_field_labels.append(companion_name)
+
+        # Defensive backstop for spec-to-document misclassification: a
+        # bank-statement-worded spec (e.g. "Must provide 12 consecutive
+        # months of business bank statements") can end up merged onto a
+        # NON-bank-statement document request (most commonly Purchase
+        # Contract) via an upstream module/merge mistake. When that happens,
+        # this document's own extracted_fields (e.g. a purchase contract's
+        # buyer/seller/price) have nothing to say about the spec — without
+        # pulling in the actual submitted Bank Statement(s) here, the spec
+        # would either wrongly stay unsatisfied forever (evidence exists,
+        # just never looked at) or get hallucinated as satisfied by the LLM
+        # with no real basis. See _find_bank_statement_companion_fields and
+        # the MISPLACED BANK-STATEMENT SPECS guidance in _SATISFACTION_PROMPT.
+        if (
+            _canonical_doc_type(doc_type) not in ("bank statement", "personal bank statements")
+            and "bank statement" in spec_blob
+        ):
+            for companion_ef, companion_name in _find_bank_statement_companion_fields(submitted_docs):
                 if companion_ef not in all_fields:
                     all_fields.append(companion_ef)
                     all_field_labels.append(companion_name)
