@@ -1,0 +1,3046 @@
+{
+  "credit report": {
+    "source_headings": [
+      "CREDIT REPORT",
+      "QUALIFYING CREDIT SCORE",
+      "CREDIT INQUIRIES",
+      "CREDIT REPORT SECURITY FREEZE",
+      "NON-TRADITIONAL CREDIT",
+      "WRITTEN EXPLANATIONS FOR DEROGATORY CREDIT",
+      "TRADELINE REQUIREMENTS",
+      "STANDARD TRADELINES",
+      "LIMITED TRADELINES",
+      "DISPUTED ACCOUNTS",
+      "HOUSING EVENTS AND PRIOR BANKRUPTCY"
+    ],
+    "items": [
+      {
+        "text": "Credit report must provide merged credit information from the 3 major national credit repositories",
+        "condition": null
+      },
+      {
+        "text": "Credit reporting agency must be Experian, TransUnion, or Equifax",
+        "condition": null
+      },
+      {
+        "text": "Credit report must include verification of all credit references provided on the loan application",
+        "condition": "loan_application_submitted=true"
+      },
+      {
+        "text": "Credit report must certify the results of public record searches for each city where the individual has resided in the last 2 years",
+        "condition": null
+      },
+      {
+        "text": "Credit report may not reflect a security freeze and must be resolved",
+        "condition": null
+      },
+      {
+        "text": "If a borrower unfreezes his or her credit after the date the original credit report was ordered, a new three-bureau merged report will be obtained to reflect current and updated information from all repositories",
+        "condition": null
+      },
+      {
+        "text": "Housing Events and bankruptcies in the most recent 2 years must be explained by the borrower with a signed letter of explanation",
+        "condition": null
+      },
+      {
+        "text": "If the disputed tradeline is paid as agreed, no further action is needed",
+        "condition": null
+      },
+      {
+        "text": "If the disputed account has a zero balance or is being paid at closing, no further action is needed",
+        "condition": null
+      },
+      {
+        "text": "If the disputed account has delinquency within two years of the credit report date and the account balance is $2,500 or less, no further action is needed",
+        "condition": null
+      },
+      {
+        "text": "If the disputed account has delinquency within two years of the credit report date and the account balance is over $2,500, the credit file should be documented with a credit supplement showing the dispute has been resolved",
+        "condition": null
+      },
+      {
+        "text": "A tri-merge or Residential Mortgage Credit Report (RMCR) is required for all borrowers on a loan",
+        "condition": "borrower_type!=foreign_national_without_US_credit"
+      },
+      {
+        "text": "A valid Social Security number (SSN) is required for all borrowers on the loan",
+        "condition": "borrower_type!=ITIN AND borrower_type!=foreign_national"
+      },
+      {
+        "text": "A signed letter of explanation from the borrower is required for all inquiries within the most recent 90 days for debts not already shown on the credit report",
+        "condition": "program!=DSCR"
+      },
+      {
+        "text": "If new credit was granted from inquiries within the most recent 90 days, documentation must be obtained to support the current balance and payment",
+        "condition": "program!=DSCR"
+      },
+      {
+        "text": "Monthly payment for new credit from inquiries within the most recent 90 days must be included in the DTI",
+        "condition": "program!=DSCR"
+      },
+      {
+        "text": "Minimum of 2 credit scores are required",
+        "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
+      },
+      {
+        "text": "Loan amount <= $1,500,000",
+        "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
+      },
+      {
+        "text": "3 Credit References covering the most recent 12 months from the date of the application, supported with canceled checks or bank statements",
+        "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
+      },
+      {
+        "text": "Acceptable trades may be mortgage/rental verifications; utilities such as electricity, gas, water, telephone service, television, and internet providers",
+        "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
+      },
+      {
+        "text": "If utilities are included in the rental housing payment, they cannot be considered a separate source of non-traditional credit",
+        "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
+      },
+      {
+        "text": "It is permissible to combine trades from the credit report with non-traditional credit to meet the tradeline requirement",
+        "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
+      },
+      {
+        "text": "All derogatory revolving and installment accounts 60 days delinquent within four years of closing require a full explanation",
+        "condition": "program=DSCR_no_ratio"
+      },
+      {
+        "text": "3 tradelines reporting for 12+ months with activity in the last 12 months, OR 2 tradelines reporting for 24+ months with activity in the last 12 months, OR 24 month mortgage history reporting on the credit report with a 0x30x12 history",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "Only the primary borrower must meet the tradeline requirements",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "Spouses may combine tradelines",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "The tradeline must be reflected on the borrower's credit report",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "The account must have been active in the past 12 months and may be opened or closed",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "A supplement may be used to update the account activity",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "Tradelines used to qualify may not exceed 0x60 in the most recent 12 months",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "An acceptable 12 or 24 month housing history not reporting on credit may be used as a tradeline",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "Credit lines on which the borrower is not obligated to make payments on are ineligible tradelines",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "Deferred loans not requiring a payment are ineligible tradelines",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "Authorized user accounts are ineligible tradelines",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "Collections or charge-offs are ineligible tradelines",
+        "condition": "tradeline_requirement=standard"
+      },
+      {
+        "text": "Primary Residence only",
+        "condition": "program=flex_select AND tradeline_requirement=limited"
+      },
+      {
+        "text": "660 score, minimum 2 scores required",
+        "condition": "program=flex_select AND tradeline_requirement=limited"
+      },
+      {
+        "text": "Max LTV 80%",
+        "condition": "program=flex_select AND tradeline_requirement=limited"
+      },
+      {
+        "text": "Minimum 10% borrower own funds required",
+        "condition": "program=flex_select AND tradeline_requirement=limited"
+      },
+      {
+        "text": "Max DTI 43%",
+        "condition": "program=flex_select AND tradeline_requirement=limited"
+      },
+      {
+        "text": "12 month 0x30 housing / rental history required",
+        "condition": "program=flex_select AND tradeline_requirement=limited"
+      },
+      {
+        "text": "There are no additional minimum tradelines that are required provided the above guidelines are met",
+        "condition": "program=flex_select AND tradeline_requirement=limited"
+      }
+    ]
+  },
+  "appraisal report": {
+    "source_headings": [
+      "APPRAISALS",
+      "APPRAISAL REQUIREMENTS",
+      "APPRAISAL REQUIREMENTS 1-4 UNIT RESIDENTIAL",
+      "APPRAISAL REQUIREMENTS MULTI 5-8 UNIT",
+      "AGE OF APPRAISAL AND APPRAISAL UPDATES",
+      "APPRAISAL REPORT REQUIREMENTS",
+      "APPRAISAL INDEPENDENCE POLICY STATEMENT"
+    ],
+    "items": [
+      {
+        "text": "A completed appraisal report is required on all loan transactions",
+        "condition": null
+      },
+      {
+        "text": "Appraiser must provide his or her license or certification on the appraisal report",
+        "condition": null
+      },
+      {
+        "text": "Appraisals must be completed by appraisers who are properly licensed or certified in the state in which the property to be appraised is located",
+        "condition": null
+      },
+      {
+        "text": "Appraisal orders may not contain any estimated or requested value",
+        "condition": null
+      },
+      {
+        "text": "Comparable sales may not be suggested to the appraiser",
+        "condition": null
+      },
+      {
+        "text": "A copy of the appraisal is required to be sent to the borrower on all loans regardless of whether the loan is closed, canceled, or denied",
+        "condition": null
+      },
+      {
+        "text": "Borrowers must receive a copy of their appraisal within 3 business days of the time it is delivered to the lender from the appraisal management company and/or appraiser",
+        "condition": null
+      },
+      {
+        "text": "Appraisal must use Uniform Residential Appraisal Form for One Unit Properties (FNMA Form 1004)",
+        "condition": "property_units=1"
+      },
+      {
+        "text": "Appraisal must use Small Residential Income Property Appraisal Report for 2-4 Unit Residential Properties (FNMA Form 1025)",
+        "condition": "property_units=2-4"
+      },
+      {
+        "text": "Appraisal must use Individual Condominium Unit Appraisal Report (FNMA Form 1073)",
+        "condition": "property_type=condominium"
+      },
+      {
+        "text": "Single Family Comparable Rent Schedule (FNMA Form 1007) must be included for all 1-unit Investment Properties when rental income is used to qualifying",
+        "condition": "property_units=1 AND occupancy=investment AND rental_income_used=yes"
+      },
+      {
+        "text": "1-4 Family Rider (Assignment of Rents) (FNMA Form 3170) must be included for all Investment Properties",
+        "condition": "occupancy=investment AND property_units=1-4"
+      },
+      {
+        "text": "Appraisal report must contain a street map showing the location of the subject property and all comparable used",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "Appraisal report must contain exterior building sketch of the improvements indicating dimensions",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "Appraisal report must contain a floor plan sketch with calculations demonstrating how the estimate for gross living area is determined",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "For a unit in a condominium project, the sketch of the unit must indicate interior perimeter unit dimensions rather than exterior building dimensions",
+        "condition": "property_type=condominium"
+      },
+      {
+        "text": "Appraisal report must contain original color photographs or digital color images of the front, street, and rear views of the subject property",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "Original digital black and white photographs/pictures are permitted if the appraisal clearly indicates the subject property meets our standards",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "Interior photos of the subject are required to include the kitchen, all bathrooms, the main living area, any areas with physical deterioration, and any renovations/improvements",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "Appraisal report must contain analysis of all agreements of sale, options or listings for the subject property current as of the effective date of the appraisal",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "Appraisal report must contain analysis of all sales of the subject property that occurred within the 3 years prior to the effective date of the appraisal",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "Appraisal report must include a completed Sales Comparison Approach section of FNMA Form 1004 where there are comparable used with more than one sale or transfer in the 12 months prior to the effective date of the appraisal",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "Appraiser must provide comments on any unfavorable conditions, such as adverse environmental or economic factors, and how those conditions impact the market value of the property",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "When unfavorable conditions exist, the appraiser's analysis must reflect and include comparable sales that are similarly affected",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "Certification and Statement of Limiting Conditions signed by the appraiser must be included",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "A copy of the appraiser's Errors and Omissions Insurance Policy, valid as of the date of the appraisal report, must be included with the appraisal unless confirmation is obtained from the AMC that a copy is on file with them",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "The appraisal must be dated within 365 days of the Note date",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "A recertification of value is required if the report exceeds 120 days of the Note Date",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "When an appraisal report will be more than 4 months old (120 days) on the date of the Note and Mortgage, the appraiser must inspect the exterior of the property and review current market data to determine whether the property has declined in value since the date of the original appraisal",
+        "condition": "property_units=1-4 AND appraisal_age>120_days"
+      },
+      {
+        "text": "Appraisal Update and/or Completion Report (FNMA Form 1004D) must be used when updates are needed for 1-4 Unit Residential Properties",
+        "condition": "property_units=1-4 AND appraisal_age>120_days"
+      },
+      {
+        "text": "Inspection and results of the analysis must be reported on the Appraisal Update and/or Completion Report (Form 1004D)",
+        "condition": "property_units=1-4 AND appraisal_age>120_days"
+      },
+      {
+        "text": "A photograph of the front of the subject property must be included with Form 1004D",
+        "condition": "property_units=1-4 AND appraisal_age>120_days"
+      },
+      {
+        "text": "If the appraiser indicates on Form 1004D that the property value has declined, then the seller must obtain a new appraisal for the property",
+        "condition": "property_units=1-4 AND appraisal_age>120_days AND value_declined=yes"
+      },
+      {
+        "text": "When substitute appraisers complete updates, the substitute appraiser must review the original appraisal and express an opinion about whether the original appraiser's opinion of market value was reasonable on the date of the original appraisal report",
+        "condition": "property_units=1-4 AND substitute_appraiser=yes"
+      },
+      {
+        "text": "The seller must note in the file why the original appraiser was not used",
+        "condition": "property_units=1-4 AND substitute_appraiser=yes"
+      },
+      {
+        "text": "Appraisal must use FHLMC 71A",
+        "condition": "property_units=5-8"
+      },
+      {
+        "text": "Appraisal must use FHLMC 71B for loan amounts < $750,000",
+        "condition": "property_units=5-8 AND loan_amount<750000"
+      },
+      {
+        "text": "Narrative report is required",
+        "condition": "property_units=5-8"
+      },
+      {
+        "text": "Full interior inspection of each unit is required",
+        "condition": "property_units=5-8"
+      },
+      {
+        "text": "Rent roll must be included with the appraisal report",
+        "condition": "property_units=5-8"
+      },
+      {
+        "text": "Income and Expense Statement must be included with the appraisal report",
+        "condition": "property_units=5-8"
+      },
+      {
+        "text": "Photos of subject including exterior/interior and street scene must be included",
+        "condition": "property_units=5-8"
+      },
+      {
+        "text": "Aerial photo must be included",
+        "condition": "property_units=5-8"
+      },
+      {
+        "text": "Sketch or floor plan of typical units must be included",
+        "condition": "property_units=5-8"
+      },
+      {
+        "text": "Map must be included",
+        "condition": "property_units=5-8"
+      },
+      {
+        "text": "Appraiser's qualifications must be included",
+        "condition": "property_units=5-8"
+      },
+      {
+        "text": "Appraisal order date may NOT be prior to initial signed dated borrowers Application and 'Intent to Proceed' issued with the initial application and disclosure package",
+        "condition": "loan_purpose!=business_purpose"
+      },
+      {
+        "text": "Retail and Wholesale Appraisals are to be ordered through the NQM Funding, LLC appraisal desk, except for when transferred appraisal is provided",
+        "condition": "channel=retail OR channel=wholesale"
+      }
+    ]
+  },
+  "hazard insurance": {
+    "source_headings": [
+      "HAZARD INSURANCE",
+      "MINIMUM HAZARD INSURANCE COVERAGE",
+      "EVIDENCE OF HAZARD INSURANCE",
+      "MORTGAGEE / LOSS PAYEE CLAUSE",
+      "MORTGAGEE CLAUSE REQUIREMENTS BY PROPERTY TYPE",
+      "NOTICE OF CANCELLATION FOR PROPERTY INSURANCE",
+      "DETERMINING THE AMOUNT OF REQUIRED HAZARD COVERAGE",
+      "CONDOMINIUM AND PUD PROJECT INSURANCE REQUIREMENTS"
+    ],
+    "items": [
+      {
+        "text": "Hazard insurance must protect against loss or damage from fire and other hazards covered by the standard extended coverage endorsement.",
+        "condition": null
+      },
+      {
+        "text": "Hazard insurance must include coverage for fire or lightning.",
+        "condition": null
+      },
+      {
+        "text": "Hazard insurance must include coverage for explosion.",
+        "condition": null
+      },
+      {
+        "text": "Hazard insurance must include coverage for windstorm (including named storms).",
+        "condition": null
+      },
+      {
+        "text": "Hazard insurance must include coverage for hail.",
+        "condition": null
+      },
+      {
+        "text": "Hazard insurance must include coverage for smoke.",
+        "condition": null
+      },
+      {
+        "text": "Hazard insurance must include coverage for aircraft.",
+        "condition": null
+      },
+      {
+        "text": "Hazard insurance must include coverage for vehicles.",
+        "condition": null
+      },
+      {
+        "text": "Hazard insurance must include coverage for riot or civil commotion.",
+        "condition": null
+      },
+      {
+        "text": "Coverage must provide for claims to be settled on a replacement cost basis.",
+        "condition": null
+      },
+      {
+        "text": "Property insurance policies that provide for claims to be settled on an actual cash value basis are not acceptable.",
+        "condition": null
+      },
+      {
+        "text": "Policy must be effective for at least 60 days after the date of funding.",
+        "condition": null
+      },
+      {
+        "text": "Evidence of Insurance may be provided in one of the following forms: Policy, Certificate of Insurance (COI), or Insurance Binder.",
+        "condition": null
+      },
+      {
+        "text": "Names of borrowers on Evidence of Insurance must reflect the same as the names on the note.",
+        "condition": null
+      },
+      {
+        "text": "Property address on Evidence of Insurance must agree with the note/security instrument.",
+        "condition": null
+      },
+      {
+        "text": "Mailing address on Evidence of Insurance must be the same as property address.",
+        "condition": null
+      },
+      {
+        "text": "Evidence of Insurance must provide Policy Number (NA on a binder).",
+        "condition": null
+      },
+      {
+        "text": "Evidence of Insurance must provide Loan Number.",
+        "condition": null
+      },
+      {
+        "text": "Evidence of Insurance must provide name of insurance company.",
+        "condition": null
+      },
+      {
+        "text": "Evidence of Insurance must provide Insurance Agent information.",
+        "condition": null
+      },
+      {
+        "text": "Evidence of Insurance must provide effective and expiration dates of coverage.",
+        "condition": null
+      },
+      {
+        "text": "Evidence of Insurance must provide Premium Amount.",
+        "condition": null
+      },
+      {
+        "text": "Evidence of Insurance must provide coverage amounts and deductible.",
+        "condition": null
+      },
+      {
+        "text": "Evidence of Insurance must provide loss payee clause as applicable.",
+        "condition": null
+      },
+      {
+        "text": "Evidence of Insurance must be signed and dated by agent.",
+        "condition": null
+      },
+      {
+        "text": "The policy must require the insurer to notify in writing the named insured and mortgagee(s) before it cancels the policy.",
+        "condition": null
+      },
+      {
+        "text": "Hazard insurance coverage must be in the amount of the lesser of: the unpaid principal balance of the mortgage or 100% Replacement Cost Coverage as stated on the policy declaration page.",
+        "condition": null
+      },
+      {
+        "text": "If the unpaid principal balance or 100% Replacement Cost Coverage requirements are not met, coverage must be equal to at least 100% of the insurable value of improvements, as established by the property insurer through a Replacement Cost Estimator or equivalent.",
+        "condition": null
+      },
+      {
+        "text": "If the policy does not cover the unpaid principal balance, have guaranteed replacement cost or a replacement cost estimate is not provided, a processor's certification verifying the insurer's coverage is equal to 100% of the insurable value of improvements as indicated by the insurance agent or representative is acceptable.",
+        "condition": null
+      },
+      {
+        "text": "The applicable insurance policy must include (or have attached) a standard or union mortgagee clause (without contribution) in the form customarily used in the area in which the property is located.",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "A loss payable clause in lieu of a mortgagee clause is not acceptable.",
+        "condition": "property_units=1-4"
+      },
+      {
+        "text": "If a unit owner or shareholder maintains an individual property insurance policy (as indicated by the project's legal documents) or if an individual property insurance policy is required for interior coverage, it must include the standard mortgagee clause.",
+        "condition": "property_type=unit_in_project"
+      },
+      {
+        "text": "If an individual flood insurance policy is required, it must include the standard mortgagee clause.",
+        "condition": "property_type=unit_in_project"
+      },
+      {
+        "text": "Processor's certification must include the insurance company's complete information.",
+        "condition": "processor_certification_used=true"
+      },
+      {
+        "text": "Processor's certification must include subject property address.",
+        "condition": "processor_certification_used=true"
+      },
+      {
+        "text": "Processor's certification must confirm the replacement cost amount determined by the insurer.",
+        "condition": "processor_certification_used=true"
+      },
+      {
+        "text": "Processor's certification must be signed and dated by the processor.",
+        "condition": "processor_certification_used=true"
+      }
+    ]
+  },
+  "flood hazard determination": {
+    "source_headings": [
+      "FLOOD CERTIFICATE",
+      "FLOOD INSURANCE",
+      "MINIMUM FLOOD INSURANCE COVERAGE",
+      "ACCEPTABLE FLOOD INSURANCE POLICIES",
+      "EVIDENCE OF FLOOD INSURANCE",
+      "NAMED INSURED FOR PROPERTY AND FLOOD INSURANCE"
+    ],
+    "items": [
+      {
+        "text": "Flood Certificate must be provided by the Federal Emergency Management Agency (FEMA)",
+        "condition": null
+      },
+      {
+        "text": "Appraisal report must accurately reflect the flood zone",
+        "condition": null
+      },
+      {
+        "text": "Property must be in a community which participates in the FEMA Program",
+        "condition": "flood_zone=A or flood_zone=V"
+      },
+      {
+        "text": "Flood insurance is required when property is located in a Special Flood Hazard Area (SFHA), Coastal Barrier System (CBRS), or Otherwise Protected Area (OPA)",
+        "condition": null
+      },
+      {
+        "text": "Flood insurance policy must be either a standard policy issued under NFIP or a policy issued by a private insurer if the terms and amount of coverage are at least equal to that provided under a NFIP policy based on a review of the full policy issued by the private insurer",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Minimum flood insurance coverage must be the lower of: 100% of the replacement cost of the insurable value of the improvements, the maximum insurance available from the National Flood Insurance Program (NFIP) which is currently $250,000 per dwelling, or the unpaid principal balance of the mortgage",
+        "condition": "property_units=1 or property_type=individual_PUD_unit"
+      },
+      {
+        "text": "Flood insurance must be maintained throughout the duration of the loan",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "If definitive evidence of flood insurance is not available at closing, a completed and executed NFIP application with a copy of the borrower's premium check, the insurance agent's paid receipt, or the final settlement statement reflecting the flood insurance premium paid at closing may be used",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "If definitive evidence of flood insurance is not available at closing, a completed and executed NFIP General Change Endorsement Form showing the assignment of the current flood insurance policy by the property seller to the borrower may be used",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "If definitive evidence of flood insurance is not available at closing, an agent-executed NFIP Certification of Proof of Purchase of Flood Insurance may be used",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show names of borrowers that reflect the same as the note",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show property address that agrees with the note/security instrument",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show mailing address that is the same as property address",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show Policy Number",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show Loan Number",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show Name of insurance company",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show Insurance Agent information",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show Effective and expiration dates of coverage",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show Premium Amount and deductible",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show Coverage amount",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must show Loss payee clause as applicable",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Evidence of Insurance must be signed and dated by agent",
+        "condition": "flood_insurance_required=true"
+      },
+      {
+        "text": "Individual property or flood insurance policy must list all persons holding title to the subject property as named insured",
+        "condition": "property_units=1-4 or property_type=individual_unit_in_project"
+      },
+      {
+        "text": "Master property or flood insurance policy must designate the HOA as the named insured",
+        "condition": "property_type=condo_project"
+      },
+      {
+        "text": "Master property or flood insurance policy can specify an authorized representative of the HOA, including its insured trustee, as the named insured if the condominium's legal documents permit",
+        "condition": "property_type=condo_project"
+      },
+      {
+        "text": "Master property or flood insurance policy must designate the HOA as the named insured",
+        "condition": "property_type=PUD_project"
+      }
+    ]
+  },
+  "irs 4506-c authorization": {
+    "source_headings": [
+      "IRS 4506-C TAX TRANSCRIPTS (FULL DOC)"
+    ],
+    "items": [
+      {
+        "text": "A signed IRS 4506-C must be completed and signed by all borrowers qualifying as full doc.",
+        "condition": "documentation_type=full_doc"
+      },
+      {
+        "text": "The form must request the appropriate type of transcript based on the level of loan documentation (W-2s, tax transcripts, etc.).",
+        "condition": "documentation_type=full_doc"
+      },
+      {
+        "text": "Wage earner's employment and income documented through a FNMA DU Validation Electronic Verification of Employment vendor (i.e., Blend, Equifax, Experian, Finicity, Truework) is required as one option to satisfy income verification.",
+        "condition": "documentation_type=full_doc AND borrower_type=wage_earner"
+      },
+      {
+        "text": "Transcripts executed for 1 or 2 years, depending on the qualifying doc type, are required as an alternative to electronic verification of employment.",
+        "condition": "documentation_type=full_doc"
+      },
+      {
+        "text": "The prior 1 or 2 years tax transcripts are required when the most recent year's transcripts are not available.",
+        "condition": "documentation_type=full_doc AND most_recent_year_transcripts_unavailable=true"
+      },
+      {
+        "text": "The prior year's transcripts are required when qualifying as a two-year full documentation and the most recent year's transcripts are not available.",
+        "condition": "documentation_type=full_doc AND qualifying_years=2 AND most_recent_year_transcripts_unavailable=true"
+      },
+      {
+        "text": "Copy of the e-filing certificate for the most recent year is required when qualifying as a two-year full documentation and the most recent year's transcripts are not available.",
+        "condition": "documentation_type=full_doc AND qualifying_years=2 AND most_recent_year_transcripts_unavailable=true"
+      },
+      {
+        "text": "Proof the check cleared for any taxes due, or proof of receipt of the tax refund, is required when qualifying as a two-year full documentation and the most recent year's transcripts are not available.",
+        "condition": "documentation_type=full_doc AND qualifying_years=2 AND most_recent_year_transcripts_unavailable=true"
+      },
+      {
+        "text": "Tax Transcript reflecting 'No Record Found' is required when qualifying as a two-year full documentation and the most recent year's transcripts are not available.",
+        "condition": "documentation_type=full_doc AND qualifying_years=2 AND most_recent_year_transcripts_unavailable=true"
+      },
+      {
+        "text": "The transcripts must be reviewed and compared to the qualifying income to confirm consistency.",
+        "condition": "documentation_type=full_doc"
+      },
+      {
+        "text": "The results from the transcripts should be equal to or greater than the income used to qualify the loan.",
+        "condition": "documentation_type=full_doc"
+      },
+      {
+        "text": "Any inconsistencies between the transcripts and the qualifying income should be addressed.",
+        "condition": "documentation_type=full_doc"
+      }
+    ]
+  },
+  "title commitment": {
+    "source_headings": [
+      "TITLE INSURANCE",
+      "TITLE POLICY REQUIREMENTS",
+      "TITLE POLICY FORMS",
+      "TITLE POLICY UNDERWRITER",
+      "TITLE COMMITMENT REVIEW",
+      "CHAIN OF TITLE",
+      "TITLE EXCEPTIONS",
+      "SURVEY REQUIREMENTS"
+    ],
+    "items": [
+      {
+        "text": "Loan must be covered by a title insurance policy that has been paid in full and is valid, binding, and remains in full force and effect.",
+        "condition": null
+      },
+      {
+        "text": "Preliminary title must indicate that the final title policy will be issued after funding.",
+        "condition": null
+      },
+      {
+        "text": "Title insurer must be qualified to do business in the state where the subject property is located.",
+        "condition": null
+      },
+      {
+        "text": "Title insurer and policy must conform to Fannie Mae/Freddie Mac requirements.",
+        "condition": null
+      },
+      {
+        "text": "Final title policy must be written on 2006 American Land Title Association (ALTA) standard form, ALTA short form, or ALTA form with amendments required by state law in states in which standard ALTA forms of coverage are not used or in which the 2006 ALTA forms have not yet been adopted, provided those amendments are acceptable to FNMA or Freddie Mac (FHLMC).",
+        "condition": null
+      },
+      {
+        "text": "Title insurer must be duly authorized and licensed, as required, to issue title insurance in the state where the property is located.",
+        "condition": null
+      },
+      {
+        "text": "Title insurer must be evaluated in accordance with the lender's procedures for title insurer approval, which may include factors such as an acceptable rating from a rating agency, financial strength of the title insurer, adequate reserves, or record related to satisfactory title claim resolution.",
+        "condition": null
+      },
+      {
+        "text": "All files must contain a 24-month title history from an acceptable source.",
+        "condition": null
+      },
+      {
+        "text": "Transfer date, price, and buyer and seller names on any title transfers that occurred within the previous 24 months should be provided.",
+        "condition": null
+      },
+      {
+        "text": "Vesting history should be reviewed for inconsistencies or any indication of flipping activity.",
+        "condition": null
+      },
+      {
+        "text": "Customary public utility subsurface easements are allowable title exceptions only if the location is fixed and can be verified, and the exercise of rights of easement will not interfere with use and enjoyment of any improvement of the subject property or proposed improvements upon which the appraisal or loan is based.",
+        "condition": null
+      },
+      {
+        "text": "Above-surface public utility easements that extend along one or more property lines for distribution purposes, or along the rear property line for drainage, are allowable title exceptions only if they do not extend more than 12 feet from the subject property lines and do not interfere with any of the buildings or improvements, or with the use of the subject property.",
+        "condition": null
+      },
+      {
+        "text": "Public utility restrictions are allowable title exceptions provided their violation will not result in the forfeiture or reversion of title or a lien of any kind for damages, or have an adverse effect on the fair market value of the subject property.",
+        "condition": null
+      },
+      {
+        "text": "Mutual easement agreements that establish joint driveways or party walls constructed on the subject property and on an adjoining property are allowable title exceptions provided all future owners have unlimited and unrestricted use of them.",
+        "condition": null
+      },
+      {
+        "text": "Encroachments of one foot or less on adjoining property by eaves or other overhanging projections or by driveways are allowable title exceptions provided there is at least a 10-foot clearance between the buildings on the subject property and the property line affected by the encroachments.",
+        "condition": null
+      },
+      {
+        "text": "Encroachments on the subject property by improvements on adjoining property are allowable title exceptions provided these encroachments extend one foot or less over the property line of the subject property, have a total area of 50 square feet or less, do not touch any buildings, and do not interfere with the use of any improvements on the subject property or the use of the subject property not occupied by improvements.",
+        "condition": null
+      },
+      {
+        "text": "Encroachments on adjoining properties by hedges or removable fences are allowable title exceptions.",
+        "condition": null
+      },
+      {
+        "text": "Liens for real estate or ad valorem taxes and assessments not yet due and payable are allowable title exceptions.",
+        "condition": null
+      },
+      {
+        "text": "Outstanding oil, water, or mineral rights are allowable title exceptions if they do not materially alter the contour of the property or impair its value or usefulness for its intended purposes.",
+        "condition": null
+      },
+      {
+        "text": "Municipals and local searches, when provided, must be cleared/resolved prior to loan funding or purchase.",
+        "condition": null
+      },
+      {
+        "text": "Iowa Title Guaranty is an acceptable title guarantor for properties located in the state of Iowa.",
+        "condition": "state=IA"
+      },
+      {
+        "text": "If surveys are not commonly required in a particular jurisdiction, an ALTA 9 endorsement can be obtained.",
+        "condition": "surveys_not_customary_in_jurisdiction"
+      },
+      {
+        "text": "If neither a survey nor the ALTA 9 endorsement are customary in a particular location, title must not have a survey exception.",
+        "condition": "survey_and_ALTA9_not_customary"
+      },
+      {
+        "text": "If the title company requires a survey or plat map due to an exception noted on the title policy, a copy must be submitted in the loan file.",
+        "condition": "title_company_requires_survey"
+      },
+      {
+        "text": "Surveys must be certified, dated, and signed by the licensed civil engineer or registered surveyor performing the survey.",
+        "condition": "survey_provided"
+      },
+      {
+        "text": "Unimproved land surveys are not acceptable.",
+        "condition": "survey_provided"
+      },
+      {
+        "text": "Surveys should be reviewed for easements, encroachments, flood zone impacts, and boundary violations, based on the location of the dwelling on the property.",
+        "condition": "survey_provided"
+      }
+    ]
+  },
+  "government id": {
+    "source_headings": [
+      "CUSTOMER IDENTIFICATION (CIP)"
+    ],
+    "items": [
+      {
+        "text": "Government ID must verify the borrower's name",
+        "condition": null
+      },
+      {
+        "text": "Government ID must verify the borrower's date of birth",
+        "condition": null
+      },
+      {
+        "text": "Government ID must verify the borrower's address",
+        "condition": null
+      },
+      {
+        "text": "Government ID must verify the borrower's identification number",
+        "condition": null
+      },
+      {
+        "text": "Identity of all borrowers must be documented",
+        "condition": null
+      }
+    ]
+  },
+  "borrower certification as to business purpose": {
+    "source_headings": [
+      "BUSINESS PURPOSE FORMS",
+      "INVESTMENT PROPERTY & BUSINESS PURPOSE LOANS"
+    ],
+    "items": [
+      {
+        "text": "Business Purpose & Occupancy Affidavit is required on all Business Purpose loans",
+        "condition": "loan_type=business_purpose"
+      },
+      {
+        "text": "All borrowers are required to sign the Business Purpose & Occupancy Affidavit to declare that the property is, or will be, for commercial business or investment purpose only",
+        "condition": "loan_type=business_purpose"
+      },
+      {
+        "text": "The Property must not and cannot be occupied by a borrower, any member of the borrower's LLC, or any family member",
+        "condition": "loan_type=business_purpose"
+      },
+      {
+        "text": "Compliance Agreement \u2013 DSCR Loans or equivalent form is required",
+        "condition": "program=DSCR"
+      },
+      {
+        "text": "Form is borrower(s) agreement to furnish the Lender and its successors and/or assigns with current copies of all Lease Agreements within a reasonable time upon request",
+        "condition": "program=DSCR"
+      },
+      {
+        "text": "Compliance Agreement \u2013 DSCR Loans form will be executed at closing on retail and wholesale transactions",
+        "condition": "program=DSCR AND channel=retail_or_wholesale"
+      },
+      {
+        "text": "Compliance Agreement \u2013 DSCR Loans form is to be provided at the time of purchase on correspondent loans",
+        "condition": "program=DSCR AND channel=correspondent"
+      },
+      {
+        "text": "The Business Rider to the Mortgage/Deed of Trust must be executed at closing on retail and wholesale transactions",
+        "condition": "channel=retail_or_wholesale"
+      },
+      {
+        "text": "Investment properties and all DSCR loans must be Business Purpose and processed as non-TRID transactions",
+        "condition": "channel=retail_or_wholesale"
+      }
+    ]
+  },
+  "rental agreement": {
+    "source_headings": [
+      "LEASE REQUIREMENTS",
+      "LEASEHOLD ESTATES",
+      "RENTAL INCOME \u2013 FULL DOC"
+    ],
+    "items": [
+      {
+        "text": "Properties with expired leases that have been converted to month-to-month per the terms of the lease will require bank statements for the lesser of two months or the period after the lease has expired.",
+        "condition": null
+      },
+      {
+        "text": "Corporate lease agreements are acceptable with lease terms consistent with typical market standards and will be subject to standard market rent verification.",
+        "condition": null
+      },
+      {
+        "text": "Lease agreements that allow single room occupancy or boarder leases are not permitted.",
+        "condition": null
+      },
+      {
+        "text": "Short term rentals are not permitted.",
+        "condition": null
+      },
+      {
+        "text": "Third party sale and leaseback agreements or contract for deed transactions will not be permitted.",
+        "condition": null
+      },
+      {
+        "text": "All leases must be in U.S. Dollars.",
+        "condition": null
+      },
+      {
+        "text": "All units must be either leased or in lease ready condition meaning the properties have been cleaned, no renovations or repairs to the properties are needed and the properties are immediately available to be leased to an eligible tenant.",
+        "condition": "loan_purpose=purchase|rate_term_refinance|cash_out"
+      },
+      {
+        "text": "The term of the leasehold estate must run for at least five years beyond the maturity date of the mortgage unless fee simple title will vest at an earlier date in the borrower's name.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The lease must provide that the leasehold can be assigned, transferred, mortgaged, and sublet an unlimited number of times either without restriction or on payment of a reasonable fee and delivery of reasonable documentation to the lessor.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The lessor may not require a credit review or impose other qualifying criteria on any assignee, transferee, mortgagee, or sublessee.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The lease must provide for the borrower to retain voting rights in any homeowners' association.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The lease must provide that in addition to the obligation to pay lease rents, the borrower will pay taxes, insurance, and homeowners' association dues (if applicable), related to the land in addition to those he or she is paying on the improvements.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The lease must be valid, in good standing, and in full force and effect in all respects.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The lease must not include any default provisions that could give rise to forfeiture or termination of the lease, except for nonpayment of the lease rents.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The lease must include provisions to protect the mortgagee's interests in the event of a property condemnation.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The lease must provide lenders with the right to receive a minimum of 30 days' notice of any default by the borrower.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The lease must provide lenders with the option to either cure the default or take over the borrower's rights under the lease.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The mortgage must be secured by the property improvements and the borrower's leasehold interest in the land.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The leasehold estate and the improvements must constitute real property, be subject to the mortgage lien, and be insured by the lender's title policy.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "The leasehold estate and the mortgage must not be impaired by any merger of title between the lessor and lessee.",
+        "condition": "property_type=leasehold_estate"
+      },
+      {
+        "text": "In the event the mortgage is secured by a sublease of a leasehold estate, the documents must provide that a default under the leasehold estate will not by such default result in the termination of the sublease.",
+        "condition": "property_type=leasehold_estate_sublease"
+      },
+      {
+        "text": "Leasehold condominiums are ineligible.",
+        "condition": "property_type=leasehold_condominium"
+      }
+    ]
+  },
+  "rental income calculations worksheet": {
+    "source_headings": [
+      "RENTAL INCOME REQUIREMENTS",
+      "MULTI 5-8 UNIT RENTAL INCOME REQUIREMENTS",
+      "RENTAL INCOME ON THE TAX RETURNS",
+      "RENTAL INCOME NOT ON TAX RETURNS",
+      "SHORT TERM RENTAL (NON DSCR)",
+      "NO RATIO RENTAL INCOME REQUIREMENTS",
+      "SHORT TERM RENTALS \u2013 DSCR SUPREME AND INVESTOR DSCR",
+      "LONG TERM RENTALS \u2013 DSCR SUPREME AND INVESTOR DSCR"
+    ],
+    "items": [
+      {
+        "text": "Reduce qualifying rents by any management fee reflected on the appraisal report.",
+        "condition": null
+      },
+      {
+        "text": "Use lower of estimated market rent or lease agreement.",
+        "condition": "loan_purpose=refinance"
+      },
+      {
+        "text": "Use the estimated market rent.",
+        "condition": "loan_purpose=purchase"
+      },
+      {
+        "text": "For leases that have been converted to month-to-month, provide 2 months bank statements to support rental income.",
+        "condition": "lease_status=month-to-month"
+      },
+      {
+        "text": "When Tax Returns are used for qualifying, rental income should be calculated using the FNMA Cash Flow Analysis Method.",
+        "condition": "doc_type=tax_returns_provided"
+      },
+      {
+        "text": "When income is being qualified using two years, an average of income should be used unless the rental income is declining, in which case the most recent year's income should be used for qualifying.",
+        "condition": "doc_type=tax_returns_provided"
+      },
+      {
+        "text": "Cash Flow Analysis of Schedule E: Start with Gross Rents and Royalties received.",
+        "condition": "doc_type=tax_returns_provided"
+      },
+      {
+        "text": "Cash Flow Analysis of Schedule E: Less total expenses.",
+        "condition": "doc_type=tax_returns_provided"
+      },
+      {
+        "text": "Cash Flow Analysis of Schedule E: Plus Depreciation.",
+        "condition": "doc_type=tax_returns_provided"
+      },
+      {
+        "text": "Cash Flow Analysis of Schedule E: Plus Insurance.",
+        "condition": "doc_type=tax_returns_provided"
+      },
+      {
+        "text": "Cash Flow Analysis of Schedule E: Plus Mortgage Interest.",
+        "condition": "doc_type=tax_returns_provided"
+      },
+      {
+        "text": "Cash Flow Analysis of Schedule E: Plus Taxes.",
+        "condition": "doc_type=tax_returns_provided"
+      },
+      {
+        "text": "Cash Flow Analysis of Schedule E: Plus HOA fees (if included on Schedule E).",
+        "condition": "doc_type=tax_returns_provided"
+      },
+      {
+        "text": "Subtotal divided by 12 or 24 months depending on the doc type.",
+        "condition": "doc_type=tax_returns_provided"
+      },
+      {
+        "text": "Primary Residence: This figure would be used as net rental income/loss and the full PITIA will be counted as a debt.",
+        "condition": "doc_type=tax_returns_provided AND occupancy=primary_residence"
+      },
+      {
+        "text": "Rental Property: This figure less the proposed/existing monthly payment will be used to determine net rental income/loss.",
+        "condition": "doc_type=tax_returns_provided AND occupancy=rental_property"
+      },
+      {
+        "text": "Evidence of borrower's ownership of the property.",
+        "condition": "doc_type=no_tax_returns"
+      },
+      {
+        "text": "Lease agreement.",
+        "condition": "doc_type=no_tax_returns AND (loan_purpose=refinance OR property_type=other_REO)"
+      },
+      {
+        "text": "Two months bank statements demonstrating receipt of rental income.",
+        "condition": "doc_type=no_tax_returns AND (loan_purpose=refinance OR property_type=other_REO)"
+      },
+      {
+        "text": "Evidence the rental amount is at market rate, which can be documented via a 1007 or through an online source.",
+        "condition": "doc_type=no_tax_returns AND (loan_purpose=refinance OR property_type=other_REO)"
+      },
+      {
+        "text": "75% of the rental amount on the lease is used for qualifying.",
+        "condition": "doc_type=no_tax_returns AND (loan_purpose=refinance OR property_type=other_REO)"
+      },
+      {
+        "text": "Primary Residence: This figure would be used as net rental income/loss and the full PITIA will be counted as a debt.",
+        "condition": "doc_type=no_tax_returns AND (loan_purpose=refinance OR property_type=other_REO) AND occupancy=primary_residence"
+      },
+      {
+        "text": "Rental Property: This figure less the proposed/existing monthly payment will be used to determine net rental income/loss.",
+        "condition": "doc_type=no_tax_returns AND (loan_purpose=refinance OR property_type=other_REO) AND occupancy=rental_property"
+      },
+      {
+        "text": "75% of the appraiser's opinion of market rent on FNMA Form 1007 or Form 1025, as applicable.",
+        "condition": "doc_type=no_tax_returns AND loan_purpose=purchase"
+      },
+      {
+        "text": "Primary Residence: This figure would be used as net rental income/loss and the full PITIA will be counted as a debt.",
+        "condition": "doc_type=no_tax_returns AND loan_purpose=purchase AND occupancy=primary_residence"
+      },
+      {
+        "text": "Rental Property: This figure less the proposed/existing monthly payment will be used to determine net rental income/loss.",
+        "condition": "doc_type=no_tax_returns AND loan_purpose=purchase AND occupancy=rental_property"
+      },
+      {
+        "text": "75% of the rental amount on the lease if used for qualifying.",
+        "condition": "doc_type=no_tax_returns AND property_type=departing_residence"
+      },
+      {
+        "text": "Evidence the rental amount is at market rate, which can be documented through an online source or a 1007.",
+        "condition": "doc_type=no_tax_returns AND property_type=departing_residence"
+      },
+      {
+        "text": "Available on purchase and refinance transactions.",
+        "condition": "rental_type=short_term AND program=non_DSCR"
+      },
+      {
+        "text": "Short Term Rentals are properties leased on either a nightly, weekly, monthly, or seasonal basis.",
+        "condition": "rental_type=short_term AND program=non_DSCR"
+      },
+      {
+        "text": "All STRs require evidence from third party vendor (such as Property Guard, Vrolio or equivalent), validating that the governing municipality where the subject STR is located allows properties to be rented as STRs.",
+        "condition": "rental_type=short_term AND program=non_DSCR"
+      },
+      {
+        "text": "Option 1: Lesser of 1007/1025 completed using either long-term or short-term market rents.",
+        "condition": "rental_type=short_term AND program=non_DSCR"
+      },
+      {
+        "text": "When the 1007/1025 is prepared with the use of short-term rentals, the appraiser is required to address the seasonality of the subject property Short Term Rental market in computing the market rent.",
+        "condition": "rental_type=short_term AND program=non_DSCR AND income_option=1"
+      },
+      {
+        "text": "If the appraiser fails to appropriately address for seasonality, gross rents should be reduced by a 50% vacancy.",
+        "condition": "rental_type=short_term AND program=non_DSCR AND income_option=1"
+      },
+      {
+        "text": "On a refinance, a screen shot of the online listing must show the property is actively marketed as a short-term rental.",
+        "condition": "rental_type=short_term AND program=non_DSCR AND income_option=1 AND loan_purpose=refinance"
+      },
+      {
+        "text": "Option 2: 12-month lookback period to determine avg rents or annual or monthly statements from AirBNB or similar service.",
+        "condition": "rental_type=short_term AND program=non_DSCR"
+      },
+      {
+        "text": "Option 3: Tax Return along with a Schedule E.",
+        "condition": "rental_type=short_term AND program=non_DSCR"
+      },
+      {
+        "text": "For purchase transactions, it is acceptable for the property to be vacant.",
+        "condition": "program=no_ratio AND loan_purpose=purchase"
+      },
+      {
+        "text": "Vacant properties on a refinance are not eligible.",
+        "condition": "program=no_ratio AND loan_purpose=refinance"
+      },
+      {
+        "text": "If the property is currently tenant occupied, the 1007/1025 must reflect the terms of the lease.",
+        "condition": "program=no_ratio AND occupancy_status=tenant_occupied"
+      },
+      {
+        "text": "Gross market rents are calculated using the lesser of the lease amount or market rents from the 1007/1025.",
+        "condition": "program=no_ratio"
+      },
+      {
+        "text": "A copy of the lease is not required.",
+        "condition": "program=no_ratio"
+      },
+      {
+        "text": "Property cannot be occupied by the borrower(s), any member of the borrower's LLC or any family member.",
+        "condition": "program=no_ratio"
+      },
+      {
+        "text": "Short term rentals are ineligible.",
+        "condition": "program=no_ratio"
+      },
+      {
+        "text": "Short Term Rentals are defined as properties leased on a nightly, weekly, monthly, or seasonal basis.",
+        "condition": "rental_type=short_term AND (program=DSCR_supreme OR program=investor_DSCR)"
+      },
+      {
+        "text": "Min DSCR >= 1.15.",
+        "condition": "rental_type=short_term AND (program=DSCR_supreme OR program=investor_DSCR)"
+      },
+      {
+        "text": "Max LTV: Lesser of 75% or the Matrix LTV/CLTV.",
+        "condition": "rental_type=short_term AND (program=DSCR_supreme OR program=investor_DSCR)"
+      },
+      {
+        "text": "Evidence is required from a third party vendor (such as Property Guard, Vrolio or equivalent) validating that the governing municipality where the subject property is located allows properties to be rented as STRs.",
+        "condition": "rental_type=short_term AND (program=DSCR_supreme OR program=investor_DSCR)"
+      },
+      {
+        "text": "1007/1025 or Alternative Short Term Rental Analysis developed by an AMC is required, regardless of how the STR income is computed.",
+        "condition": "rental_type=short_term AND (program=DSCR_supreme OR program=investor_DSCR)"
+      },
+      {
+        "text": "Short Term Gross Rental Income Options: 1007/1025 or Alternative Short Term Rent Analysis form developed by an AMC or 12-month look back on rents received using bank statements or third party rental statements.",
+        "condition": "rental_type=short_term AND (program=DSCR_supreme OR program=investor_DSCR)"
+      },
+      {
+        "text": "When using the 1007/1025 or alternative Short Term Rent Analysis, the market rents must account for the seasonality of the subject property's rents.",
+        "condition": "rental_type=short_term AND (program=DSCR_supreme OR program=investor_DSCR)"
+      },
+      {
+        "text": "Not permitted in the five (5) New York City Boroughs.",
+        "condition": "rental_type=short_term AND (program=DSCR_supreme OR program=investor_DSCR)"
+      },
+      {
+        "text": "FNMA 1007/1025 required.",
+        "condition": "rental_type=long_term AND (program=DSCR_supreme OR program=investor_DSCR) AND loan_purpose=refinance"
+      },
+      {
+        "text": "Executed lease with no less than 1 month remaining at the time of closing for all units in the subject property.",
+        "condition": "rental_type=long_term AND (program=DSCR_supreme OR program=investor_DSCR) AND loan_purpose=refinance"
+      },
+      {
+        "text": "Month to month tenancy is not subject to the 1 month remaining requirement with sufficient evidence to support continuance, such as a signed extension letter, bank statements to support deposits, or 1007/1025 which includes a review of the current lease(s) confirming month to month.",
+        "condition": "rental_type=long_term AND (program=DSCR_supreme OR program=investor_DSCR) AND loan_purpose=refinance AND lease_status=month-to-month"
+      },
+      {
+        "text": "Evidence property is listed for rent for vacant units.",
+        "condition": "rental_type=long_term AND (program=DSCR_supreme OR program=investor_DSCR) AND loan_purpose=refinance AND unit_status=vacant"
+      }
+    ]
+  },
+  "personal bank statements": {
+    "source_headings": [
+      "PERSONAL BANK STATEMENTS (ALT DOC)",
+      "BANK STATEMENT GENERAL REQUIREMENTS (ALT DOC)"
+    ],
+    "items": [
+      {
+        "text": "Borrowers may provide either 12 or 24 consecutive months of personal bank statements",
+        "condition": null
+      },
+      {
+        "text": "12 or 24 months complete personal bank statements must be from the same account",
+        "condition": null
+      },
+      {
+        "text": "Most recent 2 months of business bank statements must be provided if available",
+        "condition": null
+      },
+      {
+        "text": "Evidence of online transfer/check from the business account to the personal account must be evident to consider allowing 100% of deposits",
+        "condition": null
+      },
+      {
+        "text": "When using 100% of online transfer/check deposits going from the business account to the personal account, all other deposits are excluded",
+        "condition": null
+      },
+      {
+        "text": "A pattern/history of deposits from the business account to the personal account must be established",
+        "condition": null
+      },
+      {
+        "text": "Borrowers must be self-employed for at least 2 years",
+        "condition": null
+      },
+      {
+        "text": "The business must be in existence for a minimum of 2 years as evidenced by a letter from either the business tax professional, regulatory agency or licensing bureau",
+        "condition": null
+      },
+      {
+        "text": "The Employment Section of the application must include a minimum of 2 years employment history",
+        "condition": null
+      },
+      {
+        "text": "Non-Permanent Resident Aliens without U.S. Credit are ineligible",
+        "condition": null
+      },
+      {
+        "text": "Foreign Nationals are ineligible",
+        "condition": null
+      },
+      {
+        "text": "Non-Profits are ineligible",
+        "condition": null
+      },
+      {
+        "text": "Not for Profits are ineligible",
+        "condition": null
+      },
+      {
+        "text": "At least one of the borrowers must be self-employed",
+        "condition": null
+      },
+      {
+        "text": "All borrowers are required to be account holders of the bank accounts throughout the 12 or 24 months being used to qualify",
+        "condition": null
+      },
+      {
+        "text": "Verify the business is active and operating within 30 days of closing with either a phone listing and/or business address using directory assistance or internet search",
+        "condition": null
+      },
+      {
+        "text": "Tax returns are not required",
+        "condition": null
+      },
+      {
+        "text": "4506-C is not required",
+        "condition": null
+      },
+      {
+        "text": "If Tax returns and/or Transcripts are provided, the loan will be ineligible",
+        "condition": null
+      },
+      {
+        "text": "When personal accounts are jointly owned and the other party is not an owner of the business and/or a borrower on the loan, all deposits not able to be readily identifiable as business income must be excluded",
+        "condition": "account_ownership=joint AND co-owner_not_business_owner_or_borrower"
+      },
+      {
+        "text": "If a business account does not exist, co-mingled accounts guidance must be followed",
+        "condition": "business_account_does_not_exist"
+      },
+      {
+        "text": "Must be self-employed for a minimum of 18 months",
+        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=1"
+      },
+      {
+        "text": "Must have a minimum of three (3) years prior experience in the same line of business",
+        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=1"
+      },
+      {
+        "text": "Self-employed borrowers in a licensed profession (i.e., Medical, Legal, Accounting) will be considered from a business that has been in existence for less than two (2) years, but greater than one (1) year",
+        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=2"
+      },
+      {
+        "text": "Borrower has at least three (3) years of documented previous experience in the same profession, or evidence of formal education in a related field",
+        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=2 AND borrower_in_licensed_profession"
+      },
+      {
+        "text": "Minimum 700 score",
+        "condition": "program=Flex_Select AND (option=1 OR option=2)"
+      },
+      {
+        "text": "Max LTV of 80% for Primary Residence",
+        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=primary"
+      },
+      {
+        "text": "Max LTV of 75% for Second Home",
+        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=second_home"
+      },
+      {
+        "text": "Max LTV of 70% for Investment Properties",
+        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=investment"
+      },
+      {
+        "text": "Ineligible for Express(DU) or Super Jumbo",
+        "condition": "program=Flex_Select AND (option=1 OR option=2)"
+      },
+      {
+        "text": "Independent contractors who do not necessarily own their own business may be qualified using bank statement documentation and must follow the co-mingled accounts guidance",
+        "condition": "borrower_type=independent_contractor"
+      },
+      {
+        "text": "Evidence of filing tax returns and a Schedule C for 2+ years must be provided by their CPA / licensed tax preparer",
+        "condition": "borrower_type=independent_contractor"
+      },
+      {
+        "text": "An Expense Factor and/or P&L supporting their expenses must be provided",
+        "condition": "borrower_type=independent_contractor"
+      },
+      {
+        "text": "In instances where an online listing or search is not possible due to the nature of the borrower's employment (i.e., consultants), verification of activity within 30 days of the note date can be provided via evidence of receipt of business income within 30 days of the note supported by either invoices, bank statements showing business deposits, or similar means to support the business' recent operation",
+        "condition": "online_listing_not_possible"
+      }
+    ]
+  },
+  "non qm bank statement analysis worksheet": {
+    "source_headings": [
+      "BANK STATEMENT ANALYSIS",
+      "BANK STATEMENT GENERAL REQUIREMENTS (ALT DOC)"
+    ],
+    "items": [
+      {
+        "text": "Statements must be consecutive and reflect the most recent months available.",
+        "condition": null
+      },
+      {
+        "text": "The most recent bank statement used for the Bank Statement Analysis must be within 90 days of the Note Date.",
+        "condition": null
+      },
+      {
+        "text": "Transaction Histories are not acceptable in lieu of bank statements.",
+        "condition": null
+      },
+      {
+        "text": "Bank statements provided through a Fintech company working on behalf of the bank can be used provided the bank statement reflects the actual bank information, otherwise an internet search is required to confirm the relationship.",
+        "condition": null
+      },
+      {
+        "text": "Asset Statements received via a third-party asset verification vendor must conform to the information that would be provided on bank statements.",
+        "condition": null
+      },
+      {
+        "text": "Asset Statements received via a third-party asset verification vendor must be from a provider that is an authorized FNMA DU Validation vendor per the list at https://singlefamily.fanniemae.com/applications-technology/desktop-underwriter-validation-service/du-validation-service-verification-report-vendors.",
+        "condition": null
+      },
+      {
+        "text": "Statements must support stable and predictable deposits.",
+        "condition": null
+      },
+      {
+        "text": "Statements should show a trend of ending balances that are stable or increasing over time.",
+        "condition": null
+      },
+      {
+        "text": "Excessive declining income or negative ending balances may preclude the borrower from bank statement eligibility at underwriter's discretion.",
+        "condition": null
+      },
+      {
+        "text": "Any supporting documentation, such as a P&L statement used in conjunction with the bank statements, must align with the dates of the bank statements used for qualifying.",
+        "condition": null
+      },
+      {
+        "text": "If personal bank statements provided reflect payments being made on obligations not listed on the credit report, See Undisclosed Debts for additional guidance.",
+        "condition": null
+      },
+      {
+        "text": "ATM deposits may be included if a consistent pattern of deposits is present.",
+        "condition": null
+      },
+      {
+        "text": "Deposits received directly from family members are considered non-business income and will be excluded.",
+        "condition": null
+      },
+      {
+        "text": "Deposits received from businesses owned by family members will be considered on a case by case basis.",
+        "condition": null
+      },
+      {
+        "text": "Decreasing or negative ending balances must be explained.",
+        "condition": null
+      },
+      {
+        "text": "Any deposit deemed non-business income will be excluded from the income analysis.",
+        "condition": null
+      },
+      {
+        "text": "Net transfers between accounts must be excluded when multiple accounts are used for qualifying.",
+        "condition": null
+      },
+      {
+        "text": "Borrowers must be self-employed for at least 2 years.",
+        "condition": null
+      },
+      {
+        "text": "The business must be in existence for a minimum of 2 years as evidenced by a letter from either the business tax professional, regulatory agency or licensing bureau.",
+        "condition": null
+      },
+      {
+        "text": "The Employment Section of the application must include a minimum of 2 years employment history.",
+        "condition": null
+      },
+      {
+        "text": "Non-Permanent Resident Aliens without U.S. Credit are ineligible.",
+        "condition": null
+      },
+      {
+        "text": "Foreign Nationals are ineligible.",
+        "condition": null
+      },
+      {
+        "text": "Non-Profits and Not for Profits are ineligible.",
+        "condition": null
+      },
+      {
+        "text": "At least one of the borrowers must be self-employed.",
+        "condition": null
+      },
+      {
+        "text": "All borrowers are required to be account holders of the bank accounts throughout the 12 or 24 months being used to qualify.",
+        "condition": null
+      },
+      {
+        "text": "Verify the business is active and operating within 30 days of closing with either a phone listing and/or business address using directory assistance or internet search.",
+        "condition": null
+      },
+      {
+        "text": "Tax returns and 4506-C are not required.",
+        "condition": null
+      },
+      {
+        "text": "If Tax returns and/or Transcripts are provided, the loan will be ineligible.",
+        "condition": null
+      },
+      {
+        "text": "Large deposits greater than 50% of the average gross deposits over a 12 or 24 month period must be sourced or excluded.",
+        "condition": "statement_type=personal_or_comingled"
+      },
+      {
+        "text": "Transfers from other accounts on personal/comingled account statements must be documented or excluded.",
+        "condition": "statement_type=personal_or_comingled"
+      },
+      {
+        "text": "Wire transfer deposits on personal account/co-mingled statements must be sourced as business income or excluded.",
+        "condition": "statement_type=personal_or_comingled"
+      },
+      {
+        "text": "Only large deposits greater than 50% of the average gross deposits over a 12 or 24 month period which appear unusual, inconsistent, or non-business related must be sourced or excluded.",
+        "condition": "statement_type=business"
+      },
+      {
+        "text": "Transfers from other accounts on business account statements must be documented or excluded only if above the large deposit threshold, or if the deposits appear not to be business income (i.e., proceeds from a loan, online transfers from other accounts owned by the borrower, refunded expenses, tax refunds, another source of documentable income, etc.).",
+        "condition": "statement_type=business"
+      },
+      {
+        "text": "Wire transfer deposits on business account statements must be sourced only if above the large deposit threshold, or if the deposits appear not to be business income (i.e., proceeds from a loan, refunded expenses, tax refunds, another source of documentable income, etc.).",
+        "condition": "statement_type=business"
+      },
+      {
+        "text": "Borrower must be self-employed for a minimum of 18 months and must have a minimum of three (3) years prior experience in the same line of business.",
+        "condition": "program=Flex_Select_Option_1"
+      },
+      {
+        "text": "Self-employed borrowers in a licensed profession (i.e., Medical, Legal, Accounting) will be considered from a business that has been in existence for less than two (2) years, but greater than one (1) year.",
+        "condition": "program=Flex_Select_Option_2"
+      },
+      {
+        "text": "Borrower has at least three (3) years of documented previous experience in the same profession, or evidence of formal education in a related field.",
+        "condition": "program=Flex_Select_Option_2"
+      },
+      {
+        "text": "Minimum 700 score required.",
+        "condition": "program=Flex_Select_Option_1_or_Option_2"
+      },
+      {
+        "text": "Max LTV of 80% for Primary Residence.",
+        "condition": "program=Flex_Select_Option_1_or_Option_2 AND occupancy=primary"
+      },
+      {
+        "text": "Max LTV of 75% for Second Home.",
+        "condition": "program=Flex_Select_Option_1_or_Option_2 AND occupancy=second_home"
+      },
+      {
+        "text": "Max LTV of 70% for Investment Properties.",
+        "condition": "program=Flex_Select_Option_1_or_Option_2 AND occupancy=investment"
+      },
+      {
+        "text": "Ineligible for Express(DU) or Super Jumbo.",
+        "condition": "program=Flex_Select_Option_1_or_Option_2"
+      },
+      {
+        "text": "For borrowers who are independent contractors and do not necessarily own their own business, they must follow the co-mingled accounts guidance.",
+        "condition": "borrower_type=independent_contractor"
+      },
+      {
+        "text": "For borrowers who are independent contractors, evidence of filing tax returns and a Schedule C for 2+ years must be provided by their CPA / licensed tax preparer.",
+        "condition": "borrower_type=independent_contractor"
+      },
+      {
+        "text": "For borrowers who are independent contractors, an Expense Factor and/or P&L supporting their expenses must be provided.",
+        "condition": "borrower_type=independent_contractor"
+      },
+      {
+        "text": "In instances where an online listing or search is not possible due to the nature of the borrower's employment (i.e., consultants), verification of activity within 30 days of the note date can be provided via evidence of receipt of business income within 30 days of the note supported by either invoices, bank statements showing business deposits, or similar means to support the business' recent operation.",
+        "condition": "business_verification_online_not_possible"
+      }
+    ]
+  },
+  "owner occupancy certification": {
+    "source_headings": [
+      "OCCUPANCY TYPES",
+      "PRIMARY RESIDENCE"
+    ],
+    "items": [
+      {
+        "text": "Borrower must intend to occupy the subject property for the majority of the year",
+        "condition": "occupancy=primary_residence"
+      },
+      {
+        "text": "Property must possess physical characteristics that accommodate the borrower's family",
+        "condition": "occupancy=primary_residence"
+      },
+      {
+        "text": "Property should be in the same general area as the borrower's employment, or additional documentation may be required at underwriter discretion to verify occupancy",
+        "condition": "occupancy=primary_residence"
+      }
+    ]
+  },
+  "verification of mortgage": {
+    "source_headings": [
+      "HOUSING HISTORY",
+      "HOUSING HISTORY VERIFICATION (NON \u2013 DSCR)",
+      "HOUSING HISTORY VERIFICATION (DSCR ONLY)"
+    ],
+    "items": [
+      {
+        "text": "Mortgage and rental payments not reflected on the credit report must be documented via an institutional Verification of Rent or Verification of Mortgage (VOR/VOM).",
+        "condition": "program=non-DSCR"
+      },
+      {
+        "text": "All mortgages and rental payments should be current at time of closing.",
+        "condition": "program=non-DSCR"
+      },
+      {
+        "text": "If the credit report or VOR/VOM reflects a past-due status, updated documentation is required to verify the account is current.",
+        "condition": "program=non-DSCR"
+      },
+      {
+        "text": "All months in which the borrower has rented and/or had a housing history must be documented.",
+        "condition": "program=non-DSCR"
+      },
+      {
+        "text": "Mortgage and rental payments on the subject and Primary Residence not reflected on the original credit report must be documented via an institutional third-party Verification of Rent or Verification of Mortgage (VOR/VOM).",
+        "condition": "program=DSCR"
+      },
+      {
+        "text": "The payment history for the primary residence and subject property must be current as of the funding date of the new transaction.",
+        "condition": "program=DSCR"
+      },
+      {
+        "text": "If the borrower is making payments to an individual or interested party, a VOM/VOR along with the consecutive most recent 6 months of canceled checks, bank statements, or Venmo/Paypal documentation is required.",
+        "condition": "program=non-DSCR AND payment_to=individual_or_interested_party"
+      },
+      {
+        "text": "If the borrower is making payments to an individual or interested party, a copy of the note/lease along with the consecutive most recent 12 months of canceled checks, bank statements, or Venmo/Paypal documentation is required.",
+        "condition": "program=non-DSCR AND payment_to=individual_or_interested_party"
+      },
+      {
+        "text": "If the borrower is making payments to an individual or interested party, a VOM/VOR along with the consecutive most recent 6 months of canceled checks, bank statements, or Venmo/Paypal documentation is required.",
+        "condition": "program=DSCR AND payment_to=individual_or_interested_party"
+      },
+      {
+        "text": "If the borrower is making payments to an individual or interested party, a copy of the note/lease along with the consecutive most recent 12 months of canceled checks, bank statements, or Venmo/Paypal documentation is required.",
+        "condition": "program=DSCR AND payment_to=individual_or_interested_party"
+      },
+      {
+        "text": "When qualifying under Select Express (DU), NQMF requires documentation to support a 12 month housing history even when DU waives the rental history requirement.",
+        "condition": "program=non-DSCR AND qualifying_under=Select_Express_DU"
+      },
+      {
+        "text": "When qualifying under Select Express (DU) and DU waives the rental history requirement, it is permissible to allow the waiver of cancelled checks for private party VORs when eligible per DU.",
+        "condition": "program=non-DSCR AND qualifying_under=Select_Express_DU AND VOR_type=private_party"
+      },
+      {
+        "text": "Properties held in the name of an LLC in which the borrower is personally obligated on the note must have the mortgage history documented.",
+        "condition": "program=non-DSCR AND property_held_in=LLC_with_personal_obligation"
+      },
+      {
+        "text": "Borrowers who do not have a complete 12-month housing history must have 10% minimum borrower contribution.",
+        "condition": "program=non-DSCR AND housing_history_months<12"
+      },
+      {
+        "text": "Borrowers who do not have a complete 12-month housing history are subject to maximum LTV of 80%.",
+        "condition": "program=non-DSCR AND housing_history_months<12"
+      },
+      {
+        "text": "VOR/VOM (when applicable) must demonstrate a paid as agreed history for borrowers who do not have a complete 12-month housing history, unless otherwise noted in these Guidelines.",
+        "condition": "program=non-DSCR AND housing_history_months<12"
+      },
+      {
+        "text": "Private party verifications must follow the requirements in the housing history verification section for borrowers who do not have a complete 12-month housing history.",
+        "condition": "program=non-DSCR AND housing_history_months<12"
+      },
+      {
+        "text": "Borrowers living rent free must provide a rent free letter from the property owner.",
+        "condition": "program=non-DSCR AND living_rent_free=true"
+      },
+      {
+        "text": "Rent free is not eligible with the Second Lien Program.",
+        "condition": "program=non-DSCR AND loan_type=Second_Lien"
+      },
+      {
+        "text": "The combined housing payment history may not exceed 1x30 in the past 12 months and must be current at closing when the DSCR is .75 or greater.",
+        "condition": "program=DSCR AND DSCR>=0.75"
+      },
+      {
+        "text": "No Ratio loans require a 0x30x12 combined housing history.",
+        "condition": "program=DSCR AND loan_type=No_Ratio"
+      },
+      {
+        "text": "Borrowers who own a Primary Residence must provide proof of ownership or evidence they are living in a property owned or rented by their spouse/domestic partner.",
+        "condition": "program=DSCR AND owns_primary_residence=true"
+      },
+      {
+        "text": "Borrowers who rent a Primary Residence must provide evidence of an active lease in place.",
+        "condition": "program=DSCR AND rents_primary_residence=true"
+      },
+      {
+        "text": "For rent-free circumstances on 1-4 Unit Properties in which the borrower is not residing with their spouse/domestic partner on refinance transactions, the borrower must have an established address supported by a rent-free letter from the property owner and there must be no suggestion of occupancy in the subject property.",
+        "condition": "program=DSCR AND living_rent_free=true AND property_units=1-4 AND not_residing_with_spouse_domestic_partner=true AND loan_purpose=refinance"
+      },
+      {
+        "text": "For rent-free circumstances on 1-4 Unit Properties in which the borrower is not residing with their spouse/domestic partner on purchase transactions, the subject property must be in a different geographic area from the residence.",
+        "condition": "program=DSCR AND living_rent_free=true AND property_units=1-4 AND not_residing_with_spouse_domestic_partner=true AND loan_purpose=purchase"
+      },
+      {
+        "text": "For rent-free circumstances on 1-4 Unit Properties in which the borrower is not residing with their spouse/domestic partner on purchase transactions, the borrower must be an experienced investor with existing REOs.",
+        "condition": "program=DSCR AND living_rent_free=true AND property_units=1-4 AND not_residing_with_spouse_domestic_partner=true AND loan_purpose=purchase"
+      }
+    ]
+  },
+  "w2": {
+    "source_headings": [
+      "FULL DOCUMENTATION",
+      "WAGE EARNERS (FULL DOC \u2013 ITIN)",
+      "WAGE EARNERS (FULL DOC \u2013 FOREIGN NATIONALS)",
+      "HOURLY WAGES"
+    ],
+    "items": [
+      {
+        "text": "Most recent 30 days of paystubs must be provided",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "1 or 2 years of W-2s must be provided",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "Electronic verification of employment must be provided, OR W-2 transcripts must be provided when electronic verification of employment is not provided",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "Fully executed and signed IRS Form 4506C must be provided",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "Pay stubs must be typed or computer generated",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "Pay stubs must provide the borrower's full name",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "Pay stubs must provide the borrower's address",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "Pay stubs must provide the employer name",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "Pay stubs must provide year-to-date earnings",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "Pay stubs must provide rate of pay",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "W-2s must be typed or computer generated",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "W-2s must provide the borrower's full name",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "W-2s must provide the borrower's address",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "W-2s must provide the employer name",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "W-2s must provide year-to-date earnings",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "W-2s must provide rate of pay",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "If pay stubs reflect garnishments (child support, IRS, etc.) or any loan deductions, additional information will be required to determine if a monthly payment should be included in the debt-to-income ratio calculation",
+        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
+      },
+      {
+        "text": "Fully written verification of employment must be provided",
+        "condition": "borrower_type=ITIN"
+      },
+      {
+        "text": "Signed IRS 4506C must be provided",
+        "condition": "borrower_type=ITIN"
+      },
+      {
+        "text": "1 or 2 years Tax Transcripts must be provided",
+        "condition": "borrower_type=ITIN"
+      },
+      {
+        "text": "Documentation with a complete Social Security Number not belonging to the borrower will render the file ineligible for purchase",
+        "condition": "borrower_type=ITIN"
+      },
+      {
+        "text": "Letter from employer on company letterhead providing current monthly salary and YTD earnings must be provided, OR 2 months' pay stubs with YTD earnings must be provided",
+        "condition": "borrower_type=Foreign National"
+      },
+      {
+        "text": "Verification of earnings for the last 2 years (letter from employer or W-2 equivalent) must be provided",
+        "condition": "borrower_type=Foreign National"
+      },
+      {
+        "text": "Employer must be independently verified via LexisNexis, D&B International Business Search, Google, or other means of verification",
+        "condition": "borrower_type=Foreign National"
+      },
+      {
+        "text": "Any documents not in English or US Currency must be translated",
+        "condition": "borrower_type=Foreign National"
+      },
+      {
+        "text": "For borrowers paid on an hourly basis or who may not work a regular 40-hour work week throughout the year, income will generally be averaged over the minimum employment history lookback period",
+        "condition": "pay_type=hourly OR work_schedule=irregular"
+      },
+      {
+        "text": "If there is an indication of declining income, the current income is used instead of the average",
+        "condition": "pay_type=hourly OR work_schedule=irregular"
+      }
+    ]
+  },
+  "paystub": {
+    "source_headings": [
+      "FULL DOCUMENTATION",
+      "WAGE EARNERS (FULL DOC \u2013 ITIN)",
+      "WAGE EARNERS (FULL DOC \u2013 FOREIGN NATIONALS)",
+      "HOURLY WAGES"
+    ],
+    "items": [
+      {
+        "text": "Pay stubs should be typed or computer generated",
+        "condition": null
+      },
+      {
+        "text": "Pay stubs must provide the borrower's full name",
+        "condition": null
+      },
+      {
+        "text": "Pay stubs must provide the borrower's address",
+        "condition": null
+      },
+      {
+        "text": "Pay stubs must provide the employer name",
+        "condition": null
+      },
+      {
+        "text": "Pay stubs must provide year-to-date earnings",
+        "condition": null
+      },
+      {
+        "text": "Pay stubs must provide rate of pay",
+        "condition": null
+      },
+      {
+        "text": "If pay stubs reflect garnishments (child support, IRS, etc.), additional information will be required to determine if a monthly payment should be included in the debt-to-income ratio calculation",
+        "condition": null
+      },
+      {
+        "text": "If pay stubs reflect any loan deductions, additional information will be required to determine if a monthly payment should be included in the debt-to-income ratio calculation",
+        "condition": null
+      },
+      {
+        "text": "Paystubs must cover the most recent 30 days",
+        "condition": "program=full_doc AND NOT borrower_type=ITIN AND NOT borrower_type=foreign_national"
+      },
+      {
+        "text": "2 months' pay stubs with YTD earnings must be provided",
+        "condition": "borrower_type=foreign_national"
+      },
+      {
+        "text": "Any paystub documents not in English must be translated",
+        "condition": "borrower_type=foreign_national"
+      },
+      {
+        "text": "Any paystub documents not in US Currency must be translated",
+        "condition": "borrower_type=foreign_national"
+      },
+      {
+        "text": "Documentation containing a complete Social Security Number not belonging to the borrower will render the file ineligible for purchase",
+        "condition": "borrower_type=ITIN"
+      },
+      {
+        "text": "For borrowers paid on an hourly basis, income will generally be averaged over the minimum employment history lookback period",
+        "condition": "pay_type=hourly"
+      },
+      {
+        "text": "For borrowers who may not work a regular 40-hour work week throughout the year, income will generally be averaged over the minimum employment history lookback period",
+        "condition": "work_schedule=irregular"
+      },
+      {
+        "text": "If there is an indication of declining income for hourly or irregular workers, the current income is used instead of the average",
+        "condition": "pay_type=hourly OR work_schedule=irregular"
+      }
+    ]
+  },
+  "verification of employment": {
+    "source_headings": [
+      "WRITTEN VERIFICATION OF EMPLOYMENT (WVOE)",
+      "VERBAL VERIFICATION OF EMPLOYMENT (VVOE)",
+      "WRITTEN VERIFICATION OF EMPLOYMENT (WVOE) (ALT DOC)",
+      "EMPLOYMENT HISTORY",
+      "GAPS IN EMPLOYMENT"
+    ],
+    "items": [
+      {
+        "text": "WVOE must be signed by a member of the company's human resource department or one of the business owners or officers.",
+        "condition": null
+      },
+      {
+        "text": "WVOE must include the borrower's name.",
+        "condition": null
+      },
+      {
+        "text": "WVOE must include the borrower's position.",
+        "condition": null
+      },
+      {
+        "text": "WVOE must include dates of employment.",
+        "condition": null
+      },
+      {
+        "text": "WVOE must include base salary.",
+        "condition": null
+      },
+      {
+        "text": "VVOE must be completed within 10 business days of closing.",
+        "condition": null
+      },
+      {
+        "text": "VVOE must confirm that the borrower is employed at time of verification.",
+        "condition": null
+      },
+      {
+        "text": "VVOE must include the name and phone number of the person processing the VVOE.",
+        "condition": null
+      },
+      {
+        "text": "VVOE must include the name, position and phone number of the person providing the verification (employer).",
+        "condition": null
+      },
+      {
+        "text": "The telephone number for the borrower's employer must be verified independently via telephone book, the internet, directory assistance, or by contacting the applicable licensing bureau.",
+        "condition": null
+      },
+      {
+        "text": "Employment must be stable with at least a 2 year history in the same job or in the same field.",
+        "condition": null
+      },
+      {
+        "text": "Borrowers should provide a signed, written explanation for any employment gaps that exceed 30 days in the most recent 12-month period.",
+        "condition": null
+      },
+      {
+        "text": "Borrowers should provide a signed, written explanation for any employment gaps that exceed 60 days in months 13-24.",
+        "condition": null
+      },
+      {
+        "text": "Illness and childbirth are not considered as gaps in employment.",
+        "condition": null
+      },
+      {
+        "text": "When a VVOE is completed through a third-party vendor, the verification must evidence that the information in the vendor's database was no more than 35 days old as of the Note Date.",
+        "condition": "vvoe_method=third_party_vendor"
+      },
+      {
+        "text": "Income from self-employment is considered stable if the borrower has been self-employed for 2 or more years.",
+        "condition": "income_type=self_employment"
+      },
+      {
+        "text": "Recent graduates and borrowers re-entering the workforce after an extended period must have been back to work for 6 months.",
+        "condition": "borrower_type=recent_graduate OR borrower_type=re_entering_workforce"
+      },
+      {
+        "text": "WVOE must be FNMA 1005 completed with the past 2 years of income/employment.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "WVOE form must be completed by Human Resources, Payroll or an Officer of the Company.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "Verification of delivery and receipt of the FNMA Form 1005 must comprise physical mail, Fed-Ex, facsimile, or email communication.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "Physical mail, Fed-Ex, and facsimile must come directly from the employer's address.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "Email communication must properly identify the Company representative.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "Two most recent months of bank statements reflecting deposits from the employment verified via the WVOE in both statements must be provided.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "The deposits must support at least 65% of the gross wages reflected on the WVOE.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "One-year history with the same employer required.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "Minimum two years in the same line of work required.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "Minimum credit score of 680.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "0x30x12 housing history is required.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "Borrowers without a housing history must qualify under a different documentation type.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "Maximum loan amount of $1,500,000.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "Family members or related individuals may not employ borrowers.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "W2s, Tax Returns, Paystubs, 4506-C are not required.",
+        "condition": "documentation_type=ALT_DOC"
+      },
+      {
+        "text": "Primary Residence maximum 80% LTV.",
+        "condition": "documentation_type=ALT_DOC AND occupancy=primary_residence"
+      },
+      {
+        "text": "Second Homes maximum 75% LTV.",
+        "condition": "documentation_type=ALT_DOC AND occupancy=second_home"
+      },
+      {
+        "text": "Investment Property maximum 75% LTV.",
+        "condition": "documentation_type=ALT_DOC AND occupancy=investment_property"
+      }
+    ]
+  },
+  "profit and loss": {
+    "source_headings": [
+      "P&L PLUS 2 MONTHS BANK STATEMENTS (ALT DOC)",
+      "P&L ONLY (ALT DOC)",
+      "SELF-EMPLOYMENT INCOME (S/E FULL DOC)",
+      "QUALIFYING INCOME (S/E FULL DOC \u2013 NON-FOREIGN NATIONAL)",
+      "STABILITY AND CONTINUANCE OF SELF-EMPLOYMENT (S/E FULL DOC)"
+    ],
+    "items": [
+      {
+        "text": "Tax Preparers must have a PTIN Number when available",
+        "condition": null
+      },
+      {
+        "text": "If the state does not require a PTIN Number, it must be from a verifiable 3rd party tax preparer (verified by a business through the internet or state website)",
+        "condition": null
+      },
+      {
+        "text": "CPA license verification must be completed through an online search such as https://cpaverify.org/",
+        "condition": null
+      },
+      {
+        "text": "If unable to verify CPA license online, sufficient documentation must be provided to validate the license",
+        "condition": null
+      },
+      {
+        "text": "P&L must be 12 or 24 months in duration",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "P&L must be prepared by CPA, EA, or PTIN licensed tax preparer",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "Minimum of 2 months business or comingled bank statements are required to support income",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "P&L must be dated within 90 days of the application date",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "CPA/EA/PTIN licensed tax preparer must attest to the fact they have prepared the borrower's most recent Tax Returns",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "Qualifying income is the monthly net income from the P&L divided by the number of months covered by the P&L",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "The monthly gross revenue from the P&L must be supported by the bank statements provided",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "The total monthly average deposits from the bank statements, minus any disallowed deposits, must be no more than 20% less than the monthly gross revenue on the P&L",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "Depreciation, depletion and amortization/casualty losses listed on the P&L may be added back to the applicant's income",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "When evaluating the P&L, the expenses are expected to be at least 20% of gross revenue",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "In the event less than 20% is reflected in expenses, the net income will be adjusted to reflect a 20% expense level when qualifying",
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+      },
+      {
+        "text": "P&L must be 12 or 24 months in duration",
+        "condition": "program=P&L Only (Alt Doc)"
+      },
+      {
+        "text": "P&L must be prepared and signed by CPA/EA or PTIN licensed tax preparer",
+        "condition": "program=P&L Only (Alt Doc)"
+      },
+      {
+        "text": "P&L must be dated within 90 days of the application date",
+        "condition": "program=P&L Only (Alt Doc)"
+      },
+      {
+        "text": "CPA/EA/PTIN licensed tax preparer must attest to the fact they have prepared the borrower's most recent tax returns",
+        "condition": "program=P&L Only (Alt Doc)"
+      },
+      {
+        "text": "Qualifying income is the monthly net income from the P&L divided by the number of months covered by the P&L",
+        "condition": "program=P&L Only (Alt Doc)"
+      },
+      {
+        "text": "Depreciation, depletion and amortization/casualty losses listed on the P&L may be added back to the applicant's income",
+        "condition": "program=P&L Only (Alt Doc)"
+      },
+      {
+        "text": "When evaluating the P&L, the expenses are expected to be at least 20% of gross revenue",
+        "condition": "program=P&L Only (Alt Doc)"
+      },
+      {
+        "text": "In the event less than 20% is reflected in expenses, the net income will be adjusted to reflect a 20% expense level when qualifying",
+        "condition": "program=P&L Only (Alt Doc)"
+      },
+      {
+        "text": "For Wholesale loans, a verbal verification is required prior to closing",
+        "condition": "program=P&L Only (Alt Doc) AND channel=Wholesale"
+      },
+      {
+        "text": "FNMA Liquidity Test is not required",
+        "condition": "program=S/E Full Doc"
+      },
+      {
+        "text": "A borrower is considered self-employed with 25% or more ownership interest in a business",
+        "condition": "program=S/E Full Doc"
+      },
+      {
+        "text": "Originators must verify the borrower's self-employment for the most recent consecutive two (2) full years in the same business",
+        "condition": "program=S/E Full Doc"
+      },
+      {
+        "text": "It is considered acceptable when the self-employment business filing has changed (example: sole proprietorship to corporation), provided the business name and ownership percentage have remained the same and the business has been in existence for the most recent consecutive two (2) full years",
+        "condition": "program=S/E Full Doc"
+      },
+      {
+        "text": "Borrowers receiving 1099 income (filing as Schedule C or E) are eligible provided that the 1099 income is from the same source, covering the most recent two (2) full years",
+        "condition": "program=S/E Full Doc"
+      },
+      {
+        "text": "Qualifying income is determined from the Tax Returns, and the P&L is used to determine the stability of that income",
+        "condition": "program=S/E Full Doc AND borrower_type=Non-Foreign National"
+      },
+      {
+        "text": "Depreciation may be added back to compute the qualifying income when analyzing Tax Returns",
+        "condition": "program=S/E Full Doc AND borrower_type=Non-Foreign National"
+      },
+      {
+        "text": "Depletion may be added back to compute the qualifying income when analyzing Tax Returns",
+        "condition": "program=S/E Full Doc AND borrower_type=Non-Foreign National"
+      },
+      {
+        "text": "Business use of the home may be added back to compute the qualifying income when analyzing Tax Returns",
+        "condition": "program=S/E Full Doc AND borrower_type=Non-Foreign National"
+      },
+      {
+        "text": "Amortization/casualty loss may be added back to compute the qualifying income when analyzing Tax Returns",
+        "condition": "program=S/E Full Doc AND borrower_type=Non-Foreign National"
+      },
+      {
+        "text": "Nonrecurring losses may be added back to compute the qualifying income when analyzing Tax Returns",
+        "condition": "program=S/E Full Doc AND borrower_type=Non-Foreign National"
+      },
+      {
+        "text": "Nonrecurring income must be excluded when analyzing Tax Returns",
+        "condition": "program=S/E Full Doc AND borrower_type=Non-Foreign National"
+      },
+      {
+        "text": "Net operating losses being carried forward from prior years may be added back to compute the qualifying income when analyzing Tax Returns",
+        "condition": "program=S/E Full Doc AND borrower_type=Non-Foreign National"
+      }
+    ]
+  },
+  "purchase contract": {
+    "source_headings": [
+      "PURCHASE"
+    ],
+    "items": [
+      {
+        "text": "A copy of the fully executed purchase contract is required.",
+        "condition": null
+      },
+      {
+        "text": "All attachments to the purchase contract are required.",
+        "condition": null
+      },
+      {
+        "text": "All addenda to the purchase contract are required.",
+        "condition": null
+      },
+      {
+        "text": "An assignment of the purchase contract is not permitted unless the individual assigning the contract is assigning the rights to an entity in which the individual has an ownership interest.",
+        "condition": null
+      }
+    ]
+  },
+  "grant deed": {
+    "source_headings": [
+      "VESTING",
+      "VESTING REQUIREMENTS",
+      "ENTITY VESTING",
+      "DEED RESTRICTIONS"
+    ],
+    "items": [
+      {
+        "text": "Final title policy vesting must reflect the name(s) of the individual borrower(s)",
+        "condition": null
+      },
+      {
+        "text": "Vesting must not be in the form of a Land Trust",
+        "condition": null
+      },
+      {
+        "text": "Vesting must not be in the form of a Blind Trust",
+        "condition": null
+      },
+      {
+        "text": "Vesting must not be in the form of a Life Estate",
+        "condition": null
+      },
+      {
+        "text": "Vesting must not be in the form of a Non-Profit Corporation",
+        "condition": null
+      },
+      {
+        "text": "Vesting must not be in the form of an IRA",
+        "condition": null
+      },
+      {
+        "text": "Vesting must not be in the form of an Irrevocable Trust",
+        "condition": null
+      },
+      {
+        "text": "Vesting as Tenants in Common is ineligible for condominiums",
+        "condition": "property_type=condominium"
+      },
+      {
+        "text": "Vesting as Tenants in Common is eligible only if all parties vested match the borrowers on the loan",
+        "condition": "program=DSCR_No_Ratio"
+      },
+      {
+        "text": "Vesting in the name of a Limited Liability Company (LLC) is acceptable only on Investment Property transactions",
+        "condition": "occupancy=investment"
+      },
+      {
+        "text": "Vesting in the name of a Limited Partnership is acceptable only on Investment Property transactions",
+        "condition": "occupancy=investment"
+      },
+      {
+        "text": "Vesting in the name of a General Partnership is acceptable only on Investment Property transactions",
+        "condition": "occupancy=investment"
+      },
+      {
+        "text": "Vesting in the name of a Corporation is acceptable only on Investment Property transactions",
+        "condition": "occupancy=investment"
+      },
+      {
+        "text": "Vesting in the name of an S Corporation is acceptable only on Investment Property transactions",
+        "condition": "occupancy=investment"
+      },
+      {
+        "text": "Appraisal must support that property is common and typical for the market area",
+        "condition": "deed_restriction=age_restricted_community"
+      },
+      {
+        "text": "Deed restriction must not impair or restrict the first mortgage holder's legal rights in the event of a default (or cure), foreclosure, or any other default measure",
+        "condition": "deed_restriction=age_restricted_community"
+      },
+      {
+        "text": "Declarations must not contain any provisions that would require the first mortgage holder to send a notice of default or foreclosure to any third party",
+        "condition": "deed_restriction=age_restricted_community"
+      },
+      {
+        "text": "Deed restriction must not require the lender to provide notification to the governing authority of any delinquency or default",
+        "condition": "deed_restriction=age_restricted_community"
+      },
+      {
+        "text": "Any right of first refusal in the condominium project documents must not adversely impact the rights of a mortgagee or its assignee to foreclose or take title to a condominium unit pursuant to the remedies in the mortgage",
+        "condition": "property_type=condominium AND deed_restriction=right_of_first_refusal"
+      },
+      {
+        "text": "Any right of first refusal in the condominium project documents must not adversely impact the rights of a mortgagee or its assignee to accept a Deed or Assignment in lieu of Foreclosure in the event of Default by a mortgagor",
+        "condition": "property_type=condominium AND deed_restriction=right_of_first_refusal"
+      },
+      {
+        "text": "Any right of first refusal in the condominium project documents must not adversely impact the rights of a mortgagee or its assignee to sell or lease a unit acquired by the mortgagee or its assignee",
+        "condition": "property_type=condominium AND deed_restriction=right_of_first_refusal"
+      }
+    ]
+  },
+  "verification of deposit": {
+    "source_headings": [
+      "EARNEST MONEY/CASH DEPOSIT ON SALES CONTRACT",
+      "CERTIFICATE OF DEPOSIT (CD)"
+    ],
+    "items": [
+      {
+        "text": "Certificates of Deposits are eligible for closing costs, reserves, or asset utilization.",
+        "condition": null
+      },
+      {
+        "text": "Certificate of Deposit value must be calculated at 100% of the pre-maturity surrendering value of the CD, minus any penalty that has been accumulated upon early withdrawal.",
+        "condition": null
+      },
+      {
+        "text": "If earnest money is needed to meet the borrower's minimum contribution requirement, it must be verified that the funds are from an acceptable source.",
+        "condition": "earnest_money_needed_for_minimum_contribution"
+      },
+      {
+        "text": "Copy of the borrower's canceled check is acceptable documentation for earnest money verification.",
+        "condition": "earnest_money_needed_for_minimum_contribution"
+      },
+      {
+        "text": "Certification from the deposit holder acknowledging receipt of funds is acceptable documentation for earnest money verification.",
+        "condition": "earnest_money_needed_for_minimum_contribution"
+      },
+      {
+        "text": "VOD or bank statement showing that the average balance was sufficient to cover the amount of the earnest money at the time of the deposit is acceptable documentation.",
+        "condition": "earnest_money_needed_for_minimum_contribution"
+      },
+      {
+        "text": "If funds were given over 12 months ago per the sales contract, then an escrow letter will suffice for sourcing of any funds given greater than 12 months from the closing date.",
+        "condition": "earnest_money_funds_given_over_12_months_ago"
+      },
+      {
+        "text": "If the earnest money check has cleared the bank, bank statements should cover the period up to and including the date the check cleared the account.",
+        "condition": "earnest_money_check_cleared"
+      },
+      {
+        "text": "A copy of the check that has not cleared may be obtained along with a processor's certification verifying with the bank the date the check cleared, the dollar amount of the check, and the individual providing the information.",
+        "condition": "earnest_money_check_not_cleared"
+      }
+    ]
+  },
+  "ucdp ssr": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Must be a Fannie Mae Selling System Report (SSR) with a score of 2.5 or less",
+        "condition": null
+      },
+      {
+        "text": "If the SSR score exceeds 2.5, an additional review product is required (e.g. desk review, field review, or second appraisal)",
+        "condition": null
+      },
+      {
+        "text": "Must support the appraised value for the transaction",
+        "condition": null
+      }
+    ]
+  },
+  "payoff statement": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Must be dated within the allowed recency window for closing (typically within 30 days)",
+        "condition": null
+      },
+      {
+        "text": "Must identify the creditor/servicer for the existing mortgage being paid off or verified",
+        "condition": null
+      },
+      {
+        "text": "Must identify the subject property address",
+        "condition": null
+      },
+      {
+        "text": "Must show the payoff amount (or current unpaid principal balance) with a good-through date",
+        "condition": null
+      },
+      {
+        "text": "Must include the per diem interest calculation, if applicable",
+        "condition": null
+      }
+    ]
+  },
+  "deed of trust": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Must be FNMA Form 3170 (1-4 Family Rider \u2014 Assignment of Rents)",
+        "condition": null
+      },
+      {
+        "text": "Must assign rents from the property to the lender",
+        "condition": null
+      },
+      {
+        "text": "Must be signed/executed by all borrowers holding title",
+        "condition": null
+      },
+      {
+        "text": "Must be recorded with the mortgage documents where required by state law",
+        "condition": null
+      }
+    ]
+  },
+  "1099": {
+    "source_headings": [
+      "IRS FORM 1099 (ALT DOC)"
+    ],
+    "items": [
+      {
+        "text": "1099 income documentation is limited to individual borrowers being paid via a 1099 who are not the business owner of the entity issuing the 1099",
+        "condition": null
+      },
+      {
+        "text": "Self-employed borrowers who are business owners paying their own earnings via a 1099 are not eligible to use this income documentation type",
+        "condition": null
+      },
+      {
+        "text": "If the most recent 1099 is more than 90 days from the Note Date, one of the following must be provided: evidence of year-to-date earnings via YTD bank statements, a printout of YTD wages from the employer(s), or the lender's Verification of Employment (or similar form) with YTD income completed by each employer",
+        "condition": null
+      },
+      {
+        "text": "If the 1099 is paid to the borrower's business rather than the borrower individually, an Expense Letter from the borrower's CPA/EA/PTIN-licensed tax preparer is required to determine the qualifying income",
+        "condition": null
+      },
+      {
+        "text": "A 10% automatic expense ratio applies when the 1099 is paid to the borrower individually",
+        "condition": null
+      },
+      {
+        "text": "Must match the income source and amount reported on the loan application",
+        "condition": "loan_application_submitted=true"
+      }
+    ]
+  },
+  "consolidated 1099": {
+    "source_headings": [
+      "ASSETS",
+      "ASSET DOCUMENTATION"
+    ],
+    "items": [
+      {
+        "text": "Must show the account holder name matching the borrower",
+        "condition": null
+      },
+      {
+        "text": "Must show the financial institution/brokerage name and account number",
+        "condition": null
+      },
+      {
+        "text": "Must be dated within 90 days of the note date",
+        "condition": null
+      },
+      {
+        "text": "All pages of the statement are required; summaries will not be accepted",
+        "condition": null
+      },
+      {
+        "text": "Large deposits, defined as > 50% of the total gross income for all borrowers, must be documented on Full and Alt Doc purchase transactions when personal accounts are used",
+        "condition": "loan_purpose=purchase"
+      },
+      {
+        "text": "Large deposits are not required to be sourced on refinances or DSCR transactions",
+        "condition": "loan_purpose=refinance OR program=dscr"
+      }
+    ]
+  },
+  "asset": {
+    "source_headings": [
+      "ASSETS",
+      "ASSET DOCUMENTATION"
+    ],
+    "items": [
+      {
+        "text": "Loan file must evidence sufficient funds from an acceptable source for down payment, closing costs, prepaid items, debt payoff, and applicable reserves",
+        "condition": null
+      },
+      {
+        "text": "Assets must be dated within 90 days of the note date",
+        "condition": null
+      },
+      {
+        "text": "Documentation must include a one-month (or most recent quarterly) account statement showing opening and closing balances, borrower listed as account holder, account number, statement date/period, and current balance in U.S. dollars \u2014 or a Written Verification of Deposit completed by the financial institution \u2014 or verification via an approved third-party vendor",
+        "condition": null
+      },
+      {
+        "text": "Non-borrowing parties on the account (excluding a non-borrowing spouse) must provide a written statement that the borrower has full access and use of the funds",
+        "condition": null
+      },
+      {
+        "text": "Large deposits, defined as > 50% of total gross income for all borrowers, must be documented on Full and Alt Doc purchase transactions when personal accounts are used",
+        "condition": "loan_purpose=purchase"
+      },
+      {
+        "text": "Large deposits are not required to be sourced on business accounts when used for assets",
+        "condition": null
+      },
+      {
+        "text": "Large deposits are not required to be sourced on refinances or DSCR transactions",
+        "condition": "loan_purpose=refinance OR program=dscr"
+      },
+      {
+        "text": "All pages of any statement provided are required; summaries will not be accepted",
+        "condition": null
+      }
+    ]
+  },
+  "asset depletion worksheet": {
+    "source_headings": [
+      "ASSET UTILIZATION (ALT DOC)",
+      "QUALIFIED ASSETS",
+      "NET QUALIFIED ASSET CALCULATION"
+    ],
+    "items": [
+      {
+        "text": "Qualified assets can be comprised of publicly traded stocks, bonds, mutual funds, the vested amount of retirement accounts, bank or investment accounts, and crypto-currency",
+        "condition": null
+      },
+      {
+        "text": "Three months' seasoning of all assets is required (three most recent and consecutive statements)",
+        "condition": null
+      },
+      {
+        "text": "All individuals listed on the asset account must be on the note and mortgage",
+        "condition": null
+      },
+      {
+        "text": "Assets held in the name of a business are not eligible to be used for the asset utilization calculation",
+        "condition": null
+      },
+      {
+        "text": "Asset statements utilized for asset utilization cannot be used to document any other income source",
+        "condition": null
+      },
+      {
+        "text": "Assets held in a revocable trust are eligible only if the borrower is the trustee; assets held in an irrevocable trust are eligible only if the borrower is the beneficiary with immediate access to the trust assets",
+        "condition": null
+      },
+      {
+        "text": "Qualified asset calculation: 100% of checking/savings/money market, 80% of publicly traded stocks & bonds, 70% of vested retirement accounts for borrowers 59\u00bd or older (60% if under 59\u00bd), 100% of the pre-maturity surrender value of CDs (minus early-withdrawal penalty), and 60% of crypto funds based on current Coinbase valuation",
+        "condition": null
+      },
+      {
+        "text": "Ineligible asset sources: business assets, unseasoned foreign assets, 529 college savings plans, proceeds from sale of real estate not seasoned 3 months, privately traded/restricted/non-vested stock, and assets that produce income already included in the income calculation",
+        "condition": null
+      },
+      {
+        "text": "Net qualified assets = qualified assets less funds used for down payment, closing costs, and prepaids (when used as the sole source of income) or less funds used for down payment, closing costs, prepaids AND reserves (when used as supplemental income)",
+        "condition": null
+      },
+      {
+        "text": "Depletion calculation methodology and resulting monthly income must be documented on the worksheet",
+        "condition": null
+      }
+    ]
+  },
+  "balance sheet": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Must show assets, liabilities, and equity for the business",
+        "condition": null
+      },
+      {
+        "text": "Must be current as of a date within the required reporting period (typically the most recent month-end)",
+        "condition": null
+      },
+      {
+        "text": "Must be signed and dated by the borrower (or the business's accountant/preparer)",
+        "condition": null
+      },
+      {
+        "text": "Must show the business name consistent with the business name on the borrower's tax returns and loan application",
+        "condition": null
+      },
+      {
+        "text": "Should reconcile to the business's most recent business tax return (e.g. Schedule L) where a matching tax return is on file",
+        "condition": null
+      },
+      {
+        "text": "Must support the business's financial position and continuity as represented on the loan application",
+        "condition": "income_type=self_employed"
+      }
+    ]
+  },
+  "borrower authorization": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Signed authorization for the lender to verify credit, employment, income, and asset information",
+        "condition": null
+      },
+      {
+        "text": "Signed and dated by all borrowers",
+        "condition": null
+      }
+    ]
+  },
+  "borrower authorization to sign": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Must identify the individual being authorized to sign loan and/or closing documents",
+        "condition": null
+      },
+      {
+        "text": "Must identify the borrower or entity on whose behalf the individual is authorized to sign",
+        "condition": null
+      },
+      {
+        "text": "Must be signed and dated by the borrower (or an authorized officer/manager of the entity) granting the authorization",
+        "condition": null
+      },
+      {
+        "text": "Must specify the scope of documents/transactions the authorization covers",
+        "condition": null
+      }
+    ]
+  },
+  "business license": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Current, unexpired business license (or equivalent registration) for the borrower's self-employed business",
+        "condition": null
+      },
+      {
+        "text": "Business name matches the business name on the loan application",
+        "condition": null
+      }
+    ]
+  },
+  "certificate of good standing": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Must be issued by the Secretary of State (or equivalent state authority) for the state in which the entity was formed and/or the state in which the subject property is located",
+        "condition": null
+      },
+      {
+        "text": "Must confirm the entity is currently active and in good standing",
+        "condition": null
+      },
+      {
+        "text": "Must be dated within 90 days of closing",
+        "condition": null
+      },
+      {
+        "text": "Entity name must match the entity name on the loan application, vesting documents, and title",
+        "condition": null
+      }
+    ]
+  },
+  "emd check": {
+    "source_headings": [
+      "EARNEST MONEY/CASH DEPOSIT ON SALES CONTRACT"
+    ],
+    "items": [
+      {
+        "text": "Must be an acceptable source of funds: copy of the borrower's canceled check, certification from the deposit holder acknowledging receipt of funds, or a VOD/bank statement showing sufficient average balance to cover the deposit at the time it was made",
+        "condition": null
+      },
+      {
+        "text": "If the earnest money check has cleared the bank, bank statements must cover the period up to and including the date the check cleared",
+        "condition": null
+      },
+      {
+        "text": "If the check has not yet cleared, a copy of the check may be obtained along with a processor's certification verifying the date it cleared, the dollar amount, and the individual who provided the information",
+        "condition": null
+      },
+      {
+        "text": "If funds were given more than 12 months ago per the sales contract, an escrow letter will suffice for sourcing",
+        "condition": null
+      },
+      {
+        "text": "Amount must match the earnest money deposit disclosed on the purchase contract",
+        "condition": null
+      }
+    ]
+  },
+  "federal tax id number": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Must show the Employer Identification Number (EIN) issued by the IRS for the borrower's business entity",
+        "condition": null
+      },
+      {
+        "text": "Entity name on the EIN documentation must match the entity name on the loan application and vesting documents",
+        "condition": null
+      },
+      {
+        "text": "Must be an IRS-issued document (e.g. CP 575 notice, EIN confirmation letter, or SS-4 confirmation) rather than a self-reported number alone",
+        "condition": null
+      }
+    ]
+  },
+  "form 1040": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Must be the complete IRS Form 1040 for the required tax year(s), including all filed schedules (e.g. Schedule C, Schedule E, Schedule 1, Schedule 2, Schedule 3) relevant to the borrower's income sources",
+        "condition": null
+      },
+      {
+        "text": "Must be signed and dated by the borrower, or include an electronic filing confirmation/IRS transcript in lieu of signature",
+        "condition": null
+      },
+      {
+        "text": "Borrower name on the return must match the borrower name on the loan application",
+        "condition": null
+      },
+      {
+        "text": "Must include Schedule C if self-employment income is reported",
+        "condition": "income_type=self_employed"
+      },
+      {
+        "text": "Must include Schedule E if rental income is reported",
+        "condition": null
+      },
+      {
+        "text": "Tax returns must be validated against IRS 4506-C transcripts where required by the program",
+        "condition": null
+      },
+      {
+        "text": "Two years of returns are required unless the program guidelines specifically permit one year",
+        "condition": null
+      }
+    ]
+  },
+  "income loe": {
+    "source_headings": [
+      "DECLINING INCOME"
+    ],
+    "items": [
+      {
+        "text": "Required when income shows a consistent decline over the prior years \u2014 declining income should not be considered stable or usable for qualification without further review",
+        "condition": null
+      },
+      {
+        "text": "Must be a signed, written explanation for the decline obtained from the borrower and/or employer",
+        "condition": null
+      },
+      {
+        "text": "Must address whether the income is stable and expected to continue",
+        "condition": null
+      },
+      {
+        "text": "When there is sufficient information to support use of the income despite the decline, the most recent (lower) income over the prior 2-year period must be used and may not be averaged with the higher prior-year figure",
+        "condition": null
+      },
+      {
+        "text": "Underwriter must determine whether the income is stable enough to use for qualification based on the explanation and supporting documentation provided",
+        "condition": null
+      }
+    ]
+  },
+  "loan application (1003)": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Final signed and dated URLA (Form 1003) for all borrowers",
+        "condition": null
+      },
+      {
+        "text": "All sections complete and consistent with the loan terms and program",
+        "condition": null
+      }
+    ]
+  },
+  "investment account statement": {
+    "source_headings": [
+      "ASSETS",
+      "ASSET DOCUMENTATION",
+      "QUALIFIED ASSETS"
+    ],
+    "items": [
+      {
+        "text": "Must show the account holder name matching the borrower",
+        "condition": null
+      },
+      {
+        "text": "Must show the financial institution name and account number",
+        "condition": null
+      },
+      {
+        "text": "Must show the current market value/balance of holdings and the statement date/period covered",
+        "condition": null
+      },
+      {
+        "text": "Must be the most recent statement, dated within 90 days of the note date",
+        "condition": null
+      },
+      {
+        "text": "All pages of the statement are required; summaries will not be accepted",
+        "condition": null
+      },
+      {
+        "text": "If assets are being used for asset utilization/depletion, three months' seasoning (three most recent consecutive statements) is required",
+        "condition": null
+      },
+      {
+        "text": "Assets held in the name of a business are not eligible for asset utilization calculations",
+        "condition": null
+      }
+    ]
+  },
+  "loe for hoa dues": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Required only if the subject property is in an HOA, condominium, or PUD",
+        "condition": null
+      },
+      {
+        "text": "Must show current HOA/condo association dues amount and payment status",
+        "condition": null
+      },
+      {
+        "text": "Must show HOA/management company contact information",
+        "condition": null
+      },
+      {
+        "text": "Must be dated within 30 days of closing",
+        "condition": null
+      },
+      {
+        "text": "Must disclose any outstanding assessments, liens, or special assessments",
+        "condition": null
+      },
+      {
+        "text": "Must identify the subject property address",
+        "condition": null
+      }
+    ]
+  },
+  "llc member list": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Must list all members/owners of the LLC and their respective ownership percentages",
+        "condition": null
+      },
+      {
+        "text": "Must identify the manager(s) or managing member(s) authorized to act on behalf of the LLC",
+        "condition": null
+      },
+      {
+        "text": "Ownership percentages must be consistent with the entity's Operating Agreement and, where applicable, the borrower's tax returns/K-1",
+        "condition": null
+      },
+      {
+        "text": "Must be dated and, where required, certified/signed by an authorized officer or manager of the LLC",
+        "condition": null
+      }
+    ]
+  },
+  "loannex product & pricing results": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "LoanNex product and pricing results matching the loan program, rate, and price reflected in the loan file \u2014 or, if LoanNex results are unavailable, the completed Submission Form (Program, Loan Purpose, Loan Amount, Appraised Value, Purchase Price, Occupancy, Property Type, Product Type, Term, Interest Rate, Interest Only, 2/1 Buydown, and Prepayment Penalty selections), or a signed Rate Lock Confirmation / Interest Rate Lock In Agreement confirming the locked rate and terms",
+        "condition": null
+      }
+    ]
+  },
+  "ownership interest certification": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Certifies borrower's percentage of ownership interest in the business",
+        "condition": null
+      },
+      {
+        "text": "Signed and dated by the borrower",
+        "condition": null
+      },
+      {
+        "text": "Ownership percentage consistent with tax returns/K-1",
+        "condition": null
+      }
+    ]
+  },
+  "title invoice": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Itemized title/closing fees from the title company",
+        "condition": null
+      },
+      {
+        "text": "Matches fees disclosed on the Closing Disclosure/Loan Estimate",
+        "condition": null
+      }
+    ]
+  },
+  "trust documents": {
+    "source_headings": [
+      "INTER VIVOS REVOCABLE TRUST",
+      "TRUST ACCOUNTS",
+      "TRUST INCOME"
+    ],
+    "items": [
+      {
+        "text": "A copy of the trust is required, or a signed attorney's opinion letter may be obtained in lieu of the trust documents",
+        "condition": null
+      },
+      {
+        "text": "The attorney's opinion letter (if used in lieu of the trust) must include: name of the trust, date executed, settler(s) of the trust, whether it is revocable or irrevocable, whether the trust has multiple trustees, name of the trustees, and the manner in which vesting will be held",
+        "condition": null
+      },
+      {
+        "text": "The primary beneficiary of the trust must be the individual(s) who established the trust",
+        "condition": null
+      },
+      {
+        "text": "The trustee must be either the individual establishing the trust (or at least one of them) or an institutional trustee authorized to act as trustee under applicable state law",
+        "condition": null
+      },
+      {
+        "text": "The trust must specify that the trustee has the power to hold title and mortgage the property",
+        "condition": null
+      },
+      {
+        "text": "A Power of Attorney is not eligible on loans when title is vested in a trust",
+        "condition": null
+      },
+      {
+        "text": "If trust funds are being used for down payment/closing costs/reserves, written documentation of the trust account's value from the trust manager or trustee is required, along with the conditions under which the borrower has access to the funds",
+        "condition": null
+      },
+      {
+        "text": "If trust income is being used to qualify: variable trust payments require a 24-month history of receipt documented with tax returns; fixed trust payments require at least one payment received prior to closing (provided the borrower is not the grantor) plus a current bank statement or equivalent proof of receipt",
+        "condition": null
+      }
+    ]
+  },
+  "verification of income": {
+    "source_headings": [],
+    "items": [
+      {
+        "text": "Must independently confirm the borrower's reported income source, amount, and frequency",
+        "condition": null
+      },
+      {
+        "text": "Must be from an independent, verifiable third-party source (employer, CPA/tax preparer, or other qualified verifier) rather than borrower self-certification alone",
+        "condition": null
+      },
+      {
+        "text": "Income amount and source must be consistent with what is reported on the loan application and used in qualification",
+        "condition": null
+      },
+      {
+        "text": "Must be dated/current per the applicable documentation-recency requirements for the loan's income documentation type",
+        "condition": null
+      }
+    ]
+  },
+  "verification of rent": {
+    "source_headings": [
+      "HOUSING HISTORY",
+      "HOUSING HISTORY VERIFICATION (NON \u2013 DSCR)"
+    ],
+    "items": [
+      {
+        "text": "Must be an institutional Verification of Rent (VOR) from the landlord or property management company, unless the borrower pays an individual/interested party",
+        "condition": null
+      },
+      {
+        "text": "Must cover a combined total of the most recent 12 months of rental payment history",
+        "condition": null
+      },
+      {
+        "text": "Rolling delinquent payments are not considered a single event \u2014 each occurrence of a contractual delinquency is considered individually for loan eligibility",
+        "condition": null
+      },
+      {
+        "text": "If the borrower pays an individual/interested party, one of the following is required: a VOR plus the most recent 6 consecutive months of canceled checks/bank statements/Venmo-PayPal documentation, OR a copy of the note/lease plus the most recent 12 consecutive months of canceled checks/bank statements/Venmo-PayPal documentation",
+        "condition": null
+      },
+      {
+        "text": "Must demonstrate a paid-as-agreed history, unless a past-due status requires updated documentation to verify the account is now current",
+        "condition": null
+      },
+      {
+        "text": "Properties held in the name of an LLC in which the borrower is personally obligated on the note must have the rental payment history documented",
+        "condition": null
+      },
+      {
+        "text": "Borrowers living rent-free must provide a rent-free letter from the property owner instead of a VOR",
+        "condition": null
+      },
+      {
+        "text": "Must identify the borrower and the rental property address",
+        "condition": null
+      },
+      {
+        "text": "Where DU waives the rental-history requirement, NQMF still requires documentation to support a 12-month housing history, though cancelled checks may be waived for eligible private-party VORs per DU",
+        "condition": null
+      }
+    ]
+  }
+}

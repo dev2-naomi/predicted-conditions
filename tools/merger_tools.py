@@ -114,6 +114,56 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
         "loan pricing worksheet", "completed submission form",
         "submission form",
     },
+    # Added alongside the 10x-consistency-audit round-2 canonical-spec
+    # extension (data/canonical_doc_specs.json's 23 newly-standardized doc
+    # types) — Form 1099-NEC is the specific IRS form used for the same
+    # "1099 income" ALT-DOC qualification concept as the generic "1099"
+    # doc type, so it merges into that same canonical bucket instead of
+    # getting its own (near-duplicate) entry. "Consolidated 1099" is
+    # intentionally NOT merged here — in practice it's the brokerage/
+    # investment 1099 statement (1099-DIV/INT/B) used for asset
+    # documentation, a different concept with its own canonical entry.
+    "1099": {
+        "1099-nec", "form 1099-nec", "1099 income", "1099 form",
+    },
+    "asset depletion worksheet": {
+        "asset utilization worksheet", "asset depletion calculation",
+        "asset utilization calculation",
+    },
+    "investment account statement": {
+        "brokerage statement", "investment statement", "brokerage account statement",
+    },
+    "trust documents": {
+        "trust agreement", "living trust", "revocable trust documents",
+        "trust certification", "inter vivos trust",
+    },
+    "loe for hoa dues": {
+        "hoa dues letter", "letter of explanation for hoa dues", "hoa loe",
+        "hoa letter of explanation",
+    },
+    "income loe": {
+        "letter of explanation for income", "income letter of explanation",
+        "income explanation letter",
+    },
+    "federal tax id number": {
+        "ein letter", "ein confirmation", "federal tax id", "tax id number",
+        "employer identification number",
+    },
+    "certificate of good standing": {
+        "good standing certificate", "certificate of status",
+    },
+    "llc member list": {
+        "member list", "llc members", "list of llc members",
+    },
+    "form 1040": {
+        "1040", "personal tax return", "individual tax return", "irs form 1040",
+    },
+    "balance sheet": {
+        "business balance sheet", "company balance sheet",
+    },
+    "emd check": {
+        "earnest money deposit check", "emd", "earnest money check",
+    },
 }
 
 
