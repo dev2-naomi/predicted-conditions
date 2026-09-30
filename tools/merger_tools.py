@@ -53,11 +53,21 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
         "initial loan application (1003)", "initial loan application",
         "final loan application (1003)", "final loan application",
     },
-    "personal bank statements": {
-        "bank statement",
-    },
     "bank statement": {
-        "personal bank statements",
+        # "Bank Statement" (schema.txt id 502) is the eligibility engine's
+        # own official document name — confirmed directly against
+        # schema.txt, not inferred. "Personal Bank Statements" and
+        # "Business Bank Statements" are just Neo4j display-name variants
+        # that both normalize to this one schema name, so this is the
+        # canonical key (renamed from "personal bank statements").
+        "personal bank statements", "business bank statements",
+        # Eligibility-engine's own DOCUMENT_NAME_TO_SCHEMA normalizes this
+        # to "Bank Statement" (schema id 502) — the base/mandatory-for-all-
+        # loans reserves document, distinct from the Asset-Utilization-
+        # specific "Asset Statements (3 Mo)" (schema id 2208, -> "asset").
+        # Confirmed against eligibility-engine repo source, not just the
+        # payload output.
+        "most recent asset statement for proof reserves",
     },
     "hazard insurance": {
         "homeowners insurance", "property insurance", "insurance binder",
@@ -94,6 +104,12 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     },
     "rental income calculations worksheet": {
         "dscr calculation worksheet", "dscr documentation",
+        # Eligibility-engine category names for the same underlying rental
+        # income analysis, just split by transaction type — confirmed via
+        # real eligibility.json scan: both fold into the same guideline
+        # cluster ("LONG TERM RENTALS – DSCR SUPREME AND INVESTOR DSCR"
+        # etc.), there's no separate purchase-vs-refinance document.
+        "rental income ltr sfr purchase", "rental income ltr sfr refinance",
     },
     "flood hazard determination": {
         "flood certification", "flood determination",
@@ -104,7 +120,16 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     "title commitment": {
         "title report", "preliminary title report",
     },
-    "loannex product & pricing results": {
+    "prequal response form": {
+        # Renamed from "loannex product & pricing results" to match the
+        # eligibility engine's OWN current schema name (schema.txt id 2165)
+        # for this document — confirmed via the engine's own commit fixing
+        # this exact naming: "The canonical schema.txt name for the LoanNex
+        # document (id 2165) is 'Prequal Response Form', not 'Loan Pricing'
+        # (id 1989, a different document)." "Loan Pricing" is intentionally
+        # NOT an alias here anymore — per that same commit it's a distinct
+        # document we don't currently handle.
+        "loannex product & pricing results",
         "loannex product and pricing results", "loannex results",
         "product and pricing results", "product & pricing results",
         "pricing results", "rate lock confirmation", "lock confirmation",
@@ -163,6 +188,15 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     },
     "emd check": {
         "earnest money deposit check", "emd", "earnest money check",
+    },
+    # Eligibility-engine's category name for the same signed cash-out /
+    # business-purpose certification form covered by "Borrower Certification
+    # of Business Purpose" in the guideline (see the "WRITTEN EXPLANATIONS
+    # FOR DEROGATORY CREDIT" / cash-out-refinance section) — confirmed via
+    # real eligibility.json scan, no separate "certifications and
+    # disclosure" document exists in the guideline.
+    "borrower certification as to business purpose": {
+        "borrower certifications and disclosure",
     },
 }
 
@@ -1400,7 +1434,7 @@ companion is present among the extracted fields, leave the spec unsatisfied
 own fields (e.g. purchase price, closing date) as a substitute, since they
 have no bearing on a bank-statement requirement.
 
-LOANNEX PRODUCT & PRICING RESULTS specs — e.g. "LoanNex product and pricing
+PREQUAL RESPONSE FORM (LoanNex Product & Pricing Results) specs — e.g. "LoanNex product and pricing
 results matching the loan program, rate, and price reflected in the loan
 file", or "If LoanNex results are unavailable, the completed Submission Form
 ... must be included instead": this is an EITHER/OR requirement, not two
@@ -2841,7 +2875,7 @@ def run_satisfaction_pass(
         # with no real basis. See _find_bank_statement_companion_fields and
         # the MISPLACED BANK-STATEMENT SPECS guidance in _SATISFACTION_PROMPT.
         if (
-            _canonical_doc_type(doc_type) not in ("bank statement", "personal bank statements")
+            _canonical_doc_type(doc_type) != "bank statement"
             and "bank statement" in spec_blob
         ):
             for companion_ef, companion_name in _find_bank_statement_companion_fields(submitted_docs):

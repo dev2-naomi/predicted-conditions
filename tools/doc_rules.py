@@ -423,8 +423,18 @@ def _eligibility_category_doc_map() -> dict[str, dict]:
              "income, and asset information", "Signed and dated by all borrowers"],
             ["Program eligibility requires a general borrower authorization on file"],
         ),
+        # Explicit entry so the display name matches the eligibility engine's
+        # own normalized acronym ("ITIN") instead of falling through to the
+        # generic `.title()` fallback, which mangles it to "Itin".
+        "itin": _doc(
+            "ITIN", "Cross-Cutting", "P1", "HARD-STOP",
+            ["ITIN Card or Letter from the IRS (ITIN Approval Letter / CP-565)",
+             "ITIN must be assigned to the borrower prior to application"],
+            ["Program eligibility engine flagged ITIN documentation as a minimum "
+             "required document category for this borrower/program"],
+        ),
         "loannex product and pricing results or completed submission form": _doc(
-            "LoanNex Product & Pricing Results", "Cross-Cutting", "P1", "HARD-STOP",
+            "Prequal Response Form", "Cross-Cutting", "P1", "HARD-STOP",
             ["LoanNex product and pricing results matching the loan program, rate, and price "
              "reflected in the loan file — or, if LoanNex results are unavailable, the "
              "completed Submission Form (Program, Loan Purpose, Loan Amount, Appraised Value, "
@@ -587,7 +597,7 @@ def mandatory_docs() -> list[dict]:
         _doc("Owner Occupancy Certification", "Compliance", "P1", "SOFT-STOP",
              ["Borrower certifies intended occupancy", "Signed and dated by all borrowers"],
              ["Occupancy certification required to confirm loan purpose"]),
-        _doc("LoanNex Product & Pricing Results", "Cross-Cutting", "P1", "HARD-STOP",
+        _doc("Prequal Response Form", "Cross-Cutting", "P1", "HARD-STOP",
              ["LoanNex product and pricing results matching the loan program, rate, and price "
               "reflected in the loan file — or, if LoanNex results are unavailable, the "
               "completed Submission Form (Program, Loan Purpose, Loan Amount, Appraised Value, "

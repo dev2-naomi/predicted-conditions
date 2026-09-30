@@ -890,7 +890,7 @@
         "condition": "loan_type=business_purpose"
       },
       {
-        "text": "Compliance Agreement \u2013 DSCR Loans or equivalent form is required",
+        "text": "Compliance Agreement – DSCR Loans or equivalent form is required",
         "condition": "program=DSCR"
       },
       {
@@ -898,11 +898,11 @@
         "condition": "program=DSCR"
       },
       {
-        "text": "Compliance Agreement \u2013 DSCR Loans form will be executed at closing on retail and wholesale transactions",
+        "text": "Compliance Agreement – DSCR Loans form will be executed at closing on retail and wholesale transactions",
         "condition": "program=DSCR AND channel=retail_or_wholesale"
       },
       {
-        "text": "Compliance Agreement \u2013 DSCR Loans form is to be provided at the time of purchase on correspondent loans",
+        "text": "Compliance Agreement – DSCR Loans form is to be provided at the time of purchase on correspondent loans",
         "condition": "program=DSCR AND channel=correspondent"
       },
       {
@@ -919,7 +919,7 @@
     "source_headings": [
       "LEASE REQUIREMENTS",
       "LEASEHOLD ESTATES",
-      "RENTAL INCOME \u2013 FULL DOC"
+      "RENTAL INCOME – FULL DOC"
     ],
     "items": [
       {
@@ -1020,8 +1020,8 @@
       "RENTAL INCOME NOT ON TAX RETURNS",
       "SHORT TERM RENTAL (NON DSCR)",
       "NO RATIO RENTAL INCOME REQUIREMENTS",
-      "SHORT TERM RENTALS \u2013 DSCR SUPREME AND INVESTOR DSCR",
-      "LONG TERM RENTALS \u2013 DSCR SUPREME AND INVESTOR DSCR"
+      "SHORT TERM RENTALS – DSCR SUPREME AND INVESTOR DSCR",
+      "LONG TERM RENTALS – DSCR SUPREME AND INVESTOR DSCR"
     ],
     "items": [
       {
@@ -1250,150 +1250,6 @@
       }
     ]
   },
-  "personal bank statements": {
-    "source_headings": [
-      "PERSONAL BANK STATEMENTS (ALT DOC)",
-      "BANK STATEMENT GENERAL REQUIREMENTS (ALT DOC)"
-    ],
-    "items": [
-      {
-        "text": "Borrowers may provide either 12 or 24 consecutive months of personal bank statements",
-        "condition": null
-      },
-      {
-        "text": "12 or 24 months complete personal bank statements must be from the same account",
-        "condition": null
-      },
-      {
-        "text": "Most recent 2 months of business bank statements must be provided if available",
-        "condition": null
-      },
-      {
-        "text": "Evidence of online transfer/check from the business account to the personal account must be evident to consider allowing 100% of deposits",
-        "condition": null
-      },
-      {
-        "text": "When using 100% of online transfer/check deposits going from the business account to the personal account, all other deposits are excluded",
-        "condition": null
-      },
-      {
-        "text": "A pattern/history of deposits from the business account to the personal account must be established",
-        "condition": null
-      },
-      {
-        "text": "Borrowers must be self-employed for at least 2 years",
-        "condition": null
-      },
-      {
-        "text": "The business must be in existence for a minimum of 2 years as evidenced by a letter from either the business tax professional, regulatory agency or licensing bureau",
-        "condition": null
-      },
-      {
-        "text": "The Employment Section of the application must include a minimum of 2 years employment history",
-        "condition": null
-      },
-      {
-        "text": "Non-Permanent Resident Aliens without U.S. Credit are ineligible",
-        "condition": null
-      },
-      {
-        "text": "Foreign Nationals are ineligible",
-        "condition": null
-      },
-      {
-        "text": "Non-Profits are ineligible",
-        "condition": null
-      },
-      {
-        "text": "Not for Profits are ineligible",
-        "condition": null
-      },
-      {
-        "text": "At least one of the borrowers must be self-employed",
-        "condition": null
-      },
-      {
-        "text": "All borrowers are required to be account holders of the bank accounts throughout the 12 or 24 months being used to qualify",
-        "condition": null
-      },
-      {
-        "text": "Verify the business is active and operating within 30 days of closing with either a phone listing and/or business address using directory assistance or internet search",
-        "condition": null
-      },
-      {
-        "text": "Tax returns are not required",
-        "condition": null
-      },
-      {
-        "text": "4506-C is not required",
-        "condition": null
-      },
-      {
-        "text": "If Tax returns and/or Transcripts are provided, the loan will be ineligible",
-        "condition": null
-      },
-      {
-        "text": "When personal accounts are jointly owned and the other party is not an owner of the business and/or a borrower on the loan, all deposits not able to be readily identifiable as business income must be excluded",
-        "condition": "account_ownership=joint AND co-owner_not_business_owner_or_borrower"
-      },
-      {
-        "text": "If a business account does not exist, co-mingled accounts guidance must be followed",
-        "condition": "business_account_does_not_exist"
-      },
-      {
-        "text": "Must be self-employed for a minimum of 18 months",
-        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=1"
-      },
-      {
-        "text": "Must have a minimum of three (3) years prior experience in the same line of business",
-        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=1"
-      },
-      {
-        "text": "Self-employed borrowers in a licensed profession (i.e., Medical, Legal, Accounting) will be considered from a business that has been in existence for less than two (2) years, but greater than one (1) year",
-        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=2"
-      },
-      {
-        "text": "Borrower has at least three (3) years of documented previous experience in the same profession, or evidence of formal education in a related field",
-        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=2 AND borrower_in_licensed_profession"
-      },
-      {
-        "text": "Minimum 700 score",
-        "condition": "program=Flex_Select AND (option=1 OR option=2)"
-      },
-      {
-        "text": "Max LTV of 80% for Primary Residence",
-        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=primary"
-      },
-      {
-        "text": "Max LTV of 75% for Second Home",
-        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=second_home"
-      },
-      {
-        "text": "Max LTV of 70% for Investment Properties",
-        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=investment"
-      },
-      {
-        "text": "Ineligible for Express(DU) or Super Jumbo",
-        "condition": "program=Flex_Select AND (option=1 OR option=2)"
-      },
-      {
-        "text": "Independent contractors who do not necessarily own their own business may be qualified using bank statement documentation and must follow the co-mingled accounts guidance",
-        "condition": "borrower_type=independent_contractor"
-      },
-      {
-        "text": "Evidence of filing tax returns and a Schedule C for 2+ years must be provided by their CPA / licensed tax preparer",
-        "condition": "borrower_type=independent_contractor"
-      },
-      {
-        "text": "An Expense Factor and/or P&L supporting their expenses must be provided",
-        "condition": "borrower_type=independent_contractor"
-      },
-      {
-        "text": "In instances where an online listing or search is not possible due to the nature of the borrower's employment (i.e., consultants), verification of activity within 30 days of the note date can be provided via evidence of receipt of business income within 30 days of the note supported by either invoices, bank statements showing business deposits, or similar means to support the business' recent operation",
-        "condition": "online_listing_not_possible"
-      }
-    ]
-  },
   "non qm bank statement analysis worksheet": {
     "source_headings": [
       "BANK STATEMENT ANALYSIS",
@@ -1609,7 +1465,7 @@
   "verification of mortgage": {
     "source_headings": [
       "HOUSING HISTORY",
-      "HOUSING HISTORY VERIFICATION (NON \u2013 DSCR)",
+      "HOUSING HISTORY VERIFICATION (NON – DSCR)",
       "HOUSING HISTORY VERIFICATION (DSCR ONLY)"
     ],
     "items": [
@@ -1722,8 +1578,8 @@
   "w2": {
     "source_headings": [
       "FULL DOCUMENTATION",
-      "WAGE EARNERS (FULL DOC \u2013 ITIN)",
-      "WAGE EARNERS (FULL DOC \u2013 FOREIGN NATIONALS)",
+      "WAGE EARNERS (FULL DOC – ITIN)",
+      "WAGE EARNERS (FULL DOC – FOREIGN NATIONALS)",
       "HOURLY WAGES"
     ],
     "items": [
@@ -1840,8 +1696,8 @@
   "paystub": {
     "source_headings": [
       "FULL DOCUMENTATION",
-      "WAGE EARNERS (FULL DOC \u2013 ITIN)",
-      "WAGE EARNERS (FULL DOC \u2013 FOREIGN NATIONALS)",
+      "WAGE EARNERS (FULL DOC – ITIN)",
+      "WAGE EARNERS (FULL DOC – FOREIGN NATIONALS)",
       "HOURLY WAGES"
     ],
     "items": [
@@ -2067,7 +1923,7 @@
       "P&L PLUS 2 MONTHS BANK STATEMENTS (ALT DOC)",
       "P&L ONLY (ALT DOC)",
       "SELF-EMPLOYMENT INCOME (S/E FULL DOC)",
-      "QUALIFYING INCOME (S/E FULL DOC \u2013 NON-FOREIGN NATIONAL)",
+      "QUALIFYING INCOME (S/E FULL DOC – NON-FOREIGN NATIONAL)",
       "STABILITY AND CONTINUANCE OF SELF-EMPLOYMENT (S/E FULL DOC)"
     ],
     "items": [
@@ -2428,7 +2284,7 @@
     "source_headings": [],
     "items": [
       {
-        "text": "Must be FNMA Form 3170 (1-4 Family Rider \u2014 Assignment of Rents)",
+        "text": "Must be FNMA Form 3170 (1-4 Family Rider — Assignment of Rents)",
         "condition": null
       },
       {
@@ -2523,7 +2379,7 @@
         "condition": null
       },
       {
-        "text": "Documentation must include a one-month (or most recent quarterly) account statement showing opening and closing balances, borrower listed as account holder, account number, statement date/period, and current balance in U.S. dollars \u2014 or a Written Verification of Deposit completed by the financial institution \u2014 or verification via an approved third-party vendor",
+        "text": "Documentation must include a one-month (or most recent quarterly) account statement showing opening and closing balances, borrower listed as account holder, account number, statement date/period, and current balance in U.S. dollars — or a Written Verification of Deposit completed by the financial institution — or verification via an approved third-party vendor",
         "condition": null
       },
       {
@@ -2545,6 +2401,10 @@
       {
         "text": "All pages of any statement provided are required; summaries will not be accepted",
         "condition": null
+      },
+      {
+        "text": "For Foreign National using Asset Utilization, borrower must have the lesser of 1.5 times the loan balance OR $1,000,000 net of down payment, closing costs and reserves.",
+        "condition": "borrower_type=foreign_national AND income_type=asset_utilization"
       }
     ]
   },
@@ -2580,7 +2440,7 @@
         "condition": null
       },
       {
-        "text": "Qualified asset calculation: 100% of checking/savings/money market, 80% of publicly traded stocks & bonds, 70% of vested retirement accounts for borrowers 59\u00bd or older (60% if under 59\u00bd), 100% of the pre-maturity surrender value of CDs (minus early-withdrawal penalty), and 60% of crypto funds based on current Coinbase valuation",
+        "text": "Qualified asset calculation: 100% of checking/savings/money market, 80% of publicly traded stocks & bonds, 70% of vested retirement accounts for borrowers 59½ or older (60% if under 59½), 100% of the pre-maturity surrender value of CDs (minus early-withdrawal penalty), and 60% of crypto funds based on current Coinbase valuation",
         "condition": null
       },
       {
@@ -2777,7 +2637,7 @@
     ],
     "items": [
       {
-        "text": "Required when income shows a consistent decline over the prior years \u2014 declining income should not be considered stable or usable for qualification without further review",
+        "text": "Required when income shows a consistent decline over the prior years — declining income should not be considered stable or usable for qualification without further review",
         "condition": null
       },
       {
@@ -2902,7 +2762,7 @@
     "source_headings": [],
     "items": [
       {
-        "text": "LoanNex product and pricing results matching the loan program, rate, and price reflected in the loan file \u2014 or, if LoanNex results are unavailable, the completed Submission Form (Program, Loan Purpose, Loan Amount, Appraised Value, Purchase Price, Occupancy, Property Type, Product Type, Term, Interest Rate, Interest Only, 2/1 Buydown, and Prepayment Penalty selections), or a signed Rate Lock Confirmation / Interest Rate Lock In Agreement confirming the locked rate and terms",
+        "text": "LoanNex product and pricing results matching the loan program, rate, and price reflected in the loan file — or, if LoanNex results are unavailable, the completed Submission Form (Program, Loan Purpose, Loan Amount, Appraised Value, Purchase Price, Occupancy, Property Type, Product Type, Term, Interest Rate, Interest Only, 2/1 Buydown, and Prepayment Penalty selections), or a signed Rate Lock Confirmation / Interest Rate Lock In Agreement confirming the locked rate and terms",
         "condition": null
       }
     ]
@@ -3002,7 +2862,7 @@
   "verification of rent": {
     "source_headings": [
       "HOUSING HISTORY",
-      "HOUSING HISTORY VERIFICATION (NON \u2013 DSCR)"
+      "HOUSING HISTORY VERIFICATION (NON – DSCR)"
     ],
     "items": [
       {
@@ -3014,7 +2874,7 @@
         "condition": null
       },
       {
-        "text": "Rolling delinquent payments are not considered a single event \u2014 each occurrence of a contractual delinquency is considered individually for loan eligibility",
+        "text": "Rolling delinquent payments are not considered a single event — each occurrence of a contractual delinquency is considered individually for loan eligibility",
         "condition": null
       },
       {
@@ -3040,6 +2900,535 @@
       {
         "text": "Where DU waives the rental-history requirement, NQMF still requires documentation to support a 12-month housing history, though cancelled checks may be waived for eligible private-party VORs per DU",
         "condition": null
+      }
+    ]
+  },
+  "articles of organization": {
+    "source_headings": [
+      "DOCUMENTATION – ENTITY VESTING",
+      "REQUIREMENTS – ENTITY VESTING",
+      "SIGNATURE REQUIREMENTS – ENTITY VESTING"
+    ],
+    "items": [
+      {
+        "text": "Entity Articles of Organization must be provided",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "Partnership Agreement must be provided if applicable",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "Operating Agreement must be provided if applicable",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "Corporate documents that contain a list of owners along with titles must be provided",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "Tax Identification Number (EIN) must be provided",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "Evidence of Certificate of Good Standing must be provided if the entity was formed more than 12 months ago",
+        "condition": "entity_type=LLC AND entity_age>12_months"
+      },
+      {
+        "text": "Certificate of Good Standing is not required if the entity was formed in the last 12 months",
+        "condition": "entity_type=LLC AND entity_age<=12_months"
+      },
+      {
+        "text": "Evidence of Good Standing may be satisfied by a Certification of Good Standing or screen shot from the state website",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "If all members are not borrowers, evidence the borrower has authority to sign on behalf of the entity must be provided, which can be validated through the Operating Agreement or Certificate of Authorization",
+        "condition": "entity_type=LLC AND not_all_members_are_borrowers=true"
+      },
+      {
+        "text": "If authority to sign cannot be validated through the Operating Agreement or Certificate of Authorization, a Borrowing Certificate is required",
+        "condition": "entity_type=LLC AND not_all_members_are_borrowers=true AND no_authority_in_operating_agreement=true"
+      },
+      {
+        "text": "Single member LLC may use the EIN or the guarantor's social security number",
+        "condition": "entity_type=LLC AND members=1"
+      },
+      {
+        "text": "Multiple member LLCs require an EIN",
+        "condition": "entity_type=LLC AND members>1"
+      },
+      {
+        "text": "Filed Certificate/Articles of Incorporation (and all amendments) must be provided",
+        "condition": "entity_type=Corporation"
+      },
+      {
+        "text": "By-Laws (and all amendments) must be provided",
+        "condition": "entity_type=Corporation"
+      },
+      {
+        "text": "Evidence of Good Standing issued by the Secretary of State where the corporation is incorporated must be provided, regardless of when the entity was formed",
+        "condition": "entity_type=Corporation"
+      },
+      {
+        "text": "Evidence of Good Standing may be satisfied by a Certificate of Good Standing or screen shot from state website",
+        "condition": "entity_type=Corporation"
+      },
+      {
+        "text": "Tax Identification Number (EIN) must be provided",
+        "condition": "entity_type=Corporation"
+      },
+      {
+        "text": "Borrower Resolution/Corporate Resolution granting authority of signer to enter a loan obligation must be provided",
+        "condition": "entity_type=Corporation"
+      },
+      {
+        "text": "Receipt of current year franchise tax payment or clear search must be provided",
+        "condition": "entity_type=Corporation"
+      },
+      {
+        "text": "Filed Partnership Certificate must be provided",
+        "condition": "entity_type=Partnership"
+      },
+      {
+        "text": "If a general partnership, filing with the Secretary of State may be required",
+        "condition": "entity_type=Partnership AND partnership_type=general"
+      },
+      {
+        "text": "Partnership Agreement and all amendments must be provided",
+        "condition": "entity_type=Partnership"
+      },
+      {
+        "text": "Evidence of Good Standing issued by the Secretary of State where the partnership is registered must be provided, regardless of when the entity was formed",
+        "condition": "entity_type=Partnership"
+      },
+      {
+        "text": "Evidence of Good Standing may be satisfied by a Certificate of Good Standing or screen shot from state website",
+        "condition": "entity_type=Partnership"
+      },
+      {
+        "text": "Tax Identification Number (EIN) must be provided",
+        "condition": "entity_type=Partnership"
+      },
+      {
+        "text": "Limited partner consents must be provided where required by partnership agreement",
+        "condition": "entity_type=Partnership"
+      },
+      {
+        "text": "Entity is limited to a maximum of four owners or members",
+        "condition": "entity_vesting=true"
+      },
+      {
+        "text": "Personal Guaranties are required from all borrowers on the loan along with any individual with 50% or greater ownership in the entity",
+        "condition": "entity_vesting=true"
+      },
+      {
+        "text": "Borrower(s) must have the authority to execute loan documents on behalf of the entity",
+        "condition": "entity_vesting=true"
+      },
+      {
+        "text": "If the operating agreement does not state an authorized signer, then all entity owners must apply as a borrower and complete a 1003 as an individual applicant",
+        "condition": "entity_vesting=true AND no_authorized_signer_in_operating_agreement=true"
+      },
+      {
+        "text": "Entity must be domiciled in the U.S.",
+        "condition": "entity_vesting=true"
+      },
+      {
+        "text": "LLC documentation requirements must be met for each of the layered entities",
+        "condition": "layered_entities=true"
+      },
+      {
+        "text": "A maximum of two (2) layers will be considered for layered entities",
+        "condition": "layered_entities=true"
+      },
+      {
+        "text": "Layered entities are not permitted on No Ratio Loans",
+        "condition": "loan_type=No_Ratio"
+      }
+    ]
+  },
+  "operating or partnership agreement": {
+    "source_headings": [
+      "DOCUMENTATION – ENTITY VESTING",
+      "REQUIREMENTS – ENTITY VESTING",
+      "SIGNATURE REQUIREMENTS – ENTITY VESTING"
+    ],
+    "items": [
+      {
+        "text": "Operating Agreement must be provided (if applicable)",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "Operating Agreement must contain a list of owners along with titles",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "If the operating agreement does not state an authorized signer, then all entity owners must apply as a borrower and complete a 1003 as an individual applicant",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "Partnership Agreement and all amendments must be provided",
+        "condition": "entity_type=Partnership"
+      },
+      {
+        "text": "Limited partner consents must be provided where required by partnership agreement",
+        "condition": "entity_type=Partnership"
+      },
+      {
+        "text": "If all members are not borrowers, evidence the borrower has authority to sign on behalf of the entity must be validated through the Operating Agreement or Certificate of Authorization; if not available, a Borrowing Certificate is required",
+        "condition": "entity_type=LLC AND not_all_members_are_borrowers=true"
+      },
+      {
+        "text": "LLC documentation requirements must be met for each of the layered entities",
+        "condition": "layered_entities=true"
+      },
+      {
+        "text": "A maximum of two (2) layers will be considered for layered entities",
+        "condition": "layered_entities=true"
+      },
+      {
+        "text": "Layered entities are not permitted on No Ratio Loans",
+        "condition": "layered_entities=true AND loan_type=No_Ratio"
+      }
+    ]
+  },
+  "anti steering disclosure": {
+    "source_headings": [
+      "(none - incidental mentions only, gathered manually)"
+    ],
+    "items": [
+      {
+        "text": "Anti-Steering Disclosure form can be found under Documents via the NQM Funding, LLC (NQMF) Client Portal",
+        "condition": null
+      }
+    ]
+  },
+  "proof of payment": {
+    "source_headings": [
+      "VISA",
+      "ITIN – DOCUMENTATION REQUIREMENTS"
+    ],
+    "items": [
+      {
+        "text": "Proof of payment receipt must be provided when visa expires within three (3) months following the closing date and proper extension steps have been followed per the USCIS.",
+        "condition": "visa_expiration_within_3_months=true"
+      }
+    ]
+  },
+  "itin": {
+    "source_headings": [
+      "ITIN – DOCUMENTATION REQUIREMENTS",
+      "ITIN - ELIGIBILITY",
+      "ITIN"
+    ],
+    "items": [
+      {
+        "text": "Government photo ID from US or eligible country of origin must be provided (examples include government license, passport, matricular consular)",
+        "condition": null
+      },
+      {
+        "text": "A Visa is not required in addition to government photo ID",
+        "condition": null
+      },
+      {
+        "text": "ITIN Card or Letter from the IRS must be provided",
+        "condition": null
+      },
+      {
+        "text": "ITIN is required to be assigned to the borrower prior to application",
+        "condition": null
+      },
+      {
+        "text": "All documentation in the file must support the borrower's ITIN number",
+        "condition": null
+      },
+      {
+        "text": "Documentation cannot reference a complete Social Security Number belonging to another individual",
+        "condition": null
+      },
+      {
+        "text": "ITIN must be valid",
+        "condition": null
+      },
+      {
+        "text": "There must be at least 2 years consistent ITIN payments reporting to the IRS, validated with the borrower's current ITIN number along with a 2-year employment history",
+        "condition": null
+      },
+      {
+        "text": "Minimum loan size must be $125,000",
+        "condition": null
+      },
+      {
+        "text": "Maximum DTI must be 50%",
+        "condition": null
+      },
+      {
+        "text": "Loan is ineligible for Express (DU)",
+        "condition": null
+      },
+      {
+        "text": "Escrow impounds are required",
+        "condition": null
+      },
+      {
+        "text": "Vesting as Inter-Vivo Revocable Trust is not permitted",
+        "condition": null
+      },
+      {
+        "text": "Entity vesting as LLC, Corporation or Partnership is not permitted",
+        "condition": null
+      },
+      {
+        "text": "Evidence of unexpired ITIN must be provided via current executed transcripts to validate the borrower's current ITIN status",
+        "condition": "loan_type=Full Doc/1099"
+      },
+      {
+        "text": "Evidence of unexpired ITIN must be provided via IRS letter dated less than three years ago, OR fully executed W7 including agent's signature, OR letter from Tax Preparer confirming they have filed the borrower's most recent tax return with the IRS",
+        "condition": "loan_type=Alt Doc"
+      }
+    ]
+  },
+  "bank statement": {
+    "source_headings": [
+      "PERSONAL BANK STATEMENTS (ALT DOC)",
+      "BANK STATEMENT GENERAL REQUIREMENTS (ALT DOC)",
+      "ASSETS",
+      "ASSET DOCUMENTATION",
+      "BUSINESS BANK STATEMENTS (ALT DOC)"
+    ],
+    "items": [
+      {
+        "text": "Borrowers may provide either 12 or 24 consecutive months of personal bank statements",
+        "condition": null
+      },
+      {
+        "text": "12 or 24 months complete personal bank statements must be from the same account",
+        "condition": null
+      },
+      {
+        "text": "Most recent 2 months of business bank statements must be provided if available",
+        "condition": null
+      },
+      {
+        "text": "Evidence of online transfer/check from the business account to the personal account must be evident to consider allowing 100% of deposits",
+        "condition": null
+      },
+      {
+        "text": "When using 100% of online transfer/check deposits going from the business account to the personal account, all other deposits are excluded",
+        "condition": null
+      },
+      {
+        "text": "A pattern/history of deposits from the business account to the personal account must be established",
+        "condition": null
+      },
+      {
+        "text": "Borrowers must be self-employed for at least 2 years",
+        "condition": null
+      },
+      {
+        "text": "The business must be in existence for a minimum of 2 years as evidenced by a letter from either the business tax professional, regulatory agency or licensing bureau",
+        "condition": null
+      },
+      {
+        "text": "The Employment Section of the application must include a minimum of 2 years employment history",
+        "condition": null
+      },
+      {
+        "text": "Non-Permanent Resident Aliens without U.S. Credit are ineligible",
+        "condition": null
+      },
+      {
+        "text": "Foreign Nationals are ineligible",
+        "condition": null
+      },
+      {
+        "text": "Non-Profits are ineligible",
+        "condition": null
+      },
+      {
+        "text": "Not for Profits are ineligible",
+        "condition": null
+      },
+      {
+        "text": "At least one of the borrowers must be self-employed",
+        "condition": null
+      },
+      {
+        "text": "All borrowers are required to be account holders of the bank accounts throughout the 12 or 24 months being used to qualify",
+        "condition": null
+      },
+      {
+        "text": "Verify the business is active and operating within 30 days of closing with either a phone listing and/or business address using directory assistance or internet search",
+        "condition": null
+      },
+      {
+        "text": "Tax returns are not required",
+        "condition": null
+      },
+      {
+        "text": "4506-C is not required",
+        "condition": null
+      },
+      {
+        "text": "If Tax returns and/or Transcripts are provided, the loan will be ineligible",
+        "condition": null
+      },
+      {
+        "text": "When personal accounts are jointly owned and the other party is not an owner of the business and/or a borrower on the loan, all deposits not able to be readily identifiable as business income must be excluded",
+        "condition": "account_ownership=joint AND co-owner_not_business_owner_or_borrower"
+      },
+      {
+        "text": "If a business account does not exist, co-mingled accounts guidance must be followed",
+        "condition": "business_account_does_not_exist"
+      },
+      {
+        "text": "Must be self-employed for a minimum of 18 months",
+        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=1"
+      },
+      {
+        "text": "Must have a minimum of three (3) years prior experience in the same line of business",
+        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=1"
+      },
+      {
+        "text": "Self-employed borrowers in a licensed profession (i.e., Medical, Legal, Accounting) will be considered from a business that has been in existence for less than two (2) years, but greater than one (1) year",
+        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=2"
+      },
+      {
+        "text": "Borrower has at least three (3) years of documented previous experience in the same profession, or evidence of formal education in a related field",
+        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=2 AND borrower_in_licensed_profession"
+      },
+      {
+        "text": "Minimum 700 score",
+        "condition": "program=Flex_Select AND (option=1 OR option=2)"
+      },
+      {
+        "text": "Max LTV of 80% for Primary Residence",
+        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=primary"
+      },
+      {
+        "text": "Max LTV of 75% for Second Home",
+        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=second_home"
+      },
+      {
+        "text": "Max LTV of 70% for Investment Properties",
+        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=investment"
+      },
+      {
+        "text": "Ineligible for Express(DU) or Super Jumbo",
+        "condition": "program=Flex_Select AND (option=1 OR option=2)"
+      },
+      {
+        "text": "Independent contractors who do not necessarily own their own business may be qualified using bank statement documentation and must follow the co-mingled accounts guidance",
+        "condition": "borrower_type=independent_contractor"
+      },
+      {
+        "text": "Evidence of filing tax returns and a Schedule C for 2+ years must be provided by their CPA / licensed tax preparer",
+        "condition": "borrower_type=independent_contractor"
+      },
+      {
+        "text": "An Expense Factor and/or P&L supporting their expenses must be provided",
+        "condition": "borrower_type=independent_contractor"
+      },
+      {
+        "text": "In instances where an online listing or search is not possible due to the nature of the borrower's employment (i.e., consultants), verification of activity within 30 days of the note date can be provided via evidence of receipt of business income within 30 days of the note supported by either invoices, bank statements showing business deposits, or similar means to support the business' recent operation",
+        "condition": "online_listing_not_possible"
+      },
+      {
+        "text": "Any documents not in English or US Currency must be translated.",
+        "condition": null
+      },
+      {
+        "text": "If borrower has a valid Social Security Number (SSN), all funds required for down payment, closing costs, and reserves must be seasoned for 30 days.",
+        "condition": "borrower_has_valid_SSN=true"
+      },
+      {
+        "text": "If borrower does not have a valid SSN (i.e., ITIN or Foreign National using foreign assets), 60 days' seasoning is required for funds required for down payment, closing costs, and reserves.",
+        "condition": "borrower_has_valid_SSN=false"
+      },
+      {
+        "text": "Foreign assets deposited into a U.S. institution within 60 days of application must be transferred directly from the foreign institution to closing or wired directly to the closing agent.",
+        "condition": "asset_type=foreign"
+      },
+      {
+        "text": "For assets required for reserves, the funds are to be converted to U.S. dollars using the current exchange rate.",
+        "condition": "asset_type=foreign"
+      },
+      {
+        "text": "A letter of reference on company letterhead from a verifiable banking institution may be provided for foreign assets required for reserves.",
+        "condition": "asset_type=foreign"
+      },
+      {
+        "text": "Foreign assets are not permitted on Second Liens.",
+        "condition": "lien_position=second"
+      },
+      {
+        "text": "The value of the asset must be reduced by the amount of the debt when calculating funds to close and reserves.",
+        "condition": "asset_has_secured_debt=true"
+      },
+      {
+        "text": "For borrowed funds secured by an asset, the terms of the secured loan and transfer of funds to the borrower should be documented.",
+        "condition": "funds_source=borrowed_secured_by_asset"
+      },
+      {
+        "text": "Business bank statement showing assets remain after funds to close and reserve requirements are met with a balance greater than or equal to the balance of the debt.",
+        "condition": "debt_source=business"
+      },
+      {
+        "text": "Borrower must provide either 12 or 24 consecutive months of business bank statements",
+        "condition": null
+      },
+      {
+        "text": "Bank statements must be complete for each month provided",
+        "condition": null
+      },
+      {
+        "text": "Bank statements must be from the same account, unless multiple accounts are permitted under specific conditions",
+        "condition": null
+      },
+      {
+        "text": "Business bank accounts can be used for qualification",
+        "condition": null
+      },
+      {
+        "text": "Personal bank accounts addressed to a DBA can be used for qualification",
+        "condition": null
+      },
+      {
+        "text": "Personal accounts with evidence of business expenses can be used for qualification",
+        "condition": null
+      },
+      {
+        "text": "Required Expense Statement Documentation applicable to Calculation Option chosen must be provided",
+        "condition": null
+      },
+      {
+        "text": "Qualifying Income must be multiplied by the ownership percentage to determine the owner's portion of income eligible for the transaction",
+        "condition": null
+      },
+      {
+        "text": "Borrower must be verified as minimum 25% owner of business",
+        "condition": null
+      },
+      {
+        "text": "Ownership percentage must be documented via Licensed tax preparer letter, CPA letter, Operating Agreement, or equivalent",
+        "condition": null
+      },
+      {
+        "text": "All non-borrowing owners of the business or the CFO, licensed tax preparer, or CPA for the company must provide a signed and dated letter acknowledging the transaction and confirming the borrower's access to the account for income-related purposes",
+        "condition": null
+      },
+      {
+        "text": "Multiple bank accounts may be used for multiple businesses",
+        "condition": "multiple_businesses=true"
+      },
+      {
+        "text": "Multiple bank accounts may be used if borrower shows they closed the initial account to use another",
+        "condition": "account_closure_documented=true"
+      },
+      {
+        "text": "Multiple bank accounts may be used for the same business, provided transfers between accounts are excluded",
+        "condition": "same_business_multiple_accounts=true"
       }
     ]
   }
