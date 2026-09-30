@@ -811,8 +811,37 @@ def apply_deterministic_rules(
     docs, removed = apply_negative_gates(list(merged), flags)
 
     existing = {canon(dr.get("document_type") or "") for dr in docs}
+    # Keyed lookup (first match wins) so a duplicate eligibility-engine
+    # candidate can MERGE its reasons_needed into the doc that already
+    # exists under this canonical type, instead of being silently dropped
+    # entirely — see the bypass_negative_gates branch below.
+    existing_by_key: dict[str, dict] = {}
+    for _dr in docs:
+        _k = canon(_dr.get("document_type") or "")
+        if _k and _k not in existing_by_key:
+            existing_by_key[_k] = _dr
 
     injected: list[str] = []
+
+    def _merge_reasons(target: dict, new_reasons: list) -> None:
+        """Append any of new_reasons not already present (case-insensitive,
+        whitespace-normalized) onto target["reasons_needed"] in place."""
+        current = target.get("reasons_needed")
+        if not isinstance(current, list):
+            current = list(current) if current else []
+            target["reasons_needed"] = current
+        seen = {" ".join(str(r).strip().lower().split()) for r in current}
+        if isinstance(new_reasons, list):
+            candidates = new_reasons
+        elif new_reasons:
+            candidates = [new_reasons]
+        else:
+            candidates = []
+        for r in candidates:
+            norm = " ".join(str(r).strip().lower().split())
+            if norm and norm not in seen:
+                current.append(r)
+                seen.add(norm)
 
     def _inject(candidates: list[dict], bypass_negative_gates: bool = False) -> None:
         for cand in candidates:
@@ -838,7 +867,31 @@ def apply_deterministic_rules(
             if key and key not in existing:
                 docs.append(dict(cand, source_module="deterministic"))
                 existing.add(key)
+                existing_by_key[key] = docs[-1]
                 injected.append(cand.get("document_type") or key)
+            elif key and bypass_negative_gates:
+                # A document under this canonical type was ALREADY drafted
+                # (almost always the case for eligibility_required_docs()
+                # candidates like Bank Statement / Profit and Loss / Business
+                # License on any loan where that income type is actually in
+                # play) — so the candidate itself is correctly not injected
+                # as a duplicate. But eligibility_required_docs()'s whole
+                # point is that these reasons come from the eligibility
+                # engine's own authoritative per-program pass/fail
+                # evaluation ("Program eligibility requires bank-statement
+                # income documentation" for THIS specific qualifying
+                # program), not generic guideline text — silently dropping
+                # that reasoning just because a doc already existed under
+                # this name loses the one signal that made this doc
+                # authoritative rather than just LLM-guessed. Merge it into
+                # the existing doc's reasons_needed instead (specifications
+                # are left alone — those get wholesale-replaced by
+                # apply_guideline_canonicalization()'s canonical library
+                # right after this runs, so injecting eligibility-specific
+                # spec text here would just be discarded anyway).
+                target = existing_by_key.get(key)
+                if target is not None:
+                    _merge_reasons(target, cand.get("reasons_needed"))
 
     _inject(mandatory_docs())
     _inject(conditional_docs(flags))
