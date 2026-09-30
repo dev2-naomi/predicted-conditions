@@ -72,7 +72,7 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
         "sales contract", "purchase agreement", "contract of sale",
     },
     "rental agreement": {
-        "lease agreement", "lease", "rental lease",
+        "lease agreement", "lease", "rental lease", "current lease agreement",
     },
     "appraisal report": {
         "appraisal report (urar)", "appraisal",
@@ -564,7 +564,11 @@ def merge_document_requests(
     # Applies: negative gates → mandatory floor → conditional docs →
     # derived income docs, deduping by canonical document type.
     # ------------------------------------------------------------------
-    from tools.doc_rules import apply_deterministic_rules
+    from tools.doc_rules import (
+        apply_deterministic_rules,
+        apply_guideline_canonicalization,
+        apply_other_doc_spec_canonicalization,
+    )
 
     scenario_summary = s.get("scenario_summary", {})
     merged, det_stats = apply_deterministic_rules(
@@ -572,6 +576,33 @@ def merge_document_requests(
     )
     injected_count = len(det_stats.get("injected", []))
     removed_count = len(det_stats.get("removed", []))
+
+    # Replace `specifications` wholesale with the deterministic list for
+    # every doc type covered by data/canonical_doc_specs.json (24 types as
+    # of the 10x-consistency-audit follow-up round: the original 14
+    # guideline-text-extracted types, 7 more added to close a full-doc/W2
+    # coverage gap — W2, Paystub, Verification of Employment, Profit &
+    # Loss, Purchase Contract, Grant Deed, Verification of Deposit — plus
+    # 3 hand-curated closing-mechanics types that have no dedicated
+    # guidelines.md section to extract from — UCDP SSR, Payoff Statement,
+    # Deed of Trust, migrated here from the old rewrite-only path since
+    # their concept content was already curated, just never force-injected)
+    # — see doc_rules.py Layer 4c module comment. Grounded in either the
+    # actual NQMF Underwriting Guidelines text (extracted 10x per doc type
+    # + synthesized — _guideline_spec_extraction.py) or, for the 3
+    # hand-curated types, pre-existing vetted concept content, so it's safe
+    # to fully replace (not just rewrite-match) what the LLM generated:
+    # same wording AND same (correct, flag-branched) content on every
+    # rerun.
+    canonicalized_count = apply_guideline_canonicalization(
+        merged, scenario_summary, canonical_fn=_canonical_doc_type,
+    )
+    # Rewrite-only fallback for any doc type NOT covered by the guideline-
+    # sourced library above. Currently a no-op (empty
+    # doc_rules._OTHER_DOC_SPEC_CONCEPTS) — kept for any future gap.
+    other_canonicalized_count = apply_other_doc_spec_canonicalization(
+        merged, canonical_fn=_canonical_doc_type,
+    )
 
     # Strip image/scan/photo-quality specs from every request — see the
     # module-level comment above _strip_image_quality_specs for why these
@@ -591,6 +622,10 @@ def merge_document_requests(
         msg += f" Removed {removed_count} doc(s) via negative gates ({', '.join(det_stats['removed'])})."
     if injected_count:
         msg += f" Injected {injected_count} deterministic doc(s) ({', '.join(det_stats['injected'])})."
+    if canonicalized_count:
+        msg += f" Applied guideline-sourced deterministic specs to {canonicalized_count} document request(s)."
+    if other_canonicalized_count:
+        msg += f" Canonicalized specs on {other_canonicalized_count} other document request(s)."
     if stripped_quality_specs:
         msg += (
             f" Stripped {stripped_quality_specs} image/scan/photo-quality "
@@ -857,6 +892,153 @@ def _spec_text(spec: Any) -> str:
     return str(spec)
 
 
+# ---------------------------------------------------------------------------
+# Deterministic guard against hallucinated subject-property addresses
+# ---------------------------------------------------------------------------
+#
+# Some module prompts (e.g. Flood Hazard Determination / Verification of
+# Mortgage in module 04) occasionally invent a specific, plausible-looking
+# but entirely fabricated property address/city when generating spec text,
+# instead of grounding on the loan's actual scenario_summary.property —
+# observed on real reruns of the SAME input producing a fake street address
+# ("16533 Rayen St, North Hills, CA 91343") that doesn't exist anywhere in
+# the loan file, while scenario_summary.property.address stayed correct the
+# whole time. Prompt wording can't reliably prevent this (same class of
+# problem as the tradeline/mortgage-history backstop above), so this scrubs
+# every spec/reason string against the authoritative address after the fact
+# and rewrites anything that doesn't match, rather than trusting free-text
+# generation to always get a specific factual detail right.
+_STREET_SUFFIX_ALT = (
+    r"street|st|avenue|ave|road|rd|drive|dr|court|ct|lane|ln|boulevard|blvd|"
+    r"way|place|pl|circle|cir|terrace|ter|highway|hwy|parkway|pkwy|loop|"
+    r"trail|trl"
+)
+# A full street address: house number + street name/suffix, optionally
+# followed by a city and/or "ST #####" state+zip. Suffix alternation is
+# word-bounded on both sides — without it, short abbreviations like "st"/
+# "rd"/"ter"/"way" match as substrings inside ordinary words ("statements",
+# "greater", "highway"), which would otherwise mangle unrelated specs.
+_FULL_ADDRESS_RE = re.compile(
+    r"\d+\s+[A-Za-z0-9.\-' ]+?\s+\b(?:" + _STREET_SUFFIX_ALT + r")\b\.?,?"
+    r"(?:\s+[A-Za-z .\-]+,)?(?:\s+[A-Z]{2}\s*\d{5}(?:-\d{4})?)?",
+    re.IGNORECASE,
+)
+# A bare "(City, ST)" parenthetical, e.g. "(North Hills, CA)".
+_CITY_STATE_PAREN_RE = re.compile(r"\(\s*([A-Za-z .\-]+?)\s*,\s*([A-Z]{2})\s*\)")
+
+
+def _normalize_addr_token(text: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", (text or "").upper())
+
+
+def _scrub_spec_text_address(text: str, correct_line: str, correct_city: str) -> str:
+    """Replace any full street-address-like substring, or any "(City, ST)"
+    parenthetical, in `text` that doesn't match the loan's actual subject
+    property with the correct address/city. Specs that already reference
+    the correct address, or reference no address at all, are returned
+    unchanged."""
+    if not text:
+        return text
+    result = text
+    if correct_line:
+        correct_norm = _normalize_addr_token(correct_line)
+
+        def _replace_full(m: "re.Match[str]") -> str:
+            matched_norm = _normalize_addr_token(m.group(0))
+            # Loose containment: if the correct address's own normalized
+            # token appears inside the match (or vice versa for a partial
+            # quote), it's the real address — leave it alone. Otherwise this
+            # is a fabricated address masquerading as this property's.
+            if correct_norm[:12] and (
+                correct_norm[:12] in matched_norm or matched_norm[:12] in correct_norm
+            ):
+                return m.group(0)
+            return correct_line
+
+        result = _FULL_ADDRESS_RE.sub(_replace_full, result)
+    if correct_city:
+        def _replace_city(m: "re.Match[str]") -> str:
+            city, state = m.group(1), m.group(2)
+            if city.strip().lower() == correct_city.strip().lower():
+                return m.group(0)
+            return f"({correct_city}, {state})"
+
+        result = _CITY_STATE_PAREN_RE.sub(_replace_city, result)
+    return result
+
+
+def _scrub_item_address(item: Any, correct_line: str, correct_city: str) -> tuple[Any, bool]:
+    """Apply _scrub_spec_text_address to a spec/reason item (string or
+    dict). Returns (possibly-new item, changed?)."""
+    if isinstance(item, str):
+        new = _scrub_spec_text_address(item, correct_line, correct_city)
+        return new, new != item
+    if isinstance(item, dict):
+        for key in ("text", "specification", "description"):
+            val = item.get(key)
+            if isinstance(val, str):
+                new = _scrub_spec_text_address(val, correct_line, correct_city)
+                if new != val:
+                    item = dict(item)
+                    item[key] = new
+                    return item, True
+                return item, False
+    return item, False
+
+
+def _scrub_hallucinated_addresses(
+    document_requests: list[dict],
+    scenario_summary: dict,
+) -> int:
+    """Deterministically correct any fabricated subject-property address
+    that slipped into generated spec/reason text, across every document
+    request's specifications/satisfied_specifications/reasons_needed.
+    Mutates document_requests in place. Returns the number of strings
+    rewritten."""
+    prop = (scenario_summary or {}).get("property") or {}
+    address = (prop.get("address") or "").strip()
+    city = (prop.get("city") or "").strip()
+    state = (prop.get("state") or "").strip()
+    zip_code = (prop.get("zip") or "").strip()
+    if not address and not city:
+        return 0
+    state_zip = " ".join(p for p in (state, zip_code) if p)
+    correct_line = ", ".join(p for p in (address, city, state_zip) if p)
+
+    rewritten = 0
+    for dr in document_requests:
+        for list_key in ("specifications", "reasons_needed"):
+            items = _as_list(dr.get(list_key, []))
+            if not items:
+                continue
+            new_items = []
+            changed_any = False
+            for item in items:
+                new_item, changed = _scrub_item_address(item, correct_line, city)
+                new_items.append(new_item)
+                if changed:
+                    changed_any = True
+                    rewritten += 1
+            if changed_any:
+                dr[list_key] = new_items
+
+        satisfied = _as_list(dr.get("satisfied_specifications", []))
+        if not satisfied:
+            continue
+        new_satisfied = []
+        changed_any = False
+        for entry in satisfied:
+            new_entry, changed = _scrub_item_address(entry, correct_line, city)
+            new_satisfied.append(new_entry)
+            if changed:
+                changed_any = True
+                rewritten += 1
+        if changed_any:
+            dr["satisfied_specifications"] = new_satisfied
+
+    return rewritten
+
+
 def _has_real_data(val: Any) -> bool:
     """Return True if val contains actual extracted evidence, not just an
     empty/placeholder shell.
@@ -902,6 +1084,14 @@ def _is_all_null(val: Any) -> bool:
 # something like a credit score a null value means the extraction failed
 # (every borrower has a score), not that the score has been confirmed absent.
 #
+# mortgageSummary/creditTradeLines are included here on the assumption that
+# extraction is trustworthy: a null-stub entry is treated as "confirmed no
+# mortgage tradelines / no itemized tradeline detail to report" rather than
+# an extraction gap, even though (unlike public records) a real credit score
+# technically implies at least some underlying tradeline data exists. This
+# is a deliberate simplification — see tools/merger_tools.py history/PR
+# discussion for the tradeoff if that assumption ever needs revisiting.
+#
 # NOTE: inquiries/credit_inquiries are deliberately EXCLUDED here. Unlike
 # public records/collections/derogatory (an open-ended "were there ever
 # any" question), inquiry specs are recency-qualified ("within the most
@@ -916,7 +1106,8 @@ def _is_all_null(val: Any) -> bool:
 _CONFIRMED_NONE_FIELDS = {
     "publicrecords", "public_records", "collectionaccounts", "collections",
     "derogatoryaccounts", "derogatorysummary", "charge_offs", "disputes",
-    "disputed_accounts",
+    "disputed_accounts", "mortgagesummary", "mortgage_history", "housing_history",
+    "credittradelines", "trade_lines", "tradelines",
 }
 
 
@@ -994,29 +1185,35 @@ However, do NOT mark a spec as satisfied if:
 - There is genuinely no evidence in the fields for that requirement
 
 EXCEPTION — confirmed-clean adverse-item fields: for fields like publicRecords,
-collectionAccounts, derogatoryAccounts/derogatorySummary, and disputes, EITHER
-a bare empty list/array (e.g. []) OR a present entry (or entries) where every
-value is null/empty are treated the SAME WAY — as "confirmed clean," NOT as a
-missing field. Different credit report extractions emit one or the other shape
-for the exact same real-world outcome (no items of that type found), so both
-must be handled identically. This means the credit report explicitly evaluated
-that section and found NOTHING to report (e.g. a borrower with no bankruptcies/
-judgments/liens/foreclosures, or no collections/charge-offs). That IS a
-satisfying answer for specs like "must show public records including
+collectionAccounts, derogatoryAccounts/derogatorySummary, disputes,
+mortgageSummary, and creditTradeLines, EITHER a bare empty list/array (e.g. [])
+OR a present entry (or entries) where every value is null/empty are treated the
+SAME WAY — as "confirmed clean," NOT as a missing field. Different credit
+report extractions emit one or the other shape for the exact same real-world
+outcome (no items of that type found), so both must be handled identically.
+This means the credit report explicitly evaluated that section and found
+NOTHING to report (e.g. a borrower with no bankruptcies/judgments/liens/
+foreclosures, no collections/charge-offs, no existing mortgage tradelines, or
+no tradeline/payment-history detail beyond what the report captured). That IS
+a satisfying answer for specs like "must show public records including
 bankruptcies, judgments, liens, foreclosures", "must identify any collections,
-charge-offs, or derogatory accounts", or "must certify public record searches
-for each city where the borrower resided in the last 2 years" — mark these
-satisfied with a reason like "Confirmed clean — the field is present with empty
-data, indicating none were found on this credit report." This applies even when
-the spec's wording asks for a per-city/per-jurisdiction breakdown of the search
-— do NOT require a separate address-history/city-by-city field to confirm that;
-an empty/null-stub publicRecords field on its own is sufficient, since the
-report's public-records section inherently covers the search regardless of
-which cities it spans. You MUST use the exact phrase "empty data" in the reason
-text for this case — do NOT use the words "null", "null entries", or "no
-entries" instead. Only treat it as unsatisfied if the field is entirely absent
-from the extracted fields (the key itself doesn't exist at all — not present as
-an empty list, not present as a null-stub entry, just missing outright).
+charge-offs, or derogatory accounts", "must certify public record searches
+for each city where the borrower resided in the last 2 years", "must show
+mortgage history for subject property and any other owned properties", or
+"must include complete tradeline details showing payment history" — mark
+these satisfied with a reason like "Confirmed clean — the field is present
+with empty data, indicating none were found on this credit report." This
+applies even when the spec's wording asks for a per-city/per-jurisdiction
+breakdown of the search, or a per-property mortgage breakdown — do NOT
+require a separate address-history/city-by-city or per-property field to
+confirm that; an empty/null-stub field on its own is sufficient, since the
+report's corresponding section inherently covers the search/history
+regardless of which cities or properties it spans. You MUST use the exact
+phrase "empty data" in the reason text for this case — do NOT use the words
+"null", "null entries", or "no entries" instead. Only treat it as unsatisfied
+if the field is entirely absent from the extracted fields (the key itself
+doesn't exist at all — not present as an empty list, not present as a
+null-stub entry, just missing outright).
 
 IMPORTANT — credit INQUIRIES specs (e.g. "must show inquiries within the most
 recent 90 days") do NOT use the confirmed-clean/empty-data exception above.
@@ -1450,6 +1647,78 @@ def _scope_reference_context_to_parties(
     return new_ctx
 
 
+def _normalize_spec_match_key(text: str) -> str:
+    """Whitespace/case/punctuation-insensitive key for matching an LLM-
+    returned "specification" string back to one of the actual input spec
+    strings it was given (see _reconcile_satisfied_specs for why this is
+    needed)."""
+    import re
+
+    t = (text or "").strip().lower()
+    t = re.sub(r"\s+", " ", t)
+    t = t.rstrip(".")
+    return t
+
+
+def _reconcile_satisfied_specs(raw_items: list[dict], specs_text: list[str]) -> list[dict]:
+    """Coerce each LLM-returned satisfied item's "specification" text back
+    to the EXACT original input spec string it corresponds to, dropping any
+    item that doesn't correspond to a real input spec at all.
+
+    The satisfaction-check prompt instructs the model to copy the spec text
+    verbatim ("<exact spec text>"), but claude-haiku-4-5 doesn't always
+    comply — observed via 10x consistency testing to occasionally (a)
+    lightly paraphrase a spec ("monthly payment..." -> "the monthly
+    payment..."), (b) merge two related specs into one new combined
+    sentence, or (c) for the credit-report "confirmed clean" case
+    specifically, put the REASON-style text ("Confirmed clean — the X field
+    is present with empty data...") into the "specification" field instead
+    of the actual spec text. Downstream, run_satisfaction_pass() removes
+    satisfied items from `specifications` by EXACT string match against
+    this returned "specification" text — so any of the above caused the
+    real original spec to silently stay in `specifications` (never
+    removed) while the model's own (different) text got added to
+    `satisfied_specifications`, producing a "bonus" extra item on top of
+    the deterministic canonical list every rerun a mismatch happened to
+    occur (confirmed via 5x/10x reruns: credit report union size varying
+    28 -> 29/30 across ~9% of borrower/coborrower instances).
+
+    Fixed here by matching each returned item back to the closest actual
+    input spec (exact after normalization, else a high-confidence fuzzy
+    match) and overwriting "specification" with that spec's ORIGINAL exact
+    text before it's ever compared downstream. Items with no real
+    corresponding input spec (case (c) above, or genuine hallucination) are
+    dropped entirely rather than passed through as a phantom extra item.
+    """
+    import difflib
+
+    norm_to_original: dict[str, str] = {}
+    for s in specs_text:
+        norm_to_original.setdefault(_normalize_spec_match_key(s), s)
+    norm_keys = list(norm_to_original.keys())
+
+    reconciled: list[dict] = []
+    seen_originals: set[str] = set()
+    for item in raw_items:
+        returned_text = item.get("specification") or ""
+        norm = _normalize_spec_match_key(returned_text)
+        original = norm_to_original.get(norm)
+        if original is None and norm_keys:
+            close = difflib.get_close_matches(norm, norm_keys, n=1, cutoff=0.85)
+            if close:
+                original = norm_to_original[close[0]]
+        if original is None:
+            # Doesn't correspond to any real input spec (hallucinated,
+            # merged, or a reason-text/specification-text field swap) --
+            # drop rather than let it become a phantom extra item.
+            continue
+        if original in seen_originals:
+            continue
+        seen_originals.add(original)
+        reconciled.append({"specification": original, "reason": item.get("reason", "")})
+    return reconciled
+
+
 def _llm_check_specs(
     doc_type: str,
     specifications: list,
@@ -1544,7 +1813,7 @@ def _llm_check_specs(
                         "specification": item["specification"],
                         "reason": reason,
                     })
-            return valid
+            return _reconcile_satisfied_specs(valid, specs_text)
     except Exception as e:
         logger.warning("LLM satisfaction check failed for %s: %s", doc_type, e)
 
@@ -1836,6 +2105,258 @@ _ACCOUNT_HOLDER_NAME_SPEC_RE = re.compile(
 
 def _spec_text_already_satisfied(text: str, satisfied_specs: list[dict]) -> bool:
     return any(s.get("specification") == text for s in satisfied_specs)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic backstop for tradeline-detail / mortgage-history specs
+# ---------------------------------------------------------------------------
+#
+# The LLM-based confirmed-clean/empty-data exception added to
+# _SATISFACTION_PROMPT for mortgageSummary/creditTradeLines is not applied
+# consistently — across reruns of the SAME document, and even across
+# borrower vs. co-borrower copies of the SAME request in the SAME run, the
+# LLM sometimes rewords these two spec families together into a single
+# combined spec, and satisfies it in one instance while leaving an
+# equivalent-meaning spec unsatisfied in another. This mirrors the exact
+# failure mode already handled below for account-holder-name specs
+# (ownership_companion_found) — the fix is the same: stop relying on the
+# LLM to consistently apply the rule, and force it deterministically
+# whenever the underlying field is confirmed null-stub/empty.
+_TRADELINE_SPEC_KEYWORDS = (
+    "tradeline", "trade line",
+    # Definitional/conditional tradeline-eligibility wording from the SAME
+    # canonical spec cluster (data/canonical_doc_specs.json,
+    # tradeline_requirement=standard) that doesn't literally contain the
+    # word "tradeline" — e.g. "The account must have been active in the
+    # past 12 months and may be opened or closed", "A supplement may be
+    # used to update the account activity". These describe what counts as
+    # an acceptable tradeline / how a stale one may be refreshed, not an
+    # independent document requirement — they belong to the exact same
+    # confirmed-clean/empty-creditTradeLines treatment as their neighboring
+    # cluster members ("3 tradelines reporting...", "Spouses may combine
+    # tradelines", "The tradeline must be reflected on the borrower's
+    # credit report", all already force-satisfied by this same backstop),
+    # instead of being left to the LLM with zero field pointer at all.
+    "opened or closed", "supplement may be used",
+)
+_MORTGAGE_HISTORY_SPEC_KEYWORDS = ("mortgage history",)
+# Specs that use tradeline/mortgage wording to ask for something OTHER than
+# "show me the itemized detail" — these must NOT be swept into this
+# backstop, since they genuinely require real (non-null) data to compare
+# against (e.g. matching named liability holders from the 1003 against the
+# credit report's own tradeline lender names), not an empty-data
+# confirmation. See CREDIT REFERENCES guidance in _SATISFACTION_PROMPT.
+_TRADELINE_BACKSTOP_EXCLUDE_KEYWORDS = ("credit reference", "declared", "liability holder")
+
+
+def _field_is_null_stub_or_empty(fields: dict, *field_names: str) -> bool:
+    """True if ANY of the given field names (case-insensitive) is present in
+    `fields` with a value that's empty ([]/{}) or a null-stub (every leaf
+    null) — i.e. a "confirmed clean, nothing itemized" result rather than
+    the field being entirely absent from the extraction."""
+    lower_keys = {k.lower(): k for k in fields}
+    for name in field_names:
+        real_key = lower_keys.get(name.lower())
+        if real_key is None:
+            continue
+        val = fields[real_key]
+        if val == [] or val == {} or _is_all_null(val):
+            return True
+    return False
+
+
+def _apply_tradeline_mortgage_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    all_fields: list[dict],
+) -> None:
+    """Force-satisfy any remaining Credit Report spec that is clearly about
+    itemized tradeline detail or mortgage history (not about verifying
+    specific named credit references) whenever creditTradeLines/
+    mortgageSummary is null-stub or empty on this document's own extracted
+    fields — regardless of which exact wording variant the LLM generated
+    this run, and regardless of whether it already satisfied an
+    equivalent-meaning spec for the other party. Mutates satisfied_specs in
+    place.
+    """
+    if _canonical_doc_type(doc_type) != "credit report":
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        if text in already:
+            continue
+        lower = text.lower()
+        if any(kw in lower for kw in _TRADELINE_BACKSTOP_EXCLUDE_KEYWORDS):
+            continue
+        is_tradeline = any(kw in lower for kw in _TRADELINE_SPEC_KEYWORDS)
+        is_mortgage_history = any(kw in lower for kw in _MORTGAGE_HISTORY_SPEC_KEYWORDS)
+        if not (is_tradeline or is_mortgage_history):
+            continue
+        field_names = ("creditTradeLines",) if is_tradeline else ("mortgageSummary",)
+        if not any(_field_is_null_stub_or_empty(f, *field_names) for f in all_fields):
+            continue
+        satisfied_specs.append({
+            "specification": text,
+            "reason": (
+                f"Confirmed clean — the {field_names[0]} field is present with "
+                f"empty data, indicating none were found on this credit report."
+            ),
+        })
+        already.add(text)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic backstop for the tri-merge / 3-bureau spec
+# ---------------------------------------------------------------------------
+#
+# "Credit report must provide merged credit information from the 3 major
+# national credit repositories" was previously left entirely to LLM
+# discretion with no dedicated field pointer — _SPEC_FIELD_MAP (above) has a
+# "tri-merge"/"three bureaus" -> scores/bureaus/experian/transunion/equifax
+# mapping that LOOKS like it covers this, but it lives on
+# _check_spec_satisfied, which is never actually invoked anywhere in the
+# pipeline (confirmed dead code). This backstop replaces that with a real
+# deterministic check against the actual scores[] schema:
+# scores[i] = {"score": "<str>", "sourceName": "TRANSUNION"/"EXPERIAN"/
+# "EQUIFAX", "applicant": {...}} (verified against real Tasktile Credit
+# Report extractions, e.g. Mark Kashana's report). Satisfied only when
+# scores contains a real (non-null/non-empty) score value tagged to each of
+# the three bureau names — mirrors the SAME "stop relying on the LLM to
+# consistently apply the rule" rationale as the tradeline/mortgage-history
+# and account-holder-name backstops above.
+# ---------------------------------------------------------------------------
+
+_TRI_MERGE_SPEC_KEYWORDS = (
+    "3 major national credit repositories", "three major national credit repositories",
+    "merged credit information", "tri-merge", "tri merge",
+)
+_BUREAU_NAME_ALIASES: dict[str, tuple[str, ...]] = {
+    "transunion": ("transunion", "trans union"),
+    "experian": ("experian",),
+    "equifax": ("equifax",),
+}
+
+
+def _apply_tri_merge_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    all_fields: list[dict],
+) -> None:
+    """Force-satisfy the tri-merge/3-bureau spec deterministically off the
+    real `scores[].sourceName` schema — see module comment above for why
+    this can't be left to the LLM alone. Mutates satisfied_specs in place.
+    """
+    if _canonical_doc_type(doc_type) != "credit report":
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        if text in already:
+            continue
+        lower = text.lower()
+        if not any(kw in lower for kw in _TRI_MERGE_SPEC_KEYWORDS):
+            continue
+
+        found_bureaus: dict[str, str] = {}
+        for fields in all_fields:
+            real_key = next((k for k in fields if k.lower() == "scores"), None)
+            if real_key is None:
+                continue
+            for entry in _as_list(fields[real_key]):
+                if not isinstance(entry, dict):
+                    continue
+                score_val = entry.get("score")
+                if score_val in (None, "", "null"):
+                    continue
+                source = str(entry.get("sourceName") or "").strip().lower()
+                for bureau, aliases in _BUREAU_NAME_ALIASES.items():
+                    if bureau in found_bureaus:
+                        continue
+                    if any(alias in source for alias in aliases):
+                        found_bureaus[bureau] = str(score_val)
+
+        if len(found_bureaus) == 3:
+            detail = ", ".join(
+                f"{name.capitalize()} ({found_bureaus[name]})"
+                for name in ("transunion", "experian", "equifax")
+            )
+            satisfied_specs.append({
+                "specification": text,
+                "reason": f"Credit scores from all three bureaus are present: {detail}.",
+            })
+            already.add(text)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic backstop for the "must include all addenda, amendments,
+# and counter-offers" Purchase Contract spec
+# ---------------------------------------------------------------------------
+#
+# This spec has no field on the Purchase Contract itself confirming whether
+# any addenda/amendments/counter-offers exist — the only real evidence is
+# whether a SEPARATE addendum/amendment/counter-offer document (see
+# _is_addendum_like/_split_primary_fallback_docs above) was actually
+# submitted alongside the primary contract. But run_satisfaction_pass
+# deliberately excludes those fallback-bucket documents from all_fields
+# whenever a genuine primary contract ALSO exists (`matches = primary_matches
+# or fallback_matches` — see loop below), specifically so an addendum's data
+# never overrides the primary contract's own price/terms. That correctly
+# protects every OTHER spec, but it also means THIS spec's only possible
+# evidence is silently cut off before the LLM ever sees it, leaving it
+# permanently undecidable — never confirmed present, never confirmed absent.
+#
+# Handled here instead, off the SAME primary/fallback split
+# run_satisfaction_pass already computed for this document_request: mark
+# satisfied when at least one addendum/amendment/counter-offer document was
+# actually submitted for this transaction; HIDE it entirely (drop from
+# specifications, never surfaced as an open OR satisfied item) when none
+# was — there is nothing to confirm either way without one, so leaving it
+# open reads as a real documentation gap when it's actually "not checkable,
+# no addendum/amendment/counter-offer was submitted."
+# ---------------------------------------------------------------------------
+
+_ADDENDA_SPEC_KEYWORDS = (
+    "addenda", "addendum", "amendment", "counter-offer", "counter offer", "counteroffer",
+)
+
+
+def _apply_addenda_presence_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    fallback_matches: list[dict],
+) -> None:
+    """Resolve (satisfy or hide) the addenda/amendments/counter-offers spec
+    deterministically off whether an addendum-like document was actually
+    submitted — see module comment above. Mutates specifications and
+    satisfied_specs in place.
+    """
+    if _canonical_doc_type(doc_type) != "purchase contract":
+        return
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        lower = text.lower()
+        if not any(kw in lower for kw in _ADDENDA_SPEC_KEYWORDS):
+            continue
+        specifications.remove(spec)
+        if fallback_matches:
+            names = sorted({
+                (m.get("name") or m.get("doc_type") or "addendum document")
+                for m in fallback_matches
+            })
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Addendum/amendment/counter-offer document(s) present in the "
+                    f"file: {', '.join(names)}."
+                ),
+            })
+        # else: no addendum-like document exists — dropped from
+        # specifications above and NOT added to satisfied_specs, so it's
+        # fully hidden rather than left open with no evidence path.
 
 
 def _is_account_holder_name_spec(text: str) -> bool:
@@ -2359,6 +2880,28 @@ def run_satisfaction_pass(
                 doc_type, dr.get("specifications", []), labeled_extracted,
                 reference_context=doc_reference_context,
             )
+        # Deterministic backstop for tradeline-detail / mortgage-history
+        # specs — see _apply_tradeline_mortgage_backstop for why this can't
+        # be left to the LLM alone.
+        _apply_tradeline_mortgage_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
+        # Deterministic backstop for the tri-merge/3-bureau spec — see
+        # _apply_tri_merge_backstop for why this can't be left to the LLM
+        # alone (the _SPEC_FIELD_MAP mapping that looked like it covered
+        # this was dead code, never actually invoked).
+        _apply_tri_merge_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
+        # Deterministic backstop for the addenda/amendments/counter-offers
+        # Purchase Contract spec — see _apply_addenda_presence_backstop for
+        # why this can't be left to the LLM alone (its only possible
+        # evidence, the fallback-bucket addendum-like documents, is
+        # deliberately excluded from all_fields above whenever a primary
+        # contract also exists).
+        _apply_addenda_presence_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs, fallback_matches,
+        )
         # Deterministic backstop for the "account must be shown in the
         # borrower's own name" spec family (see BUSINESS-OWNERSHIP / CPA
         # LETTER guidance in _SATISFACTION_PROMPT above). The LLM applies
@@ -2459,6 +3002,15 @@ def generate_final_output(
     # Enforce consistent field schema on every document request
     document_requests = [normalize_document_structure(dr) for dr in document_requests]
 
+    scenario_summary = s.get("scenario_summary", {})
+
+    # Deterministic guard: correct any fabricated subject-property address
+    # that a module's spec-generation prompt hallucinated instead of
+    # grounding on the loan's actual property — see
+    # _scrub_hallucinated_addresses for why prompt wording alone can't be
+    # relied on here.
+    addresses_fixed = _scrub_hallucinated_addresses(document_requests, scenario_summary)
+
     # Final label pass: rename canonical masterlist names to NQMF display
     # wording. Runs last (after matching/dedup/satisfaction) so only the
     # customer-facing label changes; STEP_09 forces the display heading to
@@ -2466,7 +3018,6 @@ def generate_final_output(
     for dr in document_requests:
         dr["document_type"] = apply_output_display_name(dr.get("document_type", ""))
 
-    scenario_summary = s.get("scenario_summary", {})
     clean_summary: dict[str, Any] = {
         k: v for k, v in scenario_summary.items()
         if not k.startswith("_")
@@ -2510,6 +3061,8 @@ def generate_final_output(
         f"{hard_stops} hard-stop(s). "
         f"By priority: {by_priority}. By status: {by_status}."
     )
+    if addresses_fixed:
+        msg += f" Corrected {addresses_fixed} fabricated property-address reference(s)."
 
     return Command(update={
         "final_output": final,

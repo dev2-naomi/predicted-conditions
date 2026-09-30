@@ -783,6 +783,21 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
     primary = borrower_details[0] if borrower_details else {}
     co_borrower = borrower_details[1] if len(borrower_details) > 1 else None
 
+    # NOTE: property_value below deliberately COLLAPSES appraised_value and
+    # purchase_price into a single "best available property value" figure —
+    # kept only for existing consumers that want a single fallback number
+    # (e.g. detect_contradictions' appraisal-vs-profile VALUE_MISMATCH
+    # check). Do NOT use property_value as a stand-in for purchase_price
+    # specifically: on a real purchase transaction both appraised_value and
+    # purchase_price are commonly present AND DIFFERENT (e.g. contract price
+    # vs. appraised value), and property_value here always prefers
+    # appraised_value when both exist — so a consumer reading
+    # property_value as "the purchase price" would silently get the
+    # appraised value instead whenever the two differ (observed live: a
+    # Purchase Contract consistency spec embedding the WRONG dollar figure).
+    # appraised_value/purchase_price are also exposed below as their OWN
+    # distinct keys so downstream code (build_scenario_summary) can read
+    # the correct one without this collapsing.
     property_value = parsed.get("appraised_value") or parsed.get("purchase_price")
 
     metadata: Dict[str, Any] = {
@@ -830,6 +845,9 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
         "borrower_type": None,
         "property_type": parsed.get("property_type"),
         "property_value": property_value,
+        # Distinct, non-collapsed values — see property_value note above.
+        "appraised_value": parsed.get("appraised_value"),
+        "purchase_price": parsed.get("purchase_price"),
         "rural_property": None,
         "months_reserves": None,
         "property_address": parsed.get("property_address"),

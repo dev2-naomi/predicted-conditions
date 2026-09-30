@@ -892,8 +892,23 @@ def build_scenario_summary(
 
     # Numbers from profile metadata (already merged from XML + external)
     loan_amount = meta.get("loan_amount")
-    appraised_value = meta.get("property_value")
-    purchase_price = meta.get("property_value")
+    # meta["property_value"] COLLAPSES appraised_value and purchase_price
+    # into one number, always preferring appraised_value when both exist
+    # (see the note in xml_to_loan_profile) — using it for BOTH numbers.
+    # appraised_value and numbers.purchase_price meant a purchase loan with
+    # a real, DIFFERENT contract price silently got the appraised value
+    # instead (e.g. a "Must show purchase price of $X consistent with loan
+    # application" Purchase Contract spec embedding the wrong dollar
+    # figure). Prefer the distinct, non-collapsed metadata keys — which
+    # xml_to_loan_profile now also exposes — and only fall back to the
+    # collapsed property_value when the specific one isn't available at all
+    # (e.g. a non-XML/eligibility-only profile that never set them).
+    appraised_value = meta.get("appraised_value")
+    if appraised_value is None:
+        appraised_value = meta.get("property_value")
+    purchase_price = meta.get("purchase_price")
+    if purchase_price is None:
+        purchase_price = meta.get("property_value")
     note_rate = loan_program.get("rate")
     ltv = meta.get("ltv_pct")
     cltv = meta.get("cltv_pct")
@@ -1095,15 +1110,39 @@ def build_scenario_summary(
     # Build document_inventory from submitted docs
     doc_inventory: list[dict] = []
     for doc in submitted_docs:
+        ef = doc.get("extracted_fields", {}) or {}
+
+        # Physical file UUID(s) for THIS specific submitted doc — "doc_id"
+        # below is the shared CATEGORY id (e.g. every Bank Statement has the
+        # same category), so on its own it can't tell 12 separate monthly
+        # statements apart or let the frontend deep-link to a specific file.
+        ids = doc.get("document_ids")
+        if isinstance(ids, list) and ids:
+            document_ids = [str(i) for i in ids if i]
+        else:
+            one = doc.get("document_id") or doc.get("id")
+            document_ids = [str(one)] if one else []
+
+        # Distinguishing sub-label for doc types that can legitimately have
+        # several separate physical files sharing the same category/name
+        # (e.g. 12 monthly Bank Statements) — without this every one of
+        # those rows shows up as an identical, indistinguishable
+        # "Bank Statement" entry, hiding that all 12 were actually submitted.
+        detected_type = doc.get("name", "")
+        stmt_from, stmt_to = ef.get("statementPeriodFrom"), ef.get("statementPeriodTo")
+        if stmt_from or stmt_to:
+            detected_type = f"{detected_type} ({stmt_from or '?'} to {stmt_to or '?'})"
+
         doc_inventory.append({
             "doc_id": doc.get("doc_id", ""),
-            "detected_document_type": doc.get("name", ""),
+            "document_ids": document_ids,
+            "detected_document_type": detected_type,
             "doctype_id": None,
             "category": doc.get("category_name", "") or doc.get("doc_type", ""),
             "available": True,
             "completeness_signals": [],
             "detected_forms_or_attachments": [],
-            "key_entities_found": list(doc.get("extracted_fields", {}).keys())[:5],
+            "key_entities_found": list(ef.keys())[:5],
         })
 
     missing_str = (

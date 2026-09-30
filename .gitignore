@@ -223,8 +223,16 @@ output.json
 
 # Ad-hoc local test/debug artifacts (loan data dumps, run logs, one-off
 # scripts) accumulated during development — not meant to be committed.
-# Real loan test fixtures belong under compiled_inputs/ or data/input/
-# and should be added deliberately, not swept in by a broad `git add`.
+#
+# compiled_inputs/ and data/input/ contain REAL borrower PII pulled from
+# live dev/prod threads (names, DOBs, partial SSNs, addresses — see e.g.
+# compiled_inputs/pisa/manifest.json, compiled_inputs/*_10x/loan_file.xml).
+# Blanket-ignored so a broad `git add .` can never sweep real loan data into
+# shared history. If a specific fixture genuinely needs to be committed
+# (e.g. a synthetic/sanitized repro case), add it with `git add -f` on that
+# one file deliberately, never via this directory as a whole.
+compiled_inputs/
+data/input/
 *.zip
 *_output.json
 *_final_state.json
