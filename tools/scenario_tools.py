@@ -1015,6 +1015,12 @@ def build_scenario_summary(
         "assets": supplemental.get("assets", []),
         "liabilities": supplemental.get("liabilities", []),
         "owned_properties": owned_properties,
+        # 1003-declared income-by-source (employer name + monthly $ amount +
+        # income type), paired via the XML's RELATIONSHIP graph edges — lets
+        # income documents (1099, W2, paystub, etc.) be cross-checked against
+        # BOTH the source name and the dollar amount the borrower actually
+        # declared, not just the name.
+        "income_sources": supplemental.get("income_sources", []),
     }
 
     # Enrich with eligibility engine data if available

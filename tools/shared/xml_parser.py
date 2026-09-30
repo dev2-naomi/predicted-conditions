@@ -32,9 +32,26 @@ from typing import Any, Dict, List, Optional
 
 _NS_RE = re.compile(r"\{[^}]*\}")
 
+_XLINK_NS = "http://www.w3.org/1999/xlink"
+
 
 def _strip_ns(tag: str) -> str:
     return _NS_RE.sub("", tag)
+
+
+def _xlink(elem: ET.Element, local: str) -> Optional[str]:
+    """Read an ``xlink:*`` attribute (e.g. ``label``, ``from``, ``to``,
+    ``arcrole``) off *elem*, tolerating files where the xlink namespace
+    prefix maps to a different URI or is absent entirely."""
+    val = elem.attrib.get(f"{{{_XLINK_NS}}}{local}")
+    if val is not None:
+        return val
+    # Fallback: some producers emit the bare attribute name without a
+    # namespace, or with a different prefix binding — scan raw attrib keys.
+    for k, v in elem.attrib.items():
+        if k == local or k.endswith(f"}}{local}") or k.endswith(f":{local}"):
+            return v
+    return None
 
 
 def _is_leaf(elem: ET.Element) -> bool:
@@ -92,12 +109,34 @@ def _extract_sections(root: ET.Element) -> Dict[str, Any]:
 
     for elem in root.iter():
         tag = _strip_ns(elem.tag)
+
+        # RELATIONSHIP elements are self-closing — all their data lives in
+        # xlink:from/xlink:to/xlink:arcrole ATTRIBUTES, not child text, so
+        # they'd otherwise be silently dropped by the leaf-text-only walk
+        # below. These edges are what let us reliably pair a borrower's
+        # CURRENT_INCOME_ITEM (dollar amount) with the specific EMPLOYER it
+        # belongs to, instead of guessing by list position when a borrower
+        # has multiple jobs/income items (needed to cross-check 1099/W2/etc
+        # income documents against the actual 1003-declared source+amount).
+        if tag == "RELATIONSHIP":
+            frm = _xlink(elem, "from")
+            to = _xlink(elem, "to")
+            arcrole = _xlink(elem, "arcrole") or ""
+            if frm and to:
+                sections.setdefault("RELATIONSHIP", []).append(
+                    {"from": frm, "to": to, "arcrole": arcrole}
+                )
+            continue
+
         if _is_leaf(elem):
             continue
 
         if tag in _REPEATING_CONTAINERS:
             leaves = _collect_leaves(elem)
             if leaves:
+                label = _xlink(elem, "label")
+                if label:
+                    leaves["_xlink_label"] = label
                 sections.setdefault(tag, []).append(leaves)
             continue
 
@@ -582,6 +621,57 @@ def _extract_employers(sections: Dict[str, Any]) -> List[Dict]:
     return employers
 
 
+def _extract_income_sources(sections: Dict[str, Any]) -> List[Dict]:
+    """Pair each CURRENT_INCOME_ITEM (dollar amount + income type) with the
+    specific EMPLOYER it belongs to, using the RELATIONSHIP graph edges
+    (``CURRENT_INCOME_ITEM_IsAssociatedWith_EMPLOYER``).
+
+    This is the 1003-declared income-by-source breakdown needed to
+    cross-check income documents (1099, W2, paystub, etc.) against what the
+    borrower actually reported on the loan application — both the source
+    name AND the dollar amount, not just the source name.
+    """
+    income_items = sections.get("CURRENT_INCOME_ITEM", [])
+    if not income_items:
+        return []
+
+    employers = sections.get("EMPLOYER", [])
+    employers_by_label = {
+        e["_xlink_label"]: e for e in employers if e.get("_xlink_label")
+    }
+
+    edges = sections.get("RELATIONSHIP", [])
+    employer_label_by_income_label = {
+        e["from"]: e["to"]
+        for e in edges
+        if "CURRENT_INCOME_ITEM_IsAssociatedWith_EMPLOYER" in e.get("arcrole", "")
+    }
+
+    single_employer = employers[0] if len(employers) == 1 else None
+
+    sources: List[Dict] = []
+    for item in income_items:
+        amount = _safe_float(item.get("CurrentIncomeMonthlyTotalAmount"))
+        if amount is None:
+            continue
+        employer = None
+        income_label = item.get("_xlink_label")
+        employer_label = employer_label_by_income_label.get(income_label) if income_label else None
+        if employer_label:
+            employer = employers_by_label.get(employer_label)
+        elif single_employer is not None:
+            # Only pairs are unambiguous — one employer, one plausible match.
+            employer = single_employer
+
+        sources.append({
+            "employer": (employer or {}).get("FullName"),
+            "self_employed": _bool_val((employer or {}).get("EmploymentBorrowerSelfEmployedIndicator")),
+            "monthly_amount": amount,
+            "income_type": item.get("IncomeType"),
+        })
+    return sources
+
+
 def _extract_residences(sections: Dict[str, Any]) -> List[Dict]:
     raw = sections.get("RESIDENCE", [])
     residences = []
@@ -739,6 +829,7 @@ def parse_mismo_xml(xml_content: str) -> Dict[str, Any]:
         "assets": assets,
         "employers": employers,
         "residences": residences,
+        "income_sources": _extract_income_sources(sections),
         "borrower_details": borrower_data["details"],
         "raw_xml": sections,
     }
@@ -874,6 +965,7 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
         "assets": parsed.get("assets", []),
         "employers": parsed.get("employers", []),
         "residences": parsed.get("residences", []),
+        "income_sources": parsed.get("income_sources", []),
         "borrower_ssns": parsed.get("borrower_ssns", []),
         "borrower_dobs": parsed.get("borrower_dobs", []),
         "loan_terms": {

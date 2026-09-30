@@ -2323,12 +2323,16 @@
         "condition": null
       },
       {
-        "text": "A 10% automatic expense ratio applies when the 1099 is paid to the borrower individually",
+        "text": "Must match the income source and amount reported on the loan application",
+        "condition": "loan_application_submitted=true"
+      },
+      {
+        "text": "Must support 1099 income reported on tax returns",
         "condition": null
       },
       {
-        "text": "Must match the income source and amount reported on the loan application",
-        "condition": "loan_application_submitted=true"
+        "text": "Must be for tax year 2024 or most recent year-to-date",
+        "condition": null
       }
     ]
   },

@@ -1409,6 +1409,59 @@ surname is not sufficient evidence of ownership; that needs manual review via
 separate entity documentation). If no reference data is provided at all for
 this check, leave the spec unsatisfied rather than guessing.
 
+1099 INCOME specs — the following apply specifically to a 1099 income
+document request:
+- "1099 income documentation is limited to individual borrowers... who are
+  not the business owner of the entity issuing the 1099" and "Self-employed
+  borrowers who are business owners paying their own earnings via a 1099 are
+  not eligible to use this income documentation type": there is no
+  companion-document ownership check wired up for 1099s (unlike the
+  BUSINESS-OWNERSHIP/CPA-LETTER handling above, which only applies to bank
+  statements). Do NOT attempt to infer or guess whether the borrower owns
+  the issuing/payer entity — there is no reliable evidence path for that
+  from the 1099 form alone. Treat these two specs as satisfied by the mere
+  presence of a valid, readable 1099 form for this borrower, with a reason
+  like "Valid Form 1099 present for this borrower; this document type's
+  eligibility is a program-level determination made upstream, not something
+  the submitted 1099 form itself can independently confirm or refute."
+- "If the most recent 1099 is more than 90 days from the Note Date, one of
+  the following must be provided: evidence of year-to-date earnings...":
+  the loan file in this pipeline is a pre-closing/underwriting snapshot and
+  never carries an actual Note Date (the Note is signed at closing, after
+  this stage) — `loan_facts` will not contain a `note_date` field, and it
+  never will for this reason. Do NOT substitute an application-signed date,
+  received date, or any other unrelated date as a stand-in for the Note
+  Date — that would produce a false "90 days" comparison. Default this spec
+  to unsatisfied/needs-review unless the borrower separately submitted one
+  of the listed YTD-evidence documents (YTD bank statements, employer YTD
+  wage printout, or a Verification of Employment with YTD income) among the
+  extracted fields — evaluate against THAT companion document if present,
+  otherwise leave unsatisfied with a reason noting the Note Date isn't
+  determinable at this stage of the file.
+- "Must match the income source and amount reported on the loan
+  application": when reference data is provided, `loan_facts.
+  income_sources_on_application` is the 1003-declared income breakdown — a
+  list of `{employer, self_employed, monthly_amount, income_type}` entries
+  built from the loan file's own CURRENT_INCOME_ITEM/EMPLOYER data. Compare
+  the 1099's payer name against each entry's `employer` (same fuzzy-match
+  leniency as NAME-MATCHING specs above — abbreviations/punctuation
+  differences don't count as a mismatch), AND compare the 1099's reported
+  compensation amount against that matched entry's `monthly_amount` (a 1099
+  is an ANNUAL total, so compare against `monthly_amount * 12` — allow
+  reasonable variance rather than requiring an exact match, since 1099
+  income legitimately fluctuates year to year and the 1003 figure is
+  typically an averaged/projected monthly amount). Mark satisfied only when
+  BOTH the source name and the amount are reasonably consistent, with a
+  reason citing both the matched employer/payer and the compared amounts
+  (e.g. "Payer 'Astrya Global' matches the 1003-declared income source; 1099
+  compensation of $40,020 is consistent with the declared $33,347/mo
+  ($400,164/yr)."). If `income_sources_on_application` is not provided, or
+  no entry's employer name plausibly matches the 1099's payer, fall back to
+  name-only matching against the borrower/application identity (as before)
+  and note in the reason that the dollar amount could not be cross-checked
+  because no income breakdown was available — do not mark it satisfied on
+  amount grounds you cannot actually support.
+
 MISPLACED BANK-STATEMENT specs — occasionally a bank-statement-worded spec
 (e.g. "Must provide 12 consecutive months of business bank statements from
 the same account", "Must reflect the most recent months available with the
@@ -2470,6 +2523,18 @@ def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict])
             holders.append(holder)
     if holders:
         loan_facts["liability_holders_on_application"] = holders
+
+    # 1003-declared income-by-source (employer/payer name + monthly $ amount
+    # + income type) — lets income documents (1099, W2, paystub, etc.) be
+    # cross-checked against BOTH the source name AND the dollar amount the
+    # borrower actually declared on the loan application, not just the
+    # name. See tools/shared/xml_parser.py's _extract_income_sources().
+    income_sources = [
+        src for src in _as_list(ss.get("income_sources"))
+        if isinstance(src, dict) and src.get("monthly_amount") is not None
+    ]
+    if income_sources:
+        loan_facts["income_sources_on_application"] = income_sources
 
     if loan_facts:
         ctx["loan_facts"] = loan_facts
