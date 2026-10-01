@@ -2284,14 +2284,6 @@
     "source_headings": [],
     "items": [
       {
-        "text": "Must be FNMA Form 3170 (1-4 Family Rider — Assignment of Rents)",
-        "condition": null
-      },
-      {
-        "text": "Must assign rents from the property to the lender",
-        "condition": null
-      },
-      {
         "text": "Must be signed/executed by all borrowers holding title",
         "condition": null
       },
