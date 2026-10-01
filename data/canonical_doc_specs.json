@@ -2487,6 +2487,10 @@
       {
         "text": "Must support the business's financial position and continuity as represented on the loan application",
         "condition": "income_type=self_employed"
+      },
+      {
+        "text": "Must be dated and consistent with the YTD Profit and Loss period if a YTD Profit and Loss statement is also required",
+        "condition": null
       }
     ]
   },

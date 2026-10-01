@@ -1441,7 +1441,7 @@ document request:
 - "Must match the income source and amount reported on the loan
   application": when reference data is provided, `loan_facts.
   income_sources_on_application` is the 1003-declared income breakdown — a
-  list of `{employer, self_employed, monthly_amount, income_type}` entries
+  list of `{{employer, self_employed, monthly_amount, income_type}}` entries
   built from the loan file's own CURRENT_INCOME_ITEM/EMPLOYER data. Compare
   the 1099's payer name against each entry's `employer` (same fuzzy-match
   leniency as NAME-MATCHING specs above — abbreviations/punctuation
