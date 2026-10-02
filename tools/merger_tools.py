@@ -288,6 +288,14 @@ _CANONICAL_NAMES: dict[str, str] = {
     "passport": "government id",
     "borrower authorization form": "borrower authorization",
     "borrower authorization": "borrower authorization",
+    # normalize.py's masterlist canonicalization renames this to the
+    # plural "Borrowers Authorization" (matching doctype_masterlist.json's
+    # curated entry) BEFORE merge_document_requests ever sees an
+    # LLM-generated doc — without this entry, that plural form fails to
+    # collapse onto doc_rules.py's mandatory_docs() floor doc (which uses
+    # the singular "Borrower Authorization"), producing two separate,
+    # undeduped documents in the final output instead of one.
+    "borrowers authorization": "borrower authorization",
     "occupancy certification / investor certification": "occupancy certification",
     "occupancy certification": "occupancy certification",
     "investor certification": "occupancy certification",

@@ -270,6 +270,24 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     # Title / Closing
     "title commitment": "Title Commitment",
     "title insurance": "Title Insurance",
+    # "Title Fee Sheet" / "Smart Fee" are the NQMF submission-requirements
+    # checklist's names (data/submission_documents.md, "All Transactions"
+    # row) for the title company's itemized fee sheet — the same real-world
+    # document the eligibility engine's "title invoice" category maps to
+    # (tools/doc_rules.py _eligibility_category_doc_map). Aliased onto the
+    # SAME canonical type so an LLM-generated "Title Fee Sheet"/"Smart Fee"
+    # merges with (rather than duplicates) the deterministic floor doc.
+    "title fee sheet": "Title Invoice",
+    "smart fee": "Title Invoice",
+    "smartfee": "Title Invoice",
+    # "Copy of EMD Check / Receipt" — submission_documents.md's purchase-
+    # applicable earnest-money item. Distinct from "Verification of
+    # Deposit" (asset/reserve verification, below) — this is proof the
+    # earnest money was actually paid, not a funds-to-close check.
+    "emd check": "EMD Check",
+    "copy of emd check": "EMD Check",
+    "copy of emd check / receipt": "EMD Check",
+    "emd check / receipt": "EMD Check",
     "vesting deed": "Grant Deed",
     "grant deed": "Grant Deed",
     "warranty deed": "Warranty Deed",
