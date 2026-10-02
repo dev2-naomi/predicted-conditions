@@ -39,6 +39,12 @@ Cross-cutting generates ONLY documents triggered by file-wide issues. Keep this 
 **Always include:**
 - Government-Issued Photo ID — identity verification
 - IRS Form 4506-C — tax transcript authorization
+- Borrower Authorization — required per NQMF submission requirements
+  whenever NQMF is pulling credit (the normal case). This is NOT the same
+  document as the 4506-C: the 4506-C only authorizes IRS tax-transcript
+  retrieval, while Borrower Authorization covers the lender's general
+  authority to verify credit, employment, income, and asset information.
+  Neither one substitutes for the other — include both.
 - Occupancy Certification — for investment/non-owner-occupied properties
 
 **Include if triggered:**
@@ -48,7 +54,6 @@ Cross-cutting generates ONLY documents triggered by file-wide issues. Keep this 
 
 **DO NOT include — these are process forms, not underwriting needs:**
 - Credit Authorization — part of application intake, not a predictive need
-- General "Borrower Authorization" — the 4506-C covers the relevant authorization
 - Patriot Act / CIP Form — automatic compliance process
 - Borrower Certification / Declarations — part of the 1003 loan application
 - Any document that every loan gets automatically regardless of loan facts

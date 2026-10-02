@@ -41,6 +41,21 @@ Do NOT generate: W-2, paystubs, tax returns, P&L, bank statement analysis, VOE, 
 
 **1099 loans** — Generate ONLY: 1099 forms and tax returns. Do NOT generate paystubs or W-2.
 
+**P&L Only (Alt Doc) loans** — income_doc literally says "P&L Only" or "Alt
+Doc" (see the warning above — do not confuse this with a "Full Doc"
+borrower's SUPPLEMENTARY P&L). This program's income is qualified
+entirely from the P&L itself, with no tax returns at all. Generate ONLY:
+1. Profit and Loss — 12 or 24-month 3rd-party-prepared P&L statement
+   (CPA-prepared if the income_doc label says so) covering the required
+   period; this is the PRIMARY income document for this program, not a
+   supplementary item — it must always be generated, never omitted.
+2. Proof of 2 Years Self-Employment
+3. Proof of Borrower(s) Ownership Percentage
+4. Business Bank Statements — most recent 2 months (ONLY for the "P&L
+   w/ 2 months Bank Statement" sub-variant; omit for "P&L Only" standalone)
+Do NOT generate: W-2, paystubs, personal/business tax returns, VOE — this
+program has no tax-return requirement at all.
+
 ### Documents this module must NEVER generate:
 - VOM / VOR — these are housing history docs, handled by Credit module (STEP_04)
 - Primary Residence Verification / Proof of Primary Residence — handled by Credit module

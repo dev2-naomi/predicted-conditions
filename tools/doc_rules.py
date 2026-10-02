@@ -380,13 +380,18 @@ def derive_income_docs(ss: dict) -> list[dict]:
 # _ELIGIBILITY_CATEGORY_DOC_MAP maps each known category name to the
 # document template it corresponds to. Categories that already have a
 # dedicated deterministic source (Credit Report/URLA via mandatory_docs(),
-# Bank Statement/Profit and Loss via derive_income_docs()) map to the SAME
-# canonical document_type, so apply_deterministic_rules' existing-key
-# dedup naturally no-ops instead of double-injecting. Categories with no
-# existing deterministic source (Business License, Ownership Interest
-# Certification, Title Invoice, Borrower Authorization) get a new floor
-# doc here so they can no longer be silently omitted by LLM run-to-run
-# variance.
+# Bank Statement/Profit and Loss via derive_income_docs(), and — as of the
+# submission-requirements-coverage audit below — Title Invoice/Borrower
+# Authorization, now ALSO in mandatory_docs()) map to the SAME canonical
+# document_type, so apply_deterministic_rules' existing-key dedup naturally
+# no-ops instead of double-injecting. This map stays in place even for
+# those two as a second, independent backstop: mandatory_docs() guarantees
+# them unconditionally, this map additionally merges in the eligibility
+# engine's own program-specific reasoning (via _merge_reasons in _inject)
+# whenever the eligibility JSON actually flags the category. Categories
+# with no OTHER deterministic source (Business License, Ownership Interest
+# Certification, ITIN, LoanNex/Prequal) get a new floor doc here so they
+# can no longer be silently omitted by LLM run-to-run variance.
 # ---------------------------------------------------------------------------
 
 def _eligibility_category_doc_map() -> dict[str, dict]:
@@ -607,6 +612,39 @@ def mandatory_docs() -> list[dict]:
               "and terms"],
              ["Required for all transactions per NQMF submission requirements — confirms the "
               "priced product/rate/terms match the loan file"]),
+        # Title Fee Sheet / "Smart Fee" (data/submission_documents.md, "All
+        # Transactions" row) — promoted from eligibility-only
+        # (_eligibility_category_doc_map's "title invoice" entry) to the
+        # universal floor: this item is required on every NQMF submission,
+        # not just when the eligibility engine happens to flag "title
+        # invoice" as a missing-doc category for the qualifying program.
+        # Audited (10x consistency run across bibby/montes/segoviano/pisa/
+        # omalley/kashana/kelly_goldberg/otodo_augustine/pullings) — this
+        # item was absent on every single loan that should have listed it,
+        # confirming the eligibility-only path alone wasn't reliably
+        # surfacing it.
+        _doc("Title Invoice", "Title", "P1", "HARD-STOP",
+             ["Itemized title/closing fees from the title company",
+              "Matches fees disclosed on the Closing Disclosure/Loan Estimate"],
+             ["Required for all transactions per NQMF submission requirements "
+              "(Title Fee Sheet / Smart Fee)"]),
+        # Borrower Authorization (data/submission_documents.md, "All
+        # Transactions" row: "Borrower Certification Form — if NQMF is
+        # pulling credit"). Previously relied solely on the eligibility
+        # engine flagging a "borrower authorization" missing-doc category
+        # (_eligibility_category_doc_map) AND was explicitly blocked from
+        # organic LLM generation by plans/step_01_cross_cutting.md's old
+        # "DO NOT include — the 4506-C covers it" instruction — the 4506-C
+        # only authorizes IRS tax-transcript retrieval, it does NOT cover
+        # general credit/employment/income/asset verification, so it was
+        # never actually a substitute. Promoted to the universal floor so
+        # this doesn't depend on either the plan wording or the eligibility
+        # engine's per-run category output.
+        _doc("Borrower Authorization", "Cross-Cutting", "P1", "HARD-STOP",
+             ["Signed authorization for the lender to verify credit, employment, "
+              "income, and asset information", "Signed and dated by all borrowers"],
+             ["Required for all transactions per NQMF submission requirements "
+              "when NQMF is pulling credit"]),
     ]
 
 
@@ -627,6 +665,21 @@ def conditional_docs(flags: dict) -> list[dict]:
              ["Current ownership/vesting confirmed", "Legal description matches title",
               "Recording information"],
              ["Evidence of ownership transfer required for purchase transactions"]))
+        # "Copy of EMD Check / Receipt" — data/submission_documents.md
+        # marks this "as applicable for purchase" (i.e. purchase-only,
+        # unlike Purchase Contract/Grant Deed which are universal for
+        # purchases). Had NO deterministic source at all before this —
+        # not in mandatory_docs(), not in conditional_docs(), not in
+        # _eligibility_category_doc_map() — entirely dependent on the
+        # per-module LLM happening to generate it, which audits showed it
+        # consistently did not. See normalize.py's "emd check"/"copy of
+        # emd check" aliases for how LLM-phrased variants map onto this
+        # canonical type.
+        docs.append(_doc("EMD Check", "Title", "P2", "SOFT-STOP",
+             ["Copy of the earnest money deposit check or receipt",
+              "Amount matches the EMD disclosed in the purchase contract"],
+             ["Purchase transactions require evidence the earnest money "
+              "deposit was paid, per NQMF submission requirements"]))
 
     if flags["is_refinance"]:
         docs.append(_doc("Payoff Statement", "Title", "P1", "SOFT-STOP",

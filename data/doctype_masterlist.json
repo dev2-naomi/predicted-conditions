@@ -5708,8 +5708,8 @@
   {
     "doctype_id": 1557,
     "document_type": "EMD Check",
-    "category": null,
-    "nqm_relevant": false
+    "category": "Title",
+    "nqm_relevant": true
   },
   {
     "doctype_id": 1558,
@@ -9230,8 +9230,8 @@
   {
     "doctype_id": 2165,
     "document_type": "Prequal Response Form",
-    "category": null,
-    "nqm_relevant": false
+    "category": "Cross-Cutting",
+    "nqm_relevant": true
   },
   {
     "doctype_id": 2166,
@@ -9500,8 +9500,8 @@
   {
     "doctype_id": 2211,
     "document_type": "Title Invoice",
-    "category": null,
-    "nqm_relevant": false
+    "category": "Title",
+    "nqm_relevant": true
   },
   {
     "doctype_id": 2212,
