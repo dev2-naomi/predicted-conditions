@@ -555,6 +555,15 @@ _CANONICAL_FIELDS: dict[str, Any] = {
     "applicable_parties": [],
     "description": "",
     "guideline_reference": "",
+    # Per-spec cross-document consistency check results (populated by
+    # run_satisfaction_pass for any spec carrying a `cross_references` flag
+    # in data/canonical_doc_specs.json — see tools/doc_rules.py's
+    # guideline_cross_reference_map()). Each entry:
+    #   {specification, cross_references, status, note}
+    # status: "consistent" | "inconsistent" | "missing_sibling_document" |
+    #   "needs_review". Empty when this document has no cross-reference
+    #   specs this run.
+    "cross_document_checks": [],
 }
 
 # Fields to silently drop (LLM sometimes adds these non-standard keys)
@@ -592,7 +601,8 @@ def normalize_document_structure(dr: dict) -> dict:
             out[field] = val
 
     # Coerce list fields
-    for lf in ("specifications", "reasons_needed", "satisfied_specifications", "document_ids", "tags", "applicable_parties"):
+    for lf in ("specifications", "reasons_needed", "satisfied_specifications", "document_ids", "tags",
+               "applicable_parties", "cross_document_checks"):
         v = out[lf]
         if isinstance(v, str):
             out[lf] = [v] if v else []

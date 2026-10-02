@@ -38,6 +38,7 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt.tool_node import ToolNode
 from typing_extensions import TypedDict
 
+from registry import STEP_ORDER
 from step_loader import load_system_prompt, resolve_plan_for_step, resolve_tools_for_step
 from tools import ALL_TOOLS
 
@@ -78,6 +79,12 @@ class PredictiveConditionsState(TypedDict, total=False):
     loan_file_xml: str                # MISMO XML — primary input
     manifest_json: str                # Raw manifest JSON (document inventory from extraction)
     eligibility_json: str             # Raw eligibility engine output JSON
+    required_documents_json: str      # Submission Requirements checklist (program_name,
+                                       # program_results_key, documents[]) — the loan's
+                                       # minimum_required_documents item, same one the
+                                       # Submission Requirements tab renders. Optional —
+                                       # absent/empty is a graceful no-op (see
+                                       # tools.scenario_tools.parse_required_documents).
     env: str                          # "Test" | "Prod"
 
     # ---- Message history ----
@@ -107,6 +114,15 @@ class PredictiveConditionsState(TypedDict, total=False):
 _MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-5")
 _SYSTEM_PROMPT = load_system_prompt()
 
+# Extended thinking (Opus) forces temperature=1 at the Anthropic API level —
+# it can't be lowered while thinking is enabled. That's the main source of
+# spec-wording drift across modules 01-07 on reruns of the SAME input (see
+# consistency testing in the predicted-conditions repo history). Non-thinking
+# models (Sonnet, etc.) have no such restriction, so give them an explicit,
+# low, configurable temperature instead of falling through to the Anthropic
+# API's own default of 1.0.
+_LLM_TEMPERATURE = os.environ.get("LLM_TEMPERATURE", "0.2")
+
 _llm_kwargs: dict = {
     "model": _MODEL,
     "max_tokens": 16384,
@@ -114,6 +130,8 @@ _llm_kwargs: dict = {
 }
 if "opus" in _MODEL:
     _llm_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
+else:
+    _llm_kwargs["temperature"] = float(_LLM_TEMPERATURE)
 
 _llm = ChatAnthropic(**_llm_kwargs)
 
@@ -135,6 +153,8 @@ if _FALLBACK_MODEL and _FALLBACK_MODEL != _MODEL:
     }
     if "opus" in _FALLBACK_MODEL:
         _fallback_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
+    else:
+        _fallback_kwargs["temperature"] = float(_LLM_TEMPERATURE)
     _fallback_specs.append(("anthropic", ChatAnthropic(**_fallback_kwargs)))
 
 # Tier 2 — OpenAI reasoning ("thinking") model for cross-provider resilience.
@@ -178,6 +198,7 @@ _DEFAULT_INITIAL_PROMPT = (
     "Do NOT output a summary between steps — just call the tools.\n\n"
     "Step sequence:\n"
     "  STEP_00: parse_loan_file, parse_manifest_documents, parse_eligibility_output, "
+    "parse_required_documents, "
     "load_doctype_masterlist, build_scenario_summary, detect_contradictions, route_to_facets\n"
     "  STEP_01: load_guideline_sections, check_overlay_conflicts, "
     "generate_crosscutting_document_requests\n"
@@ -204,13 +225,38 @@ _STEP_SAVE_REPORT_PATTERN = "Step report saved for "
 
 
 def _extract_step_from_tool_message(msg: ToolMessage) -> str | None:
-    """If a ToolMessage indicates a step was saved, return the step ID."""
+    """If a ToolMessage indicates a step genuinely advanced, return the step ID.
+
+    Only matches the exact "Step report saved for STEP_XX. Advancing..."
+    format produced by a real (non-regression, non-rejection) advance in
+    save_step_report, and only when the extracted token is a canonical
+    STEP_ID from STEP_ORDER.
+
+    This used to naively take everything between the prefix and the first
+    "." — which broke when save_step_report started returning a *different*
+    message for a stale re-affirmation of an already-completed step:
+    "Step report saved for STEP_00 (a re-affirmation of an already-completed
+    step ...). current_step remains STEP_09 ...". That message also starts
+    with the same "Step report saved for " prefix, so the naive parser
+    extracted the garbled token "STEP_00 (a re-affirmation ...)" as a fake
+    "step advanced away from" boundary. Since that garbled token is (like
+    any real step) != current_step, _summarize_completed_steps treated it as
+    a valid, ever-more-recent boundary on every restart, repeatedly
+    re-anchoring the model's visible context right at the stale STEP_00
+    re-affirmation and hiding real STEP_09 progress — causing the agent to
+    loop the STEP_00 checklist forever instead of ever reaching STEP_09's
+    real work. Observed live on Kashana reruns after deploying the
+    current_step regression guard in tools/general.py. Restricting the
+    match to a genuine canonical STEP_ID closes this off entirely, whatever
+    text save_step_report's message happens to contain afterward.
+    """
     content = msg.content if isinstance(msg.content, str) else ""
-    if _STEP_SAVE_REPORT_PATTERN in content:
-        # "Step report saved for STEP_02. Advancing to STEP_03..."
-        after = content.split(_STEP_SAVE_REPORT_PATTERN, 1)[1]
-        return after.split(".")[0].strip()
-    return None
+    if _STEP_SAVE_REPORT_PATTERN not in content:
+        return None
+    # "Step report saved for STEP_02. Advancing to STEP_03..."
+    after = content.split(_STEP_SAVE_REPORT_PATTERN, 1)[1]
+    token = after.split(".")[0].strip()
+    return token if token in STEP_ORDER else None
 
 
 def _summarize_completed_steps(
@@ -551,6 +597,28 @@ def should_continue(state: PredictiveConditionsState) -> Literal["tools", "party
     last = messages[-1]
     if isinstance(last, AIMessage) and last.tool_calls:
         return "tools"
+    # The model responded without calling a tool. Normally this means the
+    # workflow genuinely finished (STEP_09 ran, final_output.document_requests
+    # is populated). If final_output is still empty, the model stopped
+    # PREMATURELY mid-workflow -- observed live on a real rerun: execution
+    # got through module_outputs 01-04 (current_step stuck at "STEP_01") and
+    # then the orchestrator emitted a plain text reply instead of the next
+    # tool call, so this routed straight to party_split -> END with an empty
+    # final_output, yet execute_background_run still recorded the run as
+    # "success" (graph.invoke() returned without raising). Rather than
+    # silently completing with a garbage/empty result, raise here so the run
+    # is correctly recorded as an error (retriable/investigable) instead of a
+    # false "success" that callers have no way to distinguish from a real,
+    # complete, empty-document-set result.
+    final_output = state.get("final_output") or {}
+    if not final_output.get("document_requests"):
+        current_step = state.get("current_step", "unknown")
+        raise RuntimeError(
+            "Orchestrator stopped calling tools before completing the workflow "
+            f"(current_step={current_step!r}, final_output.document_requests "
+            "empty). Treating this as a failed run rather than a false "
+            "'success' with an incomplete result."
+        )
     return "party_split"
 
 

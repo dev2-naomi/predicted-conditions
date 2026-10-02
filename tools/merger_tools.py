@@ -2178,6 +2178,40 @@ def _find_bank_statement_companion_fields(submitted_docs: list[dict]) -> list[tu
     return companions
 
 
+def _find_cross_reference_companion_fields(
+    other_doc_type: str,
+    submitted_docs: list[dict],
+) -> list[tuple[dict, str]]:
+    """Find submitted document(s) of *other_doc_type* (a canonical doc_type
+    name, e.g. "profit and loss") for use when evaluating a spec flagged
+    with `cross_references` in data/canonical_doc_specs.json — see
+    tools.doc_rules.guideline_cross_reference_map().
+
+    Not party-scoped (unlike _find_ownership_companion_fields): most of
+    these cross-document checks are loan-level, not borrower-level (e.g.
+    EMD Check vs. Purchase Contract), and the ones that are borrower-level
+    (e.g. Balance Sheet vs. Form 1040) still benefit more from finding SOME
+    matching sibling than from risking a false negative on a party-name
+    mismatch. Reuses the same primary/fallback alias matching as the rest
+    of this module so "profit and loss" correctly matches whatever the
+    manifest actually calls that document.
+
+    Returns a list of (extracted_fields, matched_doc_name) tuples, or []
+    when no sibling document of that type was submitted this run — callers
+    use the emptiness of this result to flag the spec as
+    "missing_sibling_document" rather than silently guessing.
+    """
+    primary, _fallback = _split_primary_fallback_docs(
+        _canonical_doc_type(other_doc_type), submitted_docs,
+    )
+    companions: list[tuple[dict, str]] = []
+    for sdoc in primary:
+        ef = sdoc.get("extracted_fields") or {}
+        if ef:
+            companions.append((ef, sdoc.get("name") or other_doc_type.title()))
+    return companions
+
+
 # Keyword pattern for the "account must be shown as belonging to the
 # borrower" spec family — every phrasing variant we've seen asks for some
 # combination of {account holder|account owner|account ownership|authorized
@@ -2948,6 +2982,31 @@ def run_satisfaction_pass(
                     all_fields.append(companion_ef)
                     all_field_labels.append(companion_name)
 
+        # Generic cross-document consistency checks (see
+        # tools.doc_rules.guideline_cross_reference_map) — e.g. Balance
+        # Sheet's "must be consistent with the YTD Profit and Loss period"
+        # or EMD Check's "amount must match the purchase contract". Pull in
+        # the referenced sibling document type(s)' extracted_fields as
+        # extra evidence BEFORE running the satisfaction check, and track
+        # which referenced types were actually found so the per-spec
+        # cross_document_checks verdict below can distinguish "verified
+        # consistent/inconsistent" from "couldn't even check — the other
+        # document isn't in this run's submission set".
+        cross_ref_map: dict[str, list[str]] = dr.get("_cross_reference_map") or {}
+        cross_ref_found_types: set[str] = set()
+        if cross_ref_map:
+            referenced_types: set[str] = set()
+            for refs in cross_ref_map.values():
+                referenced_types.update(refs)
+            for ref_type in referenced_types:
+                for companion_ef, companion_name in _find_cross_reference_companion_fields(
+                    ref_type, submitted_docs,
+                ):
+                    cross_ref_found_types.add(ref_type)
+                    if companion_ef not in all_fields:
+                        all_fields.append(companion_ef)
+                        all_field_labels.append(companion_name)
+
         extracted: dict | list[dict] = all_fields[0] if len(all_fields) == 1 else all_fields
 
         # The 1003 is special: its own consistency/completeness spec is
@@ -3039,6 +3098,59 @@ def run_satisfaction_pass(
         dr["specifications"] = remaining_specs
         dr["satisfied_specifications"] = satisfied_specs
         total_satisfied_specs += len(satisfied_specs)
+
+        # Per-spec cross-document consistency verdicts (see
+        # tools.doc_rules.guideline_cross_reference_map and the companion
+        # pull above). Built from ground-truth "was the sibling document
+        # even found" rather than trusted purely to the LLM's satisfied/
+        # unsatisfied call — a spec can only be "consistent"/"inconsistent"
+        # when the referenced document type was actually present this run;
+        # otherwise there was never real evidence to check against, however
+        # the satisfaction check happened to resolve it.
+        if cross_ref_map:
+            cross_document_checks: list[dict] = []
+            for spec_text, refs in cross_ref_map.items():
+                # `refs` entries are OR'd, not AND'd: a spec listing e.g.
+                # ["mortgage note", "promissory note"] means "either naming
+                # of the same real-world document counts" (manifests call
+                # this document different things), NOT "both documents
+                # must be present". A spec genuinely needing two distinct
+                # documents (e.g. Balance Sheet needing both Form 1040 AND
+                # Loan Application for a business-name match) still only
+                # requires finding AT LEAST ONE to have real evidence to
+                # check against — found_refs/missing_refs below are tracked
+                # separately purely for note transparency, not to gate the
+                # status on finding every single one.
+                found_refs = [r for r in refs if r in cross_ref_found_types]
+                missing_refs = [r for r in refs if r not in cross_ref_found_types]
+                if not found_refs:
+                    status = "missing_sibling_document"
+                    note = (
+                        f"Requires cross-checking against "
+                        f"{' or '.join(r.title() for r in refs)}, but no "
+                        "such document was found in this run's submitted "
+                        "document set — cannot verify."
+                    )
+                elif spec_text in satisfied_spec_texts:
+                    status = "consistent"
+                    note = f"Verified consistent against {', '.join(r.title() for r in found_refs)}."
+                    if missing_refs:
+                        note += f" ({', '.join(r.title() for r in missing_refs)} not available this run.)"
+                else:
+                    status = "needs_review"
+                    note = (
+                        f"Cross-checked against {', '.join(r.title() for r in found_refs)}, "
+                        "but consistency could not be automatically confirmed — review manually."
+                    )
+                    if missing_refs:
+                        note += f" ({', '.join(r.title() for r in missing_refs)} not available this run.)"
+                cross_document_checks.append({
+                    "specification": spec_text,
+                    "cross_references": refs,
+                    "status": status,
+                    "note": note,
+                })
+            dr["cross_document_checks"] = cross_document_checks
 
     return total_checked, total_satisfied_specs
 

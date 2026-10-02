@@ -765,6 +765,93 @@ def parse_eligibility_output(
 
 
 @tool
+def parse_required_documents(
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
+) -> Command:
+    """
+    Parse the loan's Submission Requirements checklist (required_documents_json)
+    supplied by the origination system — the same `minimum_required_documents`
+    item rendered by the Submission Requirements tab.
+
+    Shape: {program_name, program_results_key, documents: [{label, category,
+    category_ids, borrower?, status}]}. `status` is "completed" for steps
+    already satisfied on their side, "pending" otherwise.
+
+    This checklist is AUTHORITATIVE but additive: every document on it is
+    guaranteed to be floor-injected as a document request later in the
+    pipeline (STEP_08 — see tools.doc_rules.required_documents_floor()),
+    regardless of whether this run's own guideline reasoning (STEP_01-07)
+    independently proposes it. That reasoning is NOT replaced — it can
+    still add further documents beyond this checklist.
+
+    If no required_documents_json is provided, this is a graceful no-op —
+    the pipeline falls back entirely to guideline-reasoning-derived
+    document requests, as before.
+    """
+    s = state or {}
+    raw = s.get("required_documents_json", "")
+    if not raw:
+        return Command(update={
+            "messages": [ToolMessage(
+                "No required_documents_json provided. Skipping Submission "
+                "Requirements checklist intake.",
+                tool_call_id=tool_call_id,
+            )],
+        })
+
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, TypeError) as e:
+        return Command(update={
+            "messages": [ToolMessage(
+                f"Could not parse required_documents_json: {e}. Skipping "
+                "Submission Requirements checklist intake.",
+                tool_call_id=tool_call_id,
+            )],
+        })
+
+    if not isinstance(data, dict):
+        return Command(update={
+            "messages": [ToolMessage(
+                "required_documents_json did not parse to an object. Skipping.",
+                tool_call_id=tool_call_id,
+            )],
+        })
+
+    documents = data.get("documents")
+    if not isinstance(documents, list) or not documents:
+        return Command(update={
+            "messages": [ToolMessage(
+                "required_documents_json has no 'documents' list. Skipping.",
+                tool_call_id=tool_call_id,
+            )],
+        })
+
+    program_name = data.get("program_name")
+    program_results_key = data.get("program_results_key")
+    completed = sum(1 for d in documents if isinstance(d, dict) and d.get("status") == "completed")
+    pending = len(documents) - completed
+
+    return Command(update={
+        "scenario_summary": {
+            "_required_documents_data": {
+                "program_name": program_name,
+                "program_results_key": program_results_key,
+                "documents": documents,
+            },
+        },
+        "messages": [ToolMessage(
+            f"Submission Requirements checklist parsed. Program: {program_name or 'unknown'}. "
+            f"{len(documents)} checklist items ({completed} completed, {pending} pending). "
+            "These are floor-injected as authoritative document requests at STEP_08, "
+            "in addition to (not instead of) this run's own guideline-driven proposals.",
+            tool_call_id=tool_call_id,
+        )],
+    })
+
+
+@tool
 def build_scenario_summary(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
     state: Annotated[dict, InjectedState] = None,

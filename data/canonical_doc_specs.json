@@ -301,11 +301,19 @@
       },
       {
         "text": "The appraisal must be dated within 365 days of the Note date",
-        "condition": "property_units=1-4"
+        "condition": "property_units=1-4",
+        "cross_references": [
+          "mortgage note",
+          "promissory note"
+        ]
       },
       {
         "text": "A recertification of value is required if the report exceeds 120 days of the Note Date",
-        "condition": "property_units=1-4"
+        "condition": "property_units=1-4",
+        "cross_references": [
+          "mortgage note",
+          "promissory note"
+        ]
       },
       {
         "text": "When an appraisal report will be more than 4 months old (120 days) on the date of the Note and Mortgage, the appraiser must inspect the exterior of the property and review current market data to determine whether the property has declined in value since the date of the original appraisal",
@@ -567,7 +575,10 @@
       },
       {
         "text": "Appraisal report must accurately reflect the flood zone",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "appraisal report"
+        ]
       },
       {
         "text": "Property must be in a community which participates in the FEMA Program",
@@ -868,6 +879,15 @@
       {
         "text": "Identity of all borrowers must be documented",
         "condition": null
+      },
+      {
+        "text": "Name on the ID must match the name on the loan application, credit report, and title documents",
+        "condition": null,
+        "cross_references": [
+          "loan application (1003)",
+          "credit report",
+          "title commitment"
+        ]
       }
     ]
   },
@@ -1298,7 +1318,10 @@
       },
       {
         "text": "If personal bank statements provided reflect payments being made on obligations not listed on the credit report, See Undisclosed Debts for additional guidance.",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "credit report"
+        ]
       },
       {
         "text": "ATM deposits may be included if a consistent pattern of deposits is present.",
@@ -1479,7 +1502,10 @@
       },
       {
         "text": "If the credit report or VOR/VOM reflects a past-due status, updated documentation is required to verify the account is current.",
-        "condition": "program=non-DSCR"
+        "condition": "program=non-DSCR",
+        "cross_references": [
+          "credit report"
+        ]
       },
       {
         "text": "All months in which the borrower has rented and/or had a housing history must be documented.",
@@ -1572,6 +1598,13 @@
       {
         "text": "For rent-free circumstances on 1-4 Unit Properties in which the borrower is not residing with their spouse/domestic partner on purchase transactions, the borrower must be an experienced investor with existing REOs.",
         "condition": "program=DSCR AND living_rent_free=true AND property_units=1-4 AND not_residing_with_spouse_domestic_partner=true AND loan_purpose=purchase"
+      },
+      {
+        "text": "Must reconcile with the payoff statement to ensure consistency in loan balance and account information",
+        "condition": null,
+        "cross_references": [
+          "payoff statement"
+        ]
       }
     ]
   },
@@ -1969,11 +2002,17 @@
       },
       {
         "text": "The monthly gross revenue from the P&L must be supported by the bank statements provided",
-        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)",
+        "cross_references": [
+          "bank statement"
+        ]
       },
       {
         "text": "The total monthly average deposits from the bank statements, minus any disallowed deposits, must be no more than 20% less than the monthly gross revenue on the P&L",
-        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)"
+        "condition": "program=P&L Plus 2 Months Bank Statements (Alt Doc)",
+        "cross_references": [
+          "bank statement"
+        ]
       },
       {
         "text": "Depreciation, depletion and amortization/casualty losses listed on the P&L may be added back to the applicant's income",
@@ -2191,6 +2230,14 @@
       {
         "text": "Any right of first refusal in the condominium project documents must not adversely impact the rights of a mortgagee or its assignee to sell or lease a unit acquired by the mortgagee or its assignee",
         "condition": "property_type=condominium AND deed_restriction=right_of_first_refusal"
+      },
+      {
+        "text": "Legal description must match the title commitment and appraisal report for collateral integrity",
+        "condition": null,
+        "cross_references": [
+          "title commitment",
+          "appraisal report"
+        ]
       }
     ]
   },
@@ -2235,6 +2282,14 @@
       {
         "text": "A copy of the check that has not cleared may be obtained along with a processor's certification verifying with the bank the date the check cleared, the dollar amount of the check, and the individual providing the information.",
         "condition": "earnest_money_check_not_cleared"
+      },
+      {
+        "text": "EMD amount must match the amount disclosed on the purchase contract and/or the EMD check",
+        "condition": null,
+        "cross_references": [
+          "purchase contract",
+          "emd check"
+        ]
       }
     ]
   },
@@ -2252,6 +2307,13 @@
       {
         "text": "Must support the appraised value for the transaction",
         "condition": null
+      },
+      {
+        "text": "Must identify the subject property address consistent with the appraisal report",
+        "condition": null,
+        "cross_references": [
+          "appraisal report"
+        ]
       }
     ]
   },
@@ -2277,6 +2339,13 @@
       {
         "text": "Must include the per diem interest calculation, if applicable",
         "condition": null
+      },
+      {
+        "text": "Must reconcile with the liens reflected on the title commitment",
+        "condition": null,
+        "cross_references": [
+          "title commitment"
+        ]
       }
     ]
   },
@@ -2308,7 +2377,11 @@
       },
       {
         "text": "If the most recent 1099 is more than 90 days from the Note Date, one of the following must be provided: evidence of year-to-date earnings via YTD bank statements, a printout of YTD wages from the employer(s), or the lender's Verification of Employment (or similar form) with YTD income completed by each employer",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "mortgage note",
+          "promissory note"
+        ]
       },
       {
         "text": "If the 1099 is paid to the borrower's business rather than the borrower individually, an Expense Letter from the borrower's CPA/EA/PTIN-licensed tax preparer is required to determine the qualifying income",
@@ -2316,7 +2389,10 @@
       },
       {
         "text": "Must match the income source and amount reported on the loan application",
-        "condition": "loan_application_submitted=true"
+        "condition": "loan_application_submitted=true",
+        "cross_references": [
+          "loan application (1003)"
+        ]
       },
       {
         "text": "Must support 1099 income reported on tax returns",
@@ -2372,7 +2448,11 @@
       },
       {
         "text": "Assets must be dated within 90 days of the note date",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "mortgage note",
+          "promissory note"
+        ]
       },
       {
         "text": "Documentation must include a one-month (or most recent quarterly) account statement showing opening and closing balances, borrower listed as account holder, account number, statement date/period, and current balance in U.S. dollars — or a Written Verification of Deposit completed by the financial institution — or verification via an approved third-party vendor",
@@ -2421,7 +2501,12 @@
       },
       {
         "text": "All individuals listed on the asset account must be on the note and mortgage",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "mortgage note",
+          "promissory note",
+          "deed of trust"
+        ]
       },
       {
         "text": "Assets held in the name of a business are not eligible to be used for the asset utilization calculation",
@@ -2470,11 +2555,18 @@
       },
       {
         "text": "Must show the business name consistent with the business name on the borrower's tax returns and loan application",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "form 1040",
+          "loan application (1003)"
+        ]
       },
       {
         "text": "Should reconcile to the business's most recent business tax return (e.g. Schedule L) where a matching tax return is on file",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "form 1040"
+        ]
       },
       {
         "text": "Must support the business's financial position and continuity as represented on the loan application",
@@ -2482,7 +2574,10 @@
       },
       {
         "text": "Must be dated and consistent with the YTD Profit and Loss period if a YTD Profit and Loss statement is also required",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "profit and loss"
+        ]
       }
     ]
   },
@@ -2565,7 +2660,10 @@
       },
       {
         "text": "If the earnest money check has cleared the bank, bank statements must cover the period up to and including the date the check cleared",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "bank statement"
+        ]
       },
       {
         "text": "If the check has not yet cleared, a copy of the check may be obtained along with a processor's certification verifying the date it cleared, the dollar amount, and the individual who provided the information",
@@ -2577,7 +2675,10 @@
       },
       {
         "text": "Amount must match the earnest money deposit disclosed on the purchase contract",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "purchase contract"
+        ]
       }
     ]
   },
@@ -2916,11 +3017,17 @@
       },
       {
         "text": "Partnership Agreement must be provided if applicable",
-        "condition": "entity_type=LLC"
+        "condition": "entity_type=LLC",
+        "cross_references": [
+          "operating or partnership agreement"
+        ]
       },
       {
         "text": "Operating Agreement must be provided if applicable",
-        "condition": "entity_type=LLC"
+        "condition": "entity_type=LLC",
+        "cross_references": [
+          "operating or partnership agreement"
+        ]
       },
       {
         "text": "Corporate documents that contain a list of owners along with titles must be provided",

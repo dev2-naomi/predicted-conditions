@@ -488,6 +488,97 @@ def _eligibility_category_doc_map() -> dict[str, dict]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Layer 1b: Submission Requirements checklist floor (required_documents_json)
+# ---------------------------------------------------------------------------
+#
+# Maps the Submission Requirements checklist's own `category` field onto
+# this pipeline's canonical document_type display names. NOTE: this is a
+# SEPARATE vocabulary from Tasktile's manifest category_id/
+# CATEGORY_ID_TO_DOC_TYPE (tools/shared/manifest_parser.py) — confirmed by
+# cross-checking the one real payload seen so far (Sahay Vibhor
+# Binayprasad, thread b152c710-7746-4b3b-bc57-1ae6977ca5c9): category_ids
+# 349/117/502/237 do coincidentally match our Tasktile map, but 14/17/
+# 2211/2174/2173/2064 do not appear in it at all, nor in any real
+# submitted-document sample in this repo — so `category_ids` is NOT used
+# as the primary join key here, only `category` (this checklist's own
+# string enum). Unmapped categories still get a humanized fallback rather
+# than being silently dropped (e.g. the newly-added "borrower_authorization
+# _to_sign" / "llc_member_list" categories the frontend mentioned).
+_REQUIRED_DOCS_CATEGORY_MAP: dict[str, str] = {
+    "urla_1003": "Loan Application (1003)",
+    "credit_report": "Credit Report",
+    "bank_statement": "Bank Statement",
+    "borrowers_authorization": "Borrower Authorization",
+    "title_invoice": "Title Invoice",
+    "non_qm_bank_statement_analysis_worksheet": "Non QM Bank Statement Analysis Worksheet",
+    "business_license": "Business License",
+    "profit_and_loss": "Profit and Loss",
+    "ownership_interest_certification": "Ownership Interest Certification",
+}
+
+
+def _humanize_required_doc_category(category: str, label: str) -> str:
+    """Fallback display name for a checklist category this table hasn't
+    been taught yet, so nothing from the authoritative checklist silently
+    vanishes just because its category string is unrecognized."""
+    base = category or label
+    return str(base).replace("_", " ").strip().title()
+
+
+def required_documents_floor(ss: dict) -> list[dict]:
+    """Return floor documents for every item on the loan's Submission
+    Requirements checklist (required_documents_json — the same
+    `minimum_required_documents` item the Submission Requirements tab
+    renders). Every checklist item is guaranteed to be represented as a
+    document request (via the bypass_negative_gates injection path), on
+    top of — not instead of — whatever STEP_01-07's own guideline
+    reasoning already produced.
+
+    The checklist's own `status` ("completed"/"pending") is carried into
+    reasons_needed as a supplementary signal, but the final
+    satisfied-vs-outstanding determination is still left to this
+    pipeline's own manifest-grounded satisfaction check at STEP_08 rather
+    than trusted blindly — our own evidence can be more current than the
+    checklist snapshot, and this keeps a single source of truth for
+    status instead of two potentially-conflicting ones."""
+    data = ss.get("_required_documents_data") or {}
+    items = data.get("documents") or []
+    program_name = data.get("program_name") or "this loan's program"
+
+    docs: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label") or "").strip()
+        if not label:
+            continue
+        category = str(item.get("category") or "").strip().lower()
+        status = item.get("status")
+        doc_type = _REQUIRED_DOCS_CATEGORY_MAP.get(category) or \
+            _humanize_required_doc_category(category, label)
+
+        if status == "completed":
+            status_note = (
+                f'Submission Requirements checklist already marks this item as '
+                f'completed (checklist label: "{label}") — verify against the '
+                f"manifest rather than assuming satisfied."
+            )
+        else:
+            status_note = (
+                f'Submission Requirements checklist marks this item as pending/'
+                f'outstanding (checklist label: "{label}").'
+            )
+
+        docs.append(_doc(
+            doc_type, "Cross-Cutting", "P1", "HARD-STOP",
+            [label],
+            [f"Required by the loan's Submission Requirements checklist for "
+             f"{program_name}.", status_note],
+        ))
+    return docs
+
+
 def eligibility_required_docs(ss: dict) -> list[dict]:
     """Return floor documents for every category the eligibility engine
     flagged as a minimum-required-document for the qualifying program.
@@ -907,6 +998,7 @@ def apply_deterministic_rules(
     _inject(conditional_docs(flags))
     _inject(derive_income_docs(scenario_summary))
     _inject(eligibility_required_docs(scenario_summary), bypass_negative_gates=True)
+    _inject(required_documents_floor(scenario_summary), bypass_negative_gates=True)
 
     stats = {
         "flags": flags,
@@ -1385,6 +1477,41 @@ def guideline_canonical_specs(doc_type: str, flags: dict) -> list[str] | None:
     return out
 
 
+def guideline_cross_reference_map(doc_type: str, flags: dict) -> dict[str, list[str]]:
+    """Return {spec_text: [other canonical doc_types]} for every spec on
+    this canonical doc_type (resolved against the current scenario's flags,
+    same gating as guideline_canonical_specs) that carries a
+    `cross_references` flag in data/canonical_doc_specs.json — i.e. specs
+    that can only genuinely be verified by comparing THIS document's data
+    against another document type's data (e.g. Balance Sheet's "must be
+    consistent with the YTD Profit and Loss period" needs the actual P&L
+    document's dates, not just the Balance Sheet's own extracted fields).
+
+    Consumed by run_satisfaction_pass (tools/merger_tools.py) to (a) pull in
+    the referenced sibling document(s)' extracted_fields as extra evidence
+    before running the satisfaction check, and (b) populate each document
+    request's `cross_document_checks` output field with a per-spec verdict
+    (consistent / inconsistent / missing_sibling_document / needs_review)
+    rather than silently leaving the LLM to guess with no actual access to
+    the other document's data.
+
+    Returns {} if this doc type isn't covered by the guideline library or
+    has no flagged specs — always safe to call unconditionally."""
+    lib = _load_guideline_specs()
+    entry = lib.get(doc_type)
+    if not entry:
+        return {}
+    out: dict[str, list[str]] = {}
+    for item in entry.get("items", []):
+        text = item.get("text")
+        refs = item.get("cross_references")
+        if not text or not refs:
+            continue
+        if _resolve_condition(item.get("condition"), flags):
+            out[text] = list(refs)
+    return out
+
+
 def apply_guideline_canonicalization(
     docs: list[dict], scenario_summary: dict, canonical_fn=None,
 ) -> int:
@@ -1405,6 +1532,14 @@ def apply_guideline_canonicalization(
         if specs is None:
             continue
         dr["specifications"] = specs
+        # Internal-only field (never reaches final output — see
+        # tools/shared/normalize.py's _CANONICAL_FIELDS projection, which
+        # intentionally doesn't preserve underscore-prefixed keys) carrying
+        # {spec_text: [other doc_types]} for any spec that needs
+        # cross-document verification. Consumed by run_satisfaction_pass.
+        cross_ref_map = guideline_cross_reference_map(ct, flags)
+        if cross_ref_map:
+            dr["_cross_reference_map"] = cross_ref_map
         touched += 1
     return touched
 

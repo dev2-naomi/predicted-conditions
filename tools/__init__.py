@@ -18,6 +18,7 @@ from tools.scenario_tools import (
     parse_eligibility_output,
     parse_loan_file,
     parse_manifest_documents,
+    parse_required_documents,
     route_to_facets,
 )
 from tools.crosscutting_tools import (
@@ -51,6 +52,7 @@ STEP_TOOLS = {
         parse_loan_file,
         parse_manifest_documents,
         parse_eligibility_output,
+        parse_required_documents,
         load_doctype_masterlist,
         build_scenario_summary,
         detect_contradictions,
