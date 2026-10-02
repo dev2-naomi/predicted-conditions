@@ -216,14 +216,6 @@
         "condition": null
       },
       {
-        "text": "A copy of the appraisal is required to be sent to the borrower on all loans regardless of whether the loan is closed, canceled, or denied",
-        "condition": null
-      },
-      {
-        "text": "Borrowers must receive a copy of their appraisal within 3 business days of the time it is delivered to the lender from the appraisal management company and/or appraiser",
-        "condition": null
-      },
-      {
         "text": "Appraisal must use Uniform Residential Appraisal Form for One Unit Properties (FNMA Form 1004)",
         "condition": "property_units=1"
       },
@@ -264,10 +256,6 @@
         "condition": "property_units=1-4"
       },
       {
-        "text": "Original digital black and white photographs/pictures are permitted if the appraisal clearly indicates the subject property meets our standards",
-        "condition": "property_units=1-4"
-      },
-      {
         "text": "Interior photos of the subject are required to include the kitchen, all bathrooms, the main living area, any areas with physical deterioration, and any renovations/improvements",
         "condition": "property_units=1-4"
       },
@@ -293,10 +281,6 @@
       },
       {
         "text": "Certification and Statement of Limiting Conditions signed by the appraiser must be included",
-        "condition": "property_units=1-4"
-      },
-      {
-        "text": "A copy of the appraiser's Errors and Omissions Insurance Policy, valid as of the date of the appraisal report, must be included with the appraisal unless confirmation is obtained from the AMC that a copy is on file with them",
         "condition": "property_units=1-4"
       },
       {
@@ -874,10 +858,6 @@
       },
       {
         "text": "Government ID must verify the borrower's identification number",
-        "condition": null
-      },
-      {
-        "text": "Identity of all borrowers must be documented",
         "condition": null
       },
       {

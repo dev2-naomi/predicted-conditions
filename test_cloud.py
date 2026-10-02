@@ -53,6 +53,8 @@ def _load_raw(directory: Path) -> dict:
             inputs["manifest_json"] = f.read_text(encoding="utf-8")
         elif ("eligibility" in name_lower or "sample_output" in name_lower) and f.suffix.lower() == ".json":
             inputs["eligibility_json"] = f.read_text(encoding="utf-8")
+        elif name_lower == "required_documents_json.json":
+            inputs["required_documents_json"] = f.read_text(encoding="utf-8")
 
     return inputs
 
@@ -139,6 +141,7 @@ def main():
     print(f"  XML:         {'yes' if 'loan_file_xml' in inputs else 'NO'} ({len(inputs.get('loan_file_xml',''))} chars)")
     print(f"  Manifest:    {'yes' if 'manifest_json' in inputs else 'NO'} ({len(inputs.get('manifest_json',''))} chars)")
     print(f"  Eligibility: {'yes' if 'eligibility_json' in inputs else 'NO'} ({len(inputs.get('eligibility_json',''))} chars)")
+    print(f"  ReqDocsJSON: {'yes' if 'required_documents_json' in inputs else 'NO'} ({len(inputs.get('required_documents_json',''))} chars)")
     print(f"  Base URL:    {BASE_URL}")
     print("=" * 60)
 
@@ -194,16 +197,27 @@ def main():
         print(f"  By category: {by_category}")
 
         print("\n  Document Requests:")
+        cross_check_total = 0
+        cross_check_by_status: dict[str, int] = {}
         for dr in document_requests:
             spec_count = len(dr.get("specifications", []))
             reason_count = len(dr.get("reasons_needed", []))
+            cdc = dr.get("cross_document_checks") or []
+            cross_check_total += len(cdc)
+            for c in cdc:
+                st = c.get("status", "?")
+                cross_check_by_status[st] = cross_check_by_status.get(st, 0) + 1
+            cdc_note = f", {len(cdc)} cross-checks" if cdc else ""
             print(
                 f"    [{dr.get('severity')}/{dr.get('priority')}] "
                 f"{dr.get('document_type', '?')} "
                 f"({dr.get('document_category', '?')}) "
-                f"— {spec_count} specs, {reason_count} reasons "
+                f"— {spec_count} specs, {reason_count} reasons{cdc_note} "
                 f"[{dr.get('status', '?')}]"
             )
+
+        if cross_check_total:
+            print(f"\n  Cross-document checks: {cross_check_total} total, by status: {cross_check_by_status}")
 
         stats = final_output.get("stats", {})
         if stats:

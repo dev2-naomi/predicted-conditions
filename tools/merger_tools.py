@@ -750,7 +750,12 @@ def rank_document_requests(
     )
 
     return Command(update={
-        "module_outputs": {"08": {"ranked_document_requests": ranked}},
+        # "rank_done" is an explicit completion marker (distinct from the
+        # "ranked_document_requests" data key, which cross_check_satisfaction
+        # also writes to) consumed by step_loader._gate_step_08_tools to
+        # decide which STEP_08 tool to expose next — see that function's
+        # module comment for the race condition this closes.
+        "module_outputs": {"08": {"ranked_document_requests": ranked, "rank_done": True}},
         "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
     })
 
@@ -3193,7 +3198,9 @@ def cross_check_satisfaction(
     )
 
     return Command(update={
-        "module_outputs": {"08": {"ranked_document_requests": ranked}},
+        # "cross_check_done" — see the matching comment on rank_document_requests's
+        # "rank_done" marker above; same purpose, next link in the chain.
+        "module_outputs": {"08": {"ranked_document_requests": ranked, "cross_check_done": True}},
         "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
     })
 

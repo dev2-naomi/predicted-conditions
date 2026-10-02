@@ -67,6 +67,54 @@ def get_tool_registry() -> dict[str, Any]:
     return _TOOL_REGISTRY
 
 
+# STEP_08 (merge -> rank -> cross_check -> generate_final_output) has a
+# strict data dependency chain: each tool reads the module_outputs["08"]
+# key (or, for generate_final_output, final_output) that the previous one
+# just wrote, via InjectedState. LangGraph's ToolNode dispatches every tool
+# call named in a single AIMessage CONCURRENTLY against one shared state
+# snapshot (langgraph.prebuilt.tool_node.ToolNode._func uses
+# executor.map(self._run_one, tool_calls, ...) and only merges all of their
+# Command updates into the graph state once every call in that batch has
+# returned) — so if the model ever batches two of these four into the same
+# turn (Anthropic/OpenAI both allow multiple tool_use blocks per response
+# by default), the later one silently reads pre-update state. Confirmed
+# live: a run where the model batched merge_document_requests +
+# rank_document_requests together produced "Ranked 0" (rank read an empty
+# merged_document_requests), with the loss masked downstream only because
+# generate_final_output happens to fall back to merged_document_requests
+# when ranked_document_requests is empty.
+#
+# Disabling parallel tool calls globally (bind_tools(parallel_tool_calls=
+# False)) would close this, but was rejected: a real run showed ~60% of
+# all multi-call batches are benign (write_todo bundled alongside a real
+# tool call), so a blanket disable would roughly double LLM round-trips for
+# the ENTIRE pipeline just to fix this one four-tool chain — real risk
+# against the 900s Lambda timeout on larger loan files. Instead, only
+# expose ONE of these four tools at a time while on STEP_08, advancing
+# strictly based on which stage of module_outputs["08"] is already
+# populated — making it physically impossible for the model to batch two
+# of them together, without touching tool-call parallelism anywhere else
+# (write_todo etc. are unaffected since they're general tools, always
+# available alongside whichever single STEP_08 tool is currently exposed).
+_STEP_08_CHAIN: list[tuple[str, Any]] = [
+    ("merge_document_requests", lambda mo08, state: "merged_document_requests" not in mo08),
+    ("rank_document_requests", lambda mo08, state: not mo08.get("rank_done")),
+    ("cross_check_satisfaction", lambda mo08, state: not mo08.get("cross_check_done")),
+    ("generate_final_output", lambda mo08, state: not state.get("final_output")),
+]
+
+
+def _gate_step_08_tools(state: dict, step_tool_names: list[str]) -> list[str]:
+    """Return the single next STEP_08 tool name still owed, or `step_tool_names`
+    unchanged (defensive fallback) if the chain tool isn't actually in it, or
+    [] once all four have run (only save_step_report, a general tool, remains)."""
+    mo08 = (state.get("module_outputs") or {}).get("08") or {}
+    for name, still_pending in _STEP_08_CHAIN:
+        if still_pending(mo08, state):
+            return [name] if name in step_tool_names else step_tool_names
+    return []
+
+
 def resolve_tools_for_step(state: dict) -> list[Any]:
     """
     Tool resolver called before every LLM invocation.
@@ -86,6 +134,8 @@ def resolve_tools_for_step(state: dict) -> list[Any]:
         return [registry["write_todo"]] if "write_todo" in registry else general_tools
 
     step_tool_names = get_step_tools(current_step)
+    if current_step == "STEP_08":
+        step_tool_names = _gate_step_08_tools(state, step_tool_names)
     step_tools = [registry[name] for name in step_tool_names if name in registry]
 
     # Deduplicate while preserving order (general tools first)
