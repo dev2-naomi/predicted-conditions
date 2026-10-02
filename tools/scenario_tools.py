@@ -525,6 +525,59 @@ def _mine_fico_from_passed_programs(
     return min(fico_vals) if fico_vals else None
 
 
+# Keywords that, when present in a single-field "HasXxx" missing-field flag
+# from the eligibility engine, indicate the flag is tracking the PRESENCE OF
+# A DOCUMENT (rather than some other boolean business-rule flag). Confirmed
+# via an exhaustive grep of every real eligibility.json sample under
+# compiled_inputs/ for "field":"Has*" entries: only HasCPALetter and
+# HasBusinessLicense (both document-presence flags) appeared alongside
+# HasCreditLimits and HasPPPRestrictions (neither a document — both are
+# plain compliance/business-rule flags), so a bare "starts with Has" match
+# would false-positive on those. Requiring one of these keywords in the
+# remainder of the field name is what distinguishes the two groups in every
+# real sample seen so far.
+_HAS_FIELD_DOC_KEYWORDS = (
+    "letter", "license", "statement", "certificate", "certification",
+    "agreement", "authorization", "disclosure", "affidavit",
+    "verification", "invoice", "deed", "policy", "report", "document",
+    "form",
+)
+
+
+def _split_camel_case(name: str) -> str:
+    """Turn a CamelCase identifier (acronym-aware) into space-separated
+    words, e.g. "CPALetter" -> "CPA Letter", "BusinessLicense" ->
+    "Business License"."""
+    import re as _re_camel
+    s = _re_camel.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name)
+    s = _re_camel.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", s)
+    return s.strip()
+
+
+def _has_field_doc_category(entry: dict) -> str | None:
+    """If a missing_fields entry is a single-field "HasXxx" flag whose name
+    indicates it's tracking document presence (see
+    ``_HAS_FIELD_DOC_KEYWORDS``), return the human-readable document
+    category name (e.g. "CPA Letter"). Otherwise return None.
+
+    This is how we catch document requirements the eligibility engine
+    expresses as a single boolean flag (e.g. ``HasCPALetter`` for Foreign
+    National borrowers) rather than as a key in a "Minimum Required
+    Documents"/"Income Documentation" ``expected`` dict — a real gap found
+    when a user asked whether we request CPA Letters: the engine already
+    flags it, we just weren't reading this particular shape.
+    """
+    field = entry.get("field")
+    if not isinstance(field, str) or not field.startswith("Has") or len(field) <= 3:
+        return None
+    remainder = field[3:]
+    if not remainder or not remainder[0].isupper():
+        return None
+    if not any(kw in remainder.lower() for kw in _HAS_FIELD_DOC_KEYWORDS):
+        return None
+    return _split_camel_case(remainder)
+
+
 def _extract_required_doc_categories(
     program_results: dict[str, Any],
     eligible_programs: list[str],
@@ -538,20 +591,27 @@ def _extract_required_doc_categories(
       2. ``program_results[prog].{passed,failed,missing_fields}`` — the
          per-program evaluation arrays.
 
-    In both cases we look for requirement entries whose name contains
-    "minimum required documents" or "income documentation" and collect
-    the keys of their ``expected`` dicts.
+    From both sources we collect two shapes of document requirement:
+      a. Requirement entries whose name contains "minimum required
+         documents" or "income documentation" — we collect the keys of
+         their ``expected`` dicts (e.g. "LLC Member List", "Articles of
+         Organization").
+      b. Single-field "HasXxx" missing-field flags whose name indicates a
+         document-presence check (e.g. "HasCPALetter" -> "CPA Letter") —
+         see ``_has_field_doc_category``.
     """
     categories: set[str] = set()
 
     # 1. Entity-level missing_fields (authoritative for the selected program)
     for entry in (entity_missing_fields or []):
         req = (entry.get("requirement") or "").lower()
-        if "minimum required documents" not in req and "income documentation" not in req:
-            continue
-        expected = entry.get("expected")
-        if isinstance(expected, dict):
-            categories.update(expected.keys())
+        if "minimum required documents" in req or "income documentation" in req:
+            expected = entry.get("expected")
+            if isinstance(expected, dict):
+                categories.update(expected.keys())
+        has_doc_cat = _has_field_doc_category(entry)
+        if has_doc_cat:
+            categories.add(has_doc_cat)
 
     # 2. Evaluation-level program_results
     eligible_set = {p.lower() for p in eligible_programs}
@@ -562,11 +622,13 @@ def _extract_required_doc_categories(
         for array_key in ("passed", "failed", "missing_fields"):
             for check in prog_data.get(array_key, []):
                 req = (check.get("requirement") or "").lower()
-                if "minimum required documents" not in req and "income documentation" not in req:
-                    continue
-                expected = check.get("expected")
-                if isinstance(expected, dict):
-                    categories.update(expected.keys())
+                if "minimum required documents" in req or "income documentation" in req:
+                    expected = check.get("expected")
+                    if isinstance(expected, dict):
+                        categories.update(expected.keys())
+                has_doc_cat = _has_field_doc_category(check)
+                if has_doc_cat:
+                    categories.add(has_doc_cat)
 
     return sorted(categories)
 

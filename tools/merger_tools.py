@@ -177,8 +177,28 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     "certificate of good standing": {
         "good standing certificate", "certificate of status",
     },
-    "llc member list": {
-        "member list", "llc members", "list of llc members",
+    # "LLC Member List" used to be its own canonical document — folded into
+    # "Operating Or Partnership Agreement" (per user request) since the
+    # Operating Agreement already must list owners/ownership percentages
+    # and managing members (see data/canonical_doc_specs.json's "operating
+    # or partnership agreement" entry) — keeping both was redundant. Any of
+    # these aliases (including the real eligibility-engine category name,
+    # "llc member list") now collapse onto the Operating Agreement instead
+    # of creating a second document.
+    "operating or partnership agreement": {
+        "operating agreement", "llc member list", "member list",
+        "llc members", "list of llc members", "partnership agreement",
+    },
+    # Per data/guidelines.md: evidence of authority to sign on behalf of
+    # the entity "can be validated through the Operating Agreement or
+    # Certificate of Authorization. If not available, a Borrowing
+    # Certificate is required" — so any of these three satisfy the
+    # "Borrower Authorization to Sign" request, not just a document
+    # literally labeled that way.
+    "borrower authorization to sign": {
+        "authorization to sign", "signing authority", "signing authorization",
+        "certificate of authorization", "borrowing certificate",
+        "llc borrowing certificate",
     },
     "form 1040": {
         "1040", "personal tax return", "individual tax return", "irs form 1040",

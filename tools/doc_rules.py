@@ -116,6 +116,29 @@ def derive_flags(ss: dict) -> dict:
     is_itin = "itin" in citizenship_raw or any("itin" in lbl for lbl in income_labels)
     is_foreign_national = "foreign" in citizenship_raw and "non-foreign" not in citizenship_raw
 
+    # LLC/entity-vesting flag — drives canonical_doc_specs.json's
+    # "entity_type=LLC" conditions on the "operating or partnership
+    # agreement" entry (Operating Agreement must list owners/ownership %,
+    # identify managing members, be signed, etc.). Previously unresolvable
+    # (no "entity_type" case existed in _resolve_atomic at all), which
+    # silently wiped that doc type's specifications to an empty list on
+    # every single run regardless of whether the borrower was actually an
+    # LLC — confirmed via a real production sample
+    # (consistency_check/omalley_1_10x.json's O'Malley LLC loan had
+    # "specifications": [] despite LLCOrLegalEntity=true). Sourced from
+    # the eligibility engine's own application_data field (confirmed real
+    # key/shape via that same sample: "LLCOrLegalEntity": true,
+    # "llc_or_legal_entity": "Yes"). "Partnership" has no equivalent signal
+    # available yet, so entity_type=Partnership stays unresolvable
+    # (excluded) rather than guessed.
+    llc_flag_raw = app.get("LLCOrLegalEntity")
+    if llc_flag_raw is None:
+        llc_flag_raw = app.get("llc_or_legal_entity")
+    if isinstance(llc_flag_raw, bool):
+        is_llc = llc_flag_raw
+    else:
+        is_llc = str(llc_flag_raw or "").strip().lower() in ("true", "yes", "1")
+
     # "any" (not "all") variant of the full_doc bucket check — needed so W2/
     # Paystub/VOE guideline canonicalization still applies on a mixed-income
     # multi-borrower loan (e.g. one wage-earning co-borrower + one
@@ -152,6 +175,7 @@ def derive_flags(ss: dict) -> dict:
         "is_self_employed_borrower": is_self_employed_borrower,
         "is_itin": is_itin,
         "is_foreign_national": is_foreign_national,
+        "is_llc": is_llc,
         "has_reo": total_props > 0,
         "has_large_deposits": bool(assets.get("has_large_deposit_flags")),
         "has_gift": bool(assets.get("has_gift_indicators")),
@@ -468,6 +492,38 @@ def _eligibility_category_doc_map() -> dict[str, dict]:
              "income, and asset information", "Signed and dated by all borrowers"],
             ["Program eligibility requires a general borrower authorization on file"],
         ),
+        # Distinct from "borrower authorization" above — this is evidence
+        # that whoever is signing the loan/closing docs is actually
+        # authorized to bind the entity (LLC/partnership), not a credit-
+        # pull authorization. Per data/guidelines.md ("If all members are
+        # not borrowers, evidence the borrower has authority to sign on
+        # behalf of the entity... can be validated through the Operating
+        # Agreement or Certificate of Authorization. If not available, a
+        # Borrowing Certificate is required"), so Operating Agreement,
+        # Certificate of Authorization, or a Borrowing Certificate can all
+        # satisfy it — added as satisfaction aliases in
+        # tools/merger_tools.py's _DOCTYPE_ALIASES rather than folded away
+        # like "llc member list" was, since this one has its own real
+        # canonical_doc_specs.json content and isn't purely redundant with
+        # the Operating Agreement. Was previously falling through to the
+        # generic eligibility placeholder (P2/SOFT-STOP, generic wording)
+        # despite the eligibility engine flagging it as a key in the
+        # "Minimum Required Documents" expected dict on every LLC loan —
+        # given an explicit HARD-STOP entry here instead.
+        "borrower authorization to sign": _doc(
+            "Borrower Authorization to Sign", "Cross-Cutting", "P1", "HARD-STOP",
+            ["Must identify the individual being authorized to sign loan "
+             "and/or closing documents",
+             "Must identify the borrower or entity on whose behalf the "
+             "individual is authorized to sign",
+             "Must be signed and dated by the borrower (or an authorized "
+             "officer/manager of the entity) granting the authorization",
+             "Must specify the scope of documents/transactions the "
+             "authorization covers"],
+            ["Program eligibility engine flagged evidence of authority to "
+             "sign on behalf of the entity as required for this LLC/entity-"
+             "owned loan"],
+        ),
         "business license": _doc(
             "Business License", "Income", "P1", "HARD-STOP",
             ["Current, unexpired business license (or equivalent registration) "
@@ -475,6 +531,24 @@ def _eligibility_category_doc_map() -> dict[str, dict]:
              "Business name matches the business name on the loan application"],
             ["Program eligibility requires proof of active business licensure "
              "for self-employed borrowers"],
+        ),
+        # Surfaced via _extract_required_doc_categories's "HasXxx" single-
+        # field detection (tools/scenario_tools.py) — the eligibility
+        # engine flags this as "HasCPALetter" (a boolean, not a
+        # "Minimum Required Documents" dict key) for Foreign National Full
+        # Doc Self-Employed borrowers. Per data/guidelines.md: "CPA Letter
+        # with most recent 2 years income & YTD Earnings" (Foreign National
+        # – Full Doc Self Employed) and data/submission_documents.md's
+        # Foreign National row. Added so this gets real guideline-sourced
+        # specs instead of the generic eligibility-category placeholder.
+        "cpa letter": _doc(
+            "CPA Letter", "Income", "P1", "HARD-STOP",
+            ["Letter from the borrower's licensed CPA, on CPA letterhead, "
+             "signed and dated",
+             "States the borrower's self-employment income for the most "
+             "recent 2 years and year-to-date earnings"],
+            ["Foreign National Full Doc Self-Employed borrowers must document "
+             "self-employment income via a CPA letter per NQMF guidelines"],
         ),
         "ownership interest certification": _doc(
             "Ownership Interest Certification", "Income", "P1", "HARD-STOP",
@@ -489,6 +563,28 @@ def _eligibility_category_doc_map() -> dict[str, dict]:
             ["Itemized title/closing fees from the title company",
              "Matches fees disclosed on the Closing Disclosure/Loan Estimate"],
             ["Program eligibility requires the title company's itemized invoice"],
+        ),
+        # The eligibility engine flags "LLC Member List" as its own
+        # category (confirmed via real omalley eligibility.json: a key in
+        # the "Minimum Required Documents" expected-dict), but per request
+        # its content — members/ownership %, managing member ID — is
+        # already covered by the Operating Agreement and kept there
+        # instead of as a second, redundant document (see
+        # data/canonical_doc_specs.json's "operating or partnership
+        # agreement" entry, and tools/merger_tools.py's
+        # _DOCTYPE_ALIASES "operating or partnership agreement" entry for
+        # the satisfaction-matching side). Mapped directly to that
+        # document_type here (rather than left to fall through to the
+        # generic placeholder + alias-based merge-time dedup) so this
+        # collapses correctly even on the very first injection, before any
+        # other module has drafted an Operating Agreement request yet.
+        "llc member list": _doc(
+            "Operating Or Partnership Agreement", "Income", "P1", "HARD-STOP",
+            ["Operating Agreement must contain a list of owners along with "
+             "titles and their respective ownership percentages"],
+            ["Program eligibility engine flagged LLC member/ownership "
+             "documentation as required for this LLC-owned loan — satisfied "
+             "by the Operating Agreement rather than a separate document"],
         ),
     }
 
@@ -1372,6 +1468,16 @@ def _resolve_atomic(key: str, raw_value: str) -> Any:
     if key == "income_type":
         if "self_employ" in val or "self-employ" in val:
             return lambda flags: flags.get("is_self_employed_borrower")
+        return None
+
+    # Drives "operating or partnership agreement"'s LLC-specific items
+    # (see derive_flags' is_llc comment for the gap this closes).
+    # "Partnership" has no distinct signal available yet, so it falls
+    # through to the "unresolvable -> exclude" default below rather than
+    # being guessed from the absence of an LLC flag.
+    if key == "entity_type":
+        if "llc" in val:
+            return lambda flags: flags.get("is_llc", False)
         return None
 
     if key in ("occupancy", "occupancy_status"):

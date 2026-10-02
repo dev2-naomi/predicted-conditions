@@ -2818,27 +2818,6 @@
       }
     ]
   },
-  "llc member list": {
-    "source_headings": [],
-    "items": [
-      {
-        "text": "Must list all members/owners of the LLC and their respective ownership percentages",
-        "condition": null
-      },
-      {
-        "text": "Must identify the manager(s) or managing member(s) authorized to act on behalf of the LLC",
-        "condition": null
-      },
-      {
-        "text": "Ownership percentages must be consistent with the entity's Operating Agreement and, where applicable, the borrower's tax returns/K-1",
-        "condition": null
-      },
-      {
-        "text": "Must be dated and, where required, certified/signed by an authorized officer or manager of the LLC",
-        "condition": null
-      }
-    ]
-  },
   "loannex product & pricing results": {
     "source_headings": [],
     "items": [
@@ -3147,11 +3126,19 @@
         "condition": "entity_type=LLC"
       },
       {
-        "text": "Operating Agreement must contain a list of owners along with titles",
+        "text": "Operating Agreement must contain a list of owners along with titles and their respective ownership percentages",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "Operating Agreement must identify the manager(s) or managing member(s) authorized to act on behalf of the LLC",
         "condition": "entity_type=LLC"
       },
       {
         "text": "If the operating agreement does not state an authorized signer, then all entity owners must apply as a borrower and complete a 1003 as an individual applicant",
+        "condition": "entity_type=LLC"
+      },
+      {
+        "text": "Operating Agreement must be dated and, where required, certified/signed by an authorized officer or manager of the LLC",
         "condition": "entity_type=LLC"
       },
       {
