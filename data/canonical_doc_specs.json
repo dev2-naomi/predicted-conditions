@@ -124,23 +124,11 @@
     ],
     "items": [
       {
-        "text": "A completed appraisal report is required on all loan transactions",
-        "condition": null
-      },
-      {
         "text": "Appraiser must provide his or her license or certification on the appraisal report",
         "condition": null
       },
       {
         "text": "Appraisals must be completed by appraisers who are properly licensed or certified in the state in which the property to be appraised is located",
-        "condition": null
-      },
-      {
-        "text": "Appraisal orders may not contain any estimated or requested value",
-        "condition": null
-      },
-      {
-        "text": "Comparable sales may not be suggested to the appraiser",
         "condition": null
       },
       {
@@ -302,10 +290,6 @@
       {
         "text": "Appraisal order date may NOT be prior to initial signed dated borrowers Application and 'Intent to Proceed' issued with the initial application and disclosure package",
         "condition": "loan_purpose!=business_purpose"
-      },
-      {
-        "text": "Retail and Wholesale Appraisals are to be ordered through the NQM Funding, LLC appraisal desk, except for when transferred appraisal is provided",
-        "condition": "channel=retail OR channel=wholesale"
       }
     ]
   },
