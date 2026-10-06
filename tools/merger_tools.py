@@ -1884,8 +1884,6 @@ def _llm_check_specs(
     import logging
     import os
 
-    from langchain_anthropic import ChatAnthropic
-
     specs_text = [_spec_text(s) for s in _as_list(specifications)]
     if not specs_text:
         return []
@@ -1921,11 +1919,38 @@ def _llm_check_specs(
         specs_json=json.dumps(specs_text, indent=2),
     )
 
-    model = os.environ.get("SATISFACTION_CHECK_MODEL", "claude-haiku-4-5")
     logger = logging.getLogger(__name__)
 
+    # Same PRIMARY_PROVIDER override as agent.py's main orchestrator LLM
+    # (see agent.py _USE_OPENAI_PRIMARY) -- without this, this satisfaction
+    # checker silently fell back to ChatAnthropic even when the orchestrator
+    # itself had been switched to OpenAI (e.g. because ANTHROPIC_API_KEY is
+    # invalid/missing), making every call here raise and get swallowed by
+    # the except below. The caller (run_satisfaction_pass) then treats EVERY
+    # spec as "not yet satisfied" -- not a crash, but a silent correctness
+    # regression: conditions already met by submitted documents keep
+    # showing up as still-needed. Discovered 2026-10-05 when Anthropic's key
+    # was invalid during dev testing on an OpenAI-primary override.
+    _primary_provider = os.environ.get("PRIMARY_PROVIDER", "").strip().lower()
+    _use_openai = _primary_provider == "openai" or (
+        not os.environ.get("ANTHROPIC_API_KEY") and _primary_provider != "anthropic"
+    )
+
     try:
-        llm = ChatAnthropic(model=model, max_tokens=4096, max_retries=2)
+        if _use_openai:
+            from langchain_openai import ChatOpenAI
+
+            model = os.environ.get("SATISFACTION_CHECK_OPENAI_MODEL", "gpt-5-mini")
+            oai_kwargs: dict = {"model": model, "max_retries": 2}
+            effort = os.environ.get("SATISFACTION_CHECK_OPENAI_REASONING_EFFORT", "low")
+            if effort:
+                oai_kwargs["reasoning_effort"] = effort
+            llm = ChatOpenAI(**oai_kwargs)
+        else:
+            from langchain_anthropic import ChatAnthropic
+
+            model = os.environ.get("SATISFACTION_CHECK_MODEL", "claude-haiku-4-5")
+            llm = ChatAnthropic(model=model, max_tokens=4096, max_retries=2)
         response = llm.invoke(prompt)
         content = response.content if hasattr(response, "content") else str(response)
 
