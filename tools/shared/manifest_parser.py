@@ -92,6 +92,14 @@ CATEGORY_ID_TO_DOC_TYPE: dict[int, str] = {
 
     # Assets / Bank
     502:  "bank_statement",
+    827:  "bank_statement",  # Other Asset (brokerage/investment/trust account
+                             # statements -- confirmed via real payload:
+                             # shows institution, owner, account number,
+                             # balance, same evidence shape as a bank
+                             # statement; routing it here gets it into the
+                             # "assets" facet and lets it satisfy Bank
+                             # Statement / Asset document requests instead
+                             # of silently falling into "other")
     1080: "emd",
     210:  "other",          # Wire Transfer
 

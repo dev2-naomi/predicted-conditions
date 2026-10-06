@@ -68,6 +68,27 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
         # Confirmed against eligibility-engine repo source, not just the
         # payload output.
         "most recent asset statement for proof reserves",
+        # Manifest category_id 827 ("Other Asset") -- brokerage/investment/
+        # trust account statements that carry the same evidence shape as a
+        # bank statement (institution, owner, account number, balance) but
+        # get a distinct category_name from the indexer. Confirmed via real
+        # payload (Kelly/Goldberg thread 328a7ced...): two "Other Asset"
+        # documents (Morgan Stanley, Bank of America trust accounts) were
+        # present in the file but never matched Bank Statement/Asset
+        # requests because "other asset" wasn't in this alias set.
+        "other asset",
+    },
+    # Generic eligibility-engine-flagged "Asset" document_type (distinct
+    # from the mandatory-floor "Bank Statement" doc above) -- same real-
+    # world evidence (account statement showing balance/ownership), just a
+    # broader catch-all category name. Without this, "other asset" and
+    # "bank_statement"-typed submitted docs never match this canonical
+    # type at all (no entry existed here before), so genuine asset
+    # evidence in the file was invisible to this specific requirement.
+    "asset": {
+        "other asset", "bank statement", "bank_statement",
+        "investment account statement", "brokerage statement",
+        "asset statement", "proof of assets",
     },
     "hazard insurance": {
         "homeowners insurance", "property insurance", "insurance binder",
