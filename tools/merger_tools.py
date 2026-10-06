@@ -29,20 +29,61 @@ from tools.shared.normalize import (
 # ---------------------------------------------------------------------------
 # Document-type alias map
 # ---------------------------------------------------------------------------
-# Two maps control how the engine matches requested documents against the
+# Three maps control how the engine matches requested documents against the
 # manifest:
 #
 # _DOCTYPE_BLANKET_ALIASES — functionally equivalent documents.  When a
 #   blanket alias matches, ALL specs are marked satisfied (the submitted doc
 #   is a different document that fully covers the requirement).
 #
-# _DOCTYPE_ALIASES — naming variants of the same document.  When a name
-#   variant matches, the normal extracted-fields check still runs so only
-#   specs actually confirmed by extracted data are satisfied.
+# _DOCTYPE_ALIASES — naming variants of the SAME document (e.g. "VOE" is
+#   just a shorthand for "Verification of Employment" — there's only ever
+#   one real document). When a name variant matches, the normal
+#   extracted-fields check still runs so only specs actually confirmed by
+#   extracted data are satisfied. IMPORTANT: this map is ALSO reversed into
+#   _ALIAS_TO_CANONICAL (below) and used to compute merge keys for document
+#   REQUESTS themselves (_canonical_doc_type/_merge_key) — so an entry here
+#   doesn't just help evidence-matching, it also collapses any two document
+#   requests sharing a variant into ONE. Only put names here that really are
+#   the same document under a different label.
+#
+# _DOCTYPE_EVIDENCE_ALIASES — evidence-only cross-references: "a submitted
+#   document classified as X also counts as evidence for canonical type Y",
+#   WITHOUT collapsing the two into one document request. Use this (not
+#   _DOCTYPE_ALIASES) whenever Y is a genuinely distinct, separately-
+#   tracked document type from X (e.g. the generic eligibility-engine
+#   "Asset" catch-all recognizing a Bank Statement or Investment Account
+#   Statement as valid evidence, without merging those three into a single
+#   request — see the "asset" entry below for the bug this fixes).
 
 _DOCTYPE_BLANKET_ALIASES: dict[str, set[str]] = {
     "borrower certification as to business purpose": {
         "borrowers authorization",
+    },
+}
+
+_DOCTYPE_EVIDENCE_ALIASES: dict[str, set[str]] = {
+    # Generic eligibility-engine-flagged "Asset" document_type (distinct
+    # from the mandatory-floor "Bank Statement" and standalone "Investment
+    # Account Statement" docs) -- same real-world evidence (account
+    # statement showing balance/ownership), just a broader catch-all
+    # category name. These names are OTHER REAL canonical document types
+    # in their own right, so they live here (evidence-only) rather than in
+    # _DOCTYPE_ALIASES: putting them there previously caused "Bank
+    # Statement" (and "Investment Account Statement") document REQUESTS to
+    # silently collapse into "Asset" via _ALIAS_TO_CANONICAL's merge-key
+    # reuse of that same map -- confirmed via real payload (Kelly/Goldberg
+    # thread 328a7ced...): a borrower's "Bank Statement" floor doc
+    # vanished entirely (merged into "Asset", losing its own 6 specs) the
+    # moment this fix originally went into _DOCTYPE_ALIASES instead of
+    # here. This dict is consumed ONLY by _get_aliases() for satisfaction-
+    # matching, never by _ALIAS_TO_CANONICAL, so Asset/Bank
+    # Statement/Investment Account Statement now cross-recognize each
+    # other's evidence while remaining three separate, independently
+    # tracked document requests.
+    "asset": {
+        "bank statement", "bank_statement",
+        "investment account statement", "brokerage statement",
     },
 }
 
@@ -79,16 +120,17 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
         "other asset",
     },
     # Generic eligibility-engine-flagged "Asset" document_type (distinct
-    # from the mandatory-floor "Bank Statement" doc above) -- same real-
-    # world evidence (account statement showing balance/ownership), just a
-    # broader catch-all category name. Without this, "other asset" and
-    # "bank_statement"-typed submitted docs never match this canonical
-    # type at all (no entry existed here before), so genuine asset
-    # evidence in the file was invisible to this specific requirement.
+    # from the mandatory-floor "Bank Statement" doc above) -- only genuinely
+    # generic/non-canonical evidence-category names go here (names that
+    # aren't ALSO some other real, separately-tracked document type). Cross-
+    # type evidence recognition ("a Bank Statement or Investment Account
+    # Statement also counts as Asset evidence") lives in
+    # _DOCTYPE_EVIDENCE_ALIASES instead — see that dict's docstring for why
+    # putting those two here previously caused Bank Statement requests to
+    # silently merge into Asset instead of just being recognized as
+    # evidence for it.
     "asset": {
-        "other asset", "bank statement", "bank_statement",
-        "investment account statement", "brokerage statement",
-        "asset statement", "proof of assets",
+        "other asset", "asset statement", "proof of assets",
     },
     "hazard insurance": {
         "homeowners insurance", "property insurance", "insurance binder",
@@ -178,6 +220,11 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     },
     "investment account statement": {
         "brokerage statement", "investment statement", "brokerage account statement",
+        # Manifest category_id 827 ("Other Asset") -- see the "bank
+        # statement" entry above for the same reasoning; a brokerage
+        # statement (e.g. Morgan Stanley) is just as likely to land in this
+        # generic indexer bucket as a bank statement is.
+        "other asset",
     },
     "trust documents": {
         "trust agreement", "living trust", "revocable trust documents",
@@ -246,7 +293,7 @@ def _get_aliases(doc_type: str) -> set[str]:
     """Return all names (including the original) that count as the same doc."""
     key = doc_type.strip().lower()
     aliases = {key, key.replace(" ", "_"), key.replace("_", " ")}
-    for alias_map in (_DOCTYPE_ALIASES, _DOCTYPE_BLANKET_ALIASES):
+    for alias_map in (_DOCTYPE_ALIASES, _DOCTYPE_BLANKET_ALIASES, _DOCTYPE_EVIDENCE_ALIASES):
         for mapped in alias_map.get(key, set()):
             m = mapped.strip().lower()
             aliases.update({m, m.replace(" ", "_"), m.replace("_", " ")})
