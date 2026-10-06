@@ -43,28 +43,12 @@
         "condition": null
       },
       {
-        "text": "If the disputed tradeline is paid as agreed, no further action is needed",
-        "condition": null
-      },
-      {
-        "text": "If the disputed account has a zero balance or is being paid at closing, no further action is needed",
-        "condition": null
-      },
-      {
-        "text": "If the disputed account has delinquency within two years of the credit report date and the account balance is $2,500 or less, no further action is needed",
-        "condition": null
-      },
-      {
         "text": "If the disputed account has delinquency within two years of the credit report date and the account balance is over $2,500, the credit file should be documented with a credit supplement showing the dispute has been resolved",
         "condition": null
       },
       {
         "text": "A tri-merge or Residential Mortgage Credit Report (RMCR) is required for all borrowers on a loan",
         "condition": "borrower_type!=foreign_national_without_US_credit"
-      },
-      {
-        "text": "A valid Social Security number (SSN) is required for all borrowers on the loan",
-        "condition": "borrower_type!=ITIN AND borrower_type!=foreign_national"
       },
       {
         "text": "A signed letter of explanation from the borrower is required for all inquiries within the most recent 90 days for debts not already shown on the credit report",
@@ -83,19 +67,7 @@
         "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
       },
       {
-        "text": "Loan amount <= $1,500,000",
-        "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
-      },
-      {
         "text": "3 Credit References covering the most recent 12 months from the date of the application, supported with canceled checks or bank statements",
-        "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
-      },
-      {
-        "text": "Acceptable trades may be mortgage/rental verifications; utilities such as electricity, gas, water, telephone service, television, and internet providers",
-        "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
-      },
-      {
-        "text": "If utilities are included in the rental housing payment, they cannot be considered a separate source of non-traditional credit",
         "condition": "borrower_type=ITIN OR borrower_type=non_permanent_resident"
       },
       {
@@ -111,23 +83,11 @@
         "condition": "tradeline_requirement=standard"
       },
       {
-        "text": "Only the primary borrower must meet the tradeline requirements",
-        "condition": "tradeline_requirement=standard"
-      },
-      {
-        "text": "Spouses may combine tradelines",
-        "condition": "tradeline_requirement=standard"
-      },
-      {
         "text": "The tradeline must be reflected on the borrower's credit report",
         "condition": "tradeline_requirement=standard"
       },
       {
         "text": "The account must have been active in the past 12 months and may be opened or closed",
-        "condition": "tradeline_requirement=standard"
-      },
-      {
-        "text": "A supplement may be used to update the account activity",
         "condition": "tradeline_requirement=standard"
       },
       {
@@ -143,39 +103,7 @@
         "condition": "tradeline_requirement=standard"
       },
       {
-        "text": "Deferred loans not requiring a payment are ineligible tradelines",
-        "condition": "tradeline_requirement=standard"
-      },
-      {
-        "text": "Authorized user accounts are ineligible tradelines",
-        "condition": "tradeline_requirement=standard"
-      },
-      {
-        "text": "Collections or charge-offs are ineligible tradelines",
-        "condition": "tradeline_requirement=standard"
-      },
-      {
-        "text": "Primary Residence only",
-        "condition": "program=flex_select AND tradeline_requirement=limited"
-      },
-      {
         "text": "660 score, minimum 2 scores required",
-        "condition": "program=flex_select AND tradeline_requirement=limited"
-      },
-      {
-        "text": "Max LTV 80%",
-        "condition": "program=flex_select AND tradeline_requirement=limited"
-      },
-      {
-        "text": "Minimum 10% borrower own funds required",
-        "condition": "program=flex_select AND tradeline_requirement=limited"
-      },
-      {
-        "text": "Max DTI 43%",
-        "condition": "program=flex_select AND tradeline_requirement=limited"
-      },
-      {
-        "text": "12 month 0x30 housing / rental history required",
         "condition": "program=flex_select AND tradeline_requirement=limited"
       },
       {
@@ -582,18 +510,6 @@
       },
       {
         "text": "Flood insurance must be maintained throughout the duration of the loan",
-        "condition": "flood_insurance_required=true"
-      },
-      {
-        "text": "If definitive evidence of flood insurance is not available at closing, a completed and executed NFIP application with a copy of the borrower's premium check, the insurance agent's paid receipt, or the final settlement statement reflecting the flood insurance premium paid at closing may be used",
-        "condition": "flood_insurance_required=true"
-      },
-      {
-        "text": "If definitive evidence of flood insurance is not available at closing, a completed and executed NFIP General Change Endorsement Form showing the assignment of the current flood insurance policy by the property seller to the borrower may be used",
-        "condition": "flood_insurance_required=true"
-      },
-      {
-        "text": "If definitive evidence of flood insurance is not available at closing, an agent-executed NFIP Certification of Proof of Purchase of Flood Insurance may be used",
         "condition": "flood_insurance_required=true"
       },
       {
@@ -3274,11 +3190,11 @@
     "items": [
       {
         "text": "Borrowers may provide either 12 or 24 consecutive months of personal bank statements",
-        "condition": null
+        "condition": "documentation_type=bank_statement"
       },
       {
         "text": "12 or 24 months complete personal bank statements must be from the same account",
-        "condition": null
+        "condition": "documentation_type=bank_statement"
       },
       {
         "text": "Most recent 2 months of business bank statements must be provided if available",
@@ -3293,38 +3209,6 @@
         "condition": null
       },
       {
-        "text": "A pattern/history of deposits from the business account to the personal account must be established",
-        "condition": null
-      },
-      {
-        "text": "Borrowers must be self-employed for at least 2 years",
-        "condition": null
-      },
-      {
-        "text": "The business must be in existence for a minimum of 2 years as evidenced by a letter from either the business tax professional, regulatory agency or licensing bureau",
-        "condition": null
-      },
-      {
-        "text": "The Employment Section of the application must include a minimum of 2 years employment history",
-        "condition": null
-      },
-      {
-        "text": "Non-Permanent Resident Aliens without U.S. Credit are ineligible",
-        "condition": null
-      },
-      {
-        "text": "Foreign Nationals are ineligible",
-        "condition": null
-      },
-      {
-        "text": "Non-Profits are ineligible",
-        "condition": null
-      },
-      {
-        "text": "Not for Profits are ineligible",
-        "condition": null
-      },
-      {
         "text": "At least one of the borrowers must be self-employed",
         "condition": null
       },
@@ -3333,176 +3217,16 @@
         "condition": null
       },
       {
-        "text": "Verify the business is active and operating within 30 days of closing with either a phone listing and/or business address using directory assistance or internet search",
-        "condition": null
-      },
-      {
-        "text": "Tax returns are not required",
-        "condition": null
-      },
-      {
-        "text": "4506-C is not required",
-        "condition": null
-      },
-      {
-        "text": "If Tax returns and/or Transcripts are provided, the loan will be ineligible",
-        "condition": null
-      },
-      {
         "text": "When personal accounts are jointly owned and the other party is not an owner of the business and/or a borrower on the loan, all deposits not able to be readily identifiable as business income must be excluded",
         "condition": "account_ownership=joint AND co-owner_not_business_owner_or_borrower"
-      },
-      {
-        "text": "If a business account does not exist, co-mingled accounts guidance must be followed",
-        "condition": "business_account_does_not_exist"
-      },
-      {
-        "text": "Must be self-employed for a minimum of 18 months",
-        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=1"
-      },
-      {
-        "text": "Must have a minimum of three (3) years prior experience in the same line of business",
-        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=1"
-      },
-      {
-        "text": "Self-employed borrowers in a licensed profession (i.e., Medical, Legal, Accounting) will be considered from a business that has been in existence for less than two (2) years, but greater than one (1) year",
-        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=2"
-      },
-      {
-        "text": "Borrower has at least three (3) years of documented previous experience in the same profession, or evidence of formal education in a related field",
-        "condition": "program=Flex_Select AND self_employed_less_than_2_years AND option=2 AND borrower_in_licensed_profession"
-      },
-      {
-        "text": "Minimum 700 score",
-        "condition": "program=Flex_Select AND (option=1 OR option=2)"
-      },
-      {
-        "text": "Max LTV of 80% for Primary Residence",
-        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=primary"
-      },
-      {
-        "text": "Max LTV of 75% for Second Home",
-        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=second_home"
-      },
-      {
-        "text": "Max LTV of 70% for Investment Properties",
-        "condition": "program=Flex_Select AND (option=1 OR option=2) AND occupancy=investment"
-      },
-      {
-        "text": "Ineligible for Express(DU) or Super Jumbo",
-        "condition": "program=Flex_Select AND (option=1 OR option=2)"
-      },
-      {
-        "text": "Independent contractors who do not necessarily own their own business may be qualified using bank statement documentation and must follow the co-mingled accounts guidance",
-        "condition": "borrower_type=independent_contractor"
-      },
-      {
-        "text": "Evidence of filing tax returns and a Schedule C for 2+ years must be provided by their CPA / licensed tax preparer",
-        "condition": "borrower_type=independent_contractor"
-      },
-      {
-        "text": "An Expense Factor and/or P&L supporting their expenses must be provided",
-        "condition": "borrower_type=independent_contractor"
-      },
-      {
-        "text": "In instances where an online listing or search is not possible due to the nature of the borrower's employment (i.e., consultants), verification of activity within 30 days of the note date can be provided via evidence of receipt of business income within 30 days of the note supported by either invoices, bank statements showing business deposits, or similar means to support the business' recent operation",
-        "condition": "online_listing_not_possible"
       },
       {
         "text": "Any documents not in English or US Currency must be translated.",
         "condition": null
       },
       {
-        "text": "If borrower has a valid Social Security Number (SSN), all funds required for down payment, closing costs, and reserves must be seasoned for 30 days.",
-        "condition": "borrower_has_valid_SSN=true"
-      },
-      {
-        "text": "If borrower does not have a valid SSN (i.e., ITIN or Foreign National using foreign assets), 60 days' seasoning is required for funds required for down payment, closing costs, and reserves.",
-        "condition": "borrower_has_valid_SSN=false"
-      },
-      {
-        "text": "Foreign assets deposited into a U.S. institution within 60 days of application must be transferred directly from the foreign institution to closing or wired directly to the closing agent.",
-        "condition": "asset_type=foreign"
-      },
-      {
-        "text": "For assets required for reserves, the funds are to be converted to U.S. dollars using the current exchange rate.",
-        "condition": "asset_type=foreign"
-      },
-      {
-        "text": "A letter of reference on company letterhead from a verifiable banking institution may be provided for foreign assets required for reserves.",
-        "condition": "asset_type=foreign"
-      },
-      {
-        "text": "Foreign assets are not permitted on Second Liens.",
-        "condition": "lien_position=second"
-      },
-      {
-        "text": "The value of the asset must be reduced by the amount of the debt when calculating funds to close and reserves.",
-        "condition": "asset_has_secured_debt=true"
-      },
-      {
-        "text": "For borrowed funds secured by an asset, the terms of the secured loan and transfer of funds to the borrower should be documented.",
-        "condition": "funds_source=borrowed_secured_by_asset"
-      },
-      {
         "text": "Business bank statement showing assets remain after funds to close and reserve requirements are met with a balance greater than or equal to the balance of the debt.",
         "condition": "debt_source=business"
-      },
-      {
-        "text": "Borrower must provide either 12 or 24 consecutive months of business bank statements",
-        "condition": null
-      },
-      {
-        "text": "Bank statements must be complete for each month provided",
-        "condition": null
-      },
-      {
-        "text": "Bank statements must be from the same account, unless multiple accounts are permitted under specific conditions",
-        "condition": null
-      },
-      {
-        "text": "Business bank accounts can be used for qualification",
-        "condition": null
-      },
-      {
-        "text": "Personal bank accounts addressed to a DBA can be used for qualification",
-        "condition": null
-      },
-      {
-        "text": "Personal accounts with evidence of business expenses can be used for qualification",
-        "condition": null
-      },
-      {
-        "text": "Required Expense Statement Documentation applicable to Calculation Option chosen must be provided",
-        "condition": null
-      },
-      {
-        "text": "Qualifying Income must be multiplied by the ownership percentage to determine the owner's portion of income eligible for the transaction",
-        "condition": null
-      },
-      {
-        "text": "Borrower must be verified as minimum 25% owner of business",
-        "condition": null
-      },
-      {
-        "text": "Ownership percentage must be documented via Licensed tax preparer letter, CPA letter, Operating Agreement, or equivalent",
-        "condition": null
-      },
-      {
-        "text": "All non-borrowing owners of the business or the CFO, licensed tax preparer, or CPA for the company must provide a signed and dated letter acknowledging the transaction and confirming the borrower's access to the account for income-related purposes",
-        "condition": null
-      },
-      {
-        "text": "Multiple bank accounts may be used for multiple businesses",
-        "condition": "multiple_businesses=true"
-      },
-      {
-        "text": "Multiple bank accounts may be used if borrower shows they closed the initial account to use another",
-        "condition": "account_closure_documented=true"
-      },
-      {
-        "text": "Multiple bank accounts may be used for the same business, provided transfers between accounts are excluded",
-        "condition": "same_business_multiple_accounts=true"
       }
     ]
   }
