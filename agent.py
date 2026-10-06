@@ -123,6 +123,20 @@ _SYSTEM_PROMPT = load_system_prompt()
 # API's own default of 1.0.
 _LLM_TEMPERATURE = os.environ.get("LLM_TEMPERATURE", "0.2")
 
+# Per-request network timeout (seconds) for every LLM client constructed
+# below (primary + all fallback tiers). Added 2026-10-06 after a stuck
+# STEP_06 run (thread fde51090.../run 4379e698...) blocked for the full
+# 8.5-minute AWS Lambda ceiling: the underlying ChatOpenAI().invoke() call
+# simply never returned and never raised, so _invoke_with_retry() never even
+# got a chance to run (it only reacts to raised exceptions, not hangs), and
+# the fallback chain was never engaged. Lambda's hard 900s timeout then
+# force-killed the invocation, leaving the run permanently stuck in
+# "running" state with no error ever recorded. Setting an explicit timeout
+# turns a silent hang into a raised (and therefore retryable/catchable)
+# exception well before the Lambda ceiling. Applies to the underlying
+# HTTP client in both langchain-openai and langchain-anthropic.
+_LLM_TIMEOUT_SECONDS = float(os.environ.get("LLM_TIMEOUT_SECONDS", "90"))
+
 # Primary-provider override — set PRIMARY_PROVIDER=openai (or leave
 # ANTHROPIC_API_KEY unset) to run entirely on OpenAI instead of Anthropic.
 # Added 2026-10-05 after a revoked/invalid ANTHROPIC_API_KEY hard-failed
@@ -146,7 +160,11 @@ if _USE_OPENAI_PRIMARY:
     _OPENAI_PRIMARY_MODEL = os.environ.get(
         "OPENAI_PRIMARY_MODEL", os.environ.get("OPENAI_FALLBACK_MODEL", "gpt-5-mini"),
     )
-    _oai_primary_kwargs: dict = {"model": _OPENAI_PRIMARY_MODEL, "max_retries": 0}
+    _oai_primary_kwargs: dict = {
+        "model": _OPENAI_PRIMARY_MODEL,
+        "max_retries": 0,
+        "timeout": _LLM_TIMEOUT_SECONDS,
+    }
     _primary_effort = os.environ.get("OPENAI_REASONING_EFFORT", "medium")
     if _primary_effort:
         _oai_primary_kwargs["reasoning_effort"] = _primary_effort
@@ -162,6 +180,7 @@ else:
         "model": _MODEL,
         "max_tokens": 16384,
         "max_retries": 0,
+        "timeout": _LLM_TIMEOUT_SECONDS,
     }
     if "opus" in _MODEL:
         _llm_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
@@ -190,6 +209,7 @@ if _FALLBACK_MODEL and _FALLBACK_MODEL != _MODEL and not _USE_OPENAI_PRIMARY:
         "model": _FALLBACK_MODEL,
         "max_tokens": 16384,
         "max_retries": 0,
+        "timeout": _LLM_TIMEOUT_SECONDS,
     }
     if "opus" in _FALLBACK_MODEL:
         _fallback_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
@@ -206,7 +226,11 @@ if os.environ.get("OPENAI_API_KEY") and _OPENAI_FALLBACK_MODEL:
     try:
         from langchain_openai import ChatOpenAI
 
-        _oai_kwargs: dict = {"model": _OPENAI_FALLBACK_MODEL, "max_retries": 0}
+        _oai_kwargs: dict = {
+            "model": _OPENAI_FALLBACK_MODEL,
+            "max_retries": 0,
+            "timeout": _LLM_TIMEOUT_SECONDS,
+        }
         _effort = os.environ.get("OPENAI_REASONING_EFFORT", "medium")
         if _effort:
             _oai_kwargs["reasoning_effort"] = _effort
