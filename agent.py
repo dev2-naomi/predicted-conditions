@@ -123,17 +123,54 @@ _SYSTEM_PROMPT = load_system_prompt()
 # API's own default of 1.0.
 _LLM_TEMPERATURE = os.environ.get("LLM_TEMPERATURE", "0.2")
 
-_llm_kwargs: dict = {
-    "model": _MODEL,
-    "max_tokens": 16384,
-    "max_retries": 0,
-}
-if "opus" in _MODEL:
-    _llm_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
-else:
-    _llm_kwargs["temperature"] = float(_LLM_TEMPERATURE)
+# Primary-provider override — set PRIMARY_PROVIDER=openai (or leave
+# ANTHROPIC_API_KEY unset) to run entirely on OpenAI instead of Anthropic.
+# Added 2026-10-05 after a revoked/invalid ANTHROPIC_API_KEY hard-failed
+# every run with a 401 (not in _RETRYABLE_STATUS below, so the fallback
+# chain never even got a chance to kick in) — gives us a clean way to run
+# dev/test traffic on OpenAI only without touching the Anthropic client
+# construction at all (which errors at import time on a missing key).
+# OPENAI_PRIMARY_MODEL defaults to "gpt-5-mini" -- OpenAI's balanced/
+# cost-effective tier, the closest analog to claude-sonnet-4-5 (mirrors the
+# existing Opus-flagship vs Sonnet-balanced split, vs. "gpt-5" flagship
+# which is the closer Opus analog and is already used as the Tier 2
+# cross-provider fallback default below).
+_PRIMARY_PROVIDER = os.environ.get("PRIMARY_PROVIDER", "").strip().lower()
+_USE_OPENAI_PRIMARY = _PRIMARY_PROVIDER == "openai" or (
+    not os.environ.get("ANTHROPIC_API_KEY") and _PRIMARY_PROVIDER != "anthropic"
+)
 
-_llm = ChatAnthropic(**_llm_kwargs)
+if _USE_OPENAI_PRIMARY:
+    from langchain_openai import ChatOpenAI
+
+    _OPENAI_PRIMARY_MODEL = os.environ.get(
+        "OPENAI_PRIMARY_MODEL", os.environ.get("OPENAI_FALLBACK_MODEL", "gpt-5-mini"),
+    )
+    _oai_primary_kwargs: dict = {"model": _OPENAI_PRIMARY_MODEL, "max_retries": 0}
+    _primary_effort = os.environ.get("OPENAI_REASONING_EFFORT", "medium")
+    if _primary_effort:
+        _oai_primary_kwargs["reasoning_effort"] = _primary_effort
+    _llm = ChatOpenAI(**_oai_primary_kwargs)
+    logging.getLogger(__name__).warning(
+        "PRIMARY MODEL OVERRIDE: running on OpenAI %s instead of Anthropic "
+        "%s (PRIMARY_PROVIDER=%r, ANTHROPIC_API_KEY set=%s).",
+        _OPENAI_PRIMARY_MODEL, _MODEL, _PRIMARY_PROVIDER,
+        bool(os.environ.get("ANTHROPIC_API_KEY")),
+    )
+else:
+    _llm_kwargs: dict = {
+        "model": _MODEL,
+        "max_tokens": 16384,
+        "max_retries": 0,
+    }
+    if "opus" in _MODEL:
+        _llm_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
+    else:
+        _llm_kwargs["temperature"] = float(_LLM_TEMPERATURE)
+
+    _llm = ChatAnthropic(**_llm_kwargs)
+
+_PRIMARY_LLM_PROVIDER = "openai" if _USE_OPENAI_PRIMARY else "anthropic"
 
 # Fallback chain — tried in order when the primary model returns a transient
 # overload/rate-limit error. Each entry is (provider, llm). A cross-provider
@@ -143,9 +180,12 @@ _llm = ChatAnthropic(**_llm_kwargs)
 _fallback_specs: list[tuple[str, Any]] = []
 
 # Tier 1 — Anthropic Sonnet (same provider; cheaper/faster than Opus).
-# Set ANTHROPIC_FALLBACK_MODEL="" to disable this tier.
+# Set ANTHROPIC_FALLBACK_MODEL="" to disable this tier. Also skipped
+# whenever the primary is already running on the OpenAI override above —
+# no point building a second client against the same (missing/invalid)
+# Anthropic key.
 _FALLBACK_MODEL = os.environ.get("ANTHROPIC_FALLBACK_MODEL", "claude-sonnet-4-5")
-if _FALLBACK_MODEL and _FALLBACK_MODEL != _MODEL:
+if _FALLBACK_MODEL and _FALLBACK_MODEL != _MODEL and not _USE_OPENAI_PRIMARY:
     _fallback_kwargs: dict = {
         "model": _FALLBACK_MODEL,
         "max_tokens": 16384,
@@ -532,11 +572,36 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
     3. Inject the current step's plan as a transient system message
        (DynamicPlanMiddleware).
     """
-    # Dynamic tool binding
+    # Dynamic tool binding.
+    #
+    # OpenAI's reasoning models (gpt-5 family, incl. gpt-5-mini/5/5.1/5.2 —
+    # confirmed across all of them in dev testing) have a much stronger
+    # tendency than Claude to self-terminate early: their internal reasoning
+    # "convinces" them the task is done and they emit a plain-text reply
+    # with no tool_calls instead of continuing, even when the system/human
+    # prompt explicitly says "you MUST complete ALL steps, do NOT stop
+    # early". Prompt wording alone does not fix this for OpenAI models.
+    #
+    # The real fix is structural: force tool_choice="required" on OpenAI
+    # models (langchain_openai supports this; langchain_anthropic does not
+    # take the same value, and Claude doesn't need it) for as long as
+    # final_output.document_requests hasn't been populated yet -- i.e. the
+    # workflow is NOT genuinely finished. Once generate_final_output (the
+    # STEP_09 tool) has actually run and populated final_output, we stop
+    # forcing so the model can emit its natural closing text reply and let
+    # should_continue() route to party_split as designed.
+    final_output = state.get("final_output") or {}
+    _workflow_incomplete = not final_output.get("document_requests")
+
+    def _bind(llm, provider: str):
+        if _workflow_incomplete and provider == "openai":
+            return llm.bind_tools(step_tools, tool_choice="required")
+        return llm.bind_tools(step_tools)
+
     step_tools = resolve_tools_for_step(state)
-    llm_with_tools = _llm.bind_tools(step_tools)
+    llm_with_tools = _bind(_llm, _PRIMARY_LLM_PROVIDER)
     fallbacks_with_tools = [
-        (provider, fb_llm.bind_tools(step_tools))
+        (provider, _bind(fb_llm, provider))
         for provider, fb_llm in _fallback_specs
     ]
 

@@ -208,8 +208,21 @@ class PredictedConditionsStack(Stack):
                 "AGENT_SECRETS_ARN": agent_secrets.secret_arn,
                 "ANTHROPIC_MODEL": _deploy_env("ANTHROPIC_MODEL", "claude-opus-4-5"),
                 "ANTHROPIC_FALLBACK_MODEL": _deploy_env("ANTHROPIC_FALLBACK_MODEL", "claude-sonnet-4-5"),
+                # Only applied when the active model is non-Opus (Opus's
+                # extended thinking forces temperature=1 regardless — see
+                # agent.py). Lower = more consistent wording across reruns.
+                "LLM_TEMPERATURE": _deploy_env("LLM_TEMPERATURE", "0.2"),
                 "OPENAI_FALLBACK_MODEL": _deploy_env("OPENAI_FALLBACK_MODEL", "gpt-5"),
                 "OPENAI_REASONING_EFFORT": _deploy_env("OPENAI_REASONING_EFFORT", "medium"),
+                # Dev-only override added 2026-10-05 for the ANTHROPIC_API_KEY
+                # outage: set PRIMARY_PROVIDER=openai to run entirely on
+                # OPENAI_PRIMARY_MODEL instead of Anthropic (see agent.py's
+                # primary-model-selection block). Both default to "" / unset
+                # so normal (Anthropic-primary) behavior is unaffected unless
+                # explicitly opted into via .env or an inline env var on the
+                # deploy command.
+                "PRIMARY_PROVIDER": _deploy_env("PRIMARY_PROVIDER", ""),
+                "OPENAI_PRIMARY_MODEL": _deploy_env("OPENAI_PRIMARY_MODEL", ""),
                 "LLM_MAX_RETRIES": _deploy_env("LLM_MAX_RETRIES", "8"),
                 "LLM_RETRY_COOLDOWN": _deploy_env("LLM_RETRY_COOLDOWN", "5"),
                 "LLM_RETRY_MAX_BACKOFF": _deploy_env("LLM_RETRY_MAX_BACKOFF", "60"),

@@ -86,6 +86,13 @@ jobs:
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL || 'claude-opus-4-5' }}
           ANTHROPIC_FALLBACK_MODEL: ${{ vars.ANTHROPIC_FALLBACK_MODEL || 'claude-sonnet-4-5' }}
           OPENAI_FALLBACK_MODEL: ${{ vars.OPENAI_FALLBACK_MODEL || 'gpt-5' }}
+          # Dev-only ANTHROPIC_API_KEY-outage override (see agent.py /
+          # infra/stacks/predicted_conditions_stack.py) -- set the
+          # PRIMARY_PROVIDER repo/environment variable to "openai" to run
+          # entirely on OpenAI instead of Anthropic. Empty by default so
+          # normal prod behavior is unaffected.
+          PRIMARY_PROVIDER: ${{ vars.PRIMARY_PROVIDER || '' }}
+          OPENAI_PRIMARY_MODEL: ${{ vars.OPENAI_PRIMARY_MODEL || '' }}
           LANGCHAIN_TRACING_V2: "true"
           # Stage-aware default (matches infra/stacks/predicted_conditions_stack.py's
           # _deploy_env fallback) so dev/prod traces land in separate LangSmith
