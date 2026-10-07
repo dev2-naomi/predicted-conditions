@@ -31,14 +31,6 @@
         "condition": null
       },
       {
-        "text": "Credit report may not reflect a security freeze and must be resolved",
-        "condition": null
-      },
-      {
-        "text": "If a borrower unfreezes his or her credit after the date the original credit report was ordered, a new three-bureau merged report will be obtained to reflect current and updated information from all repositories",
-        "condition": null
-      },
-      {
         "text": "Housing Events and bankruptcies in the most recent 2 years must be explained by the borrower with a signed letter of explanation",
         "condition": null
       },
@@ -49,18 +41,6 @@
       {
         "text": "A tri-merge or Residential Mortgage Credit Report (RMCR) is required for all borrowers on a loan",
         "condition": "borrower_type!=foreign_national_without_US_credit"
-      },
-      {
-        "text": "A signed letter of explanation from the borrower is required for all inquiries within the most recent 90 days for debts not already shown on the credit report",
-        "condition": "program!=DSCR"
-      },
-      {
-        "text": "If new credit was granted from inquiries within the most recent 90 days, documentation must be obtained to support the current balance and payment",
-        "condition": "program!=DSCR"
-      },
-      {
-        "text": "Monthly payment for new credit from inquiries within the most recent 90 days must be included in the DTI",
-        "condition": "program!=DSCR"
       },
       {
         "text": "Minimum of 2 credit scores are required",
@@ -79,23 +59,11 @@
         "condition": "program=DSCR_no_ratio"
       },
       {
-        "text": "3 tradelines reporting for 12+ months with activity in the last 12 months, OR 2 tradelines reporting for 24+ months with activity in the last 12 months, OR 24 month mortgage history reporting on the credit report with a 0x30x12 history",
-        "condition": "tradeline_requirement=standard"
-      },
-      {
         "text": "The tradeline must be reflected on the borrower's credit report",
         "condition": "tradeline_requirement=standard"
       },
       {
-        "text": "The account must have been active in the past 12 months and may be opened or closed",
-        "condition": "tradeline_requirement=standard"
-      },
-      {
         "text": "Tradelines used to qualify may not exceed 0x60 in the most recent 12 months",
-        "condition": "tradeline_requirement=standard"
-      },
-      {
-        "text": "An acceptable 12 or 24 month housing history not reporting on credit may be used as a tradeline",
         "condition": "tradeline_requirement=standard"
       },
       {
