@@ -148,10 +148,6 @@
         "condition": "property_units=1 AND occupancy=investment AND rental_income_used=yes"
       },
       {
-        "text": "1-4 Family Rider (Assignment of Rents) (FNMA Form 3170) must be included for all Investment Properties",
-        "condition": "occupancy=investment AND property_units=1-4"
-      },
-      {
         "text": "Appraisal report must contain a street map showing the location of the subject property and all comparable used",
         "condition": "property_units=1-4"
       },
