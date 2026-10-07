@@ -20,7 +20,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import queue
 import random
+import threading
 import time
 from typing import Annotated, Any, Literal
 from typing_extensions import NotRequired
@@ -536,6 +538,59 @@ def _messages_for_openai(messages: list) -> list:
     return out
 
 
+def _invoke_with_hard_deadline(current: Any, msgs: list, timeout_s: float) -> AIMessage:
+    """Invoke ``current.invoke(msgs)`` with a hard wall-clock deadline.
+
+    The client's own ``timeout=_LLM_TIMEOUT_SECONDS`` kwarg (set on every
+    ChatAnthropic/ChatOpenAI construction above) is NOT sufficient on its
+    own. Observed live in production on 2026-10-07: three concurrent runs
+    each hung for 685s, 826s, and >900s (never raised at all) despite every
+    client being constructed with that same 90s timeout. The underlying
+    SDK's own internal timeout/retry plumbing (e.g. openai-python's ~600s
+    default plus its own internal retries, layered independently of
+    LangChain's ``max_retries=0``) can silently override or outlast the
+    configured per-request value — especially for a slow/trickling response
+    where each individual read never technically exceeds the per-operation
+    timeout even though the *total* call runs far longer than intended.
+    That's a client-timeout-didn't-fire bug, not the retry-budget-exhausted
+    scenario the original 2026-10-06 fix (see comment near
+    ``_LLM_TIMEOUT_SECONDS`` above) was written for.
+
+    Running the blocking call on a background daemon thread and bounding
+    OUR OWN wait with ``queue.get(timeout=...)`` guarantees a hard ceiling
+    regardless of what happens inside the HTTP/SDK layer. If the call
+    doesn't finish in time we raise ``TimeoutError`` (classified as
+    transient by ``_is_transient_exc`` via the "timeout" keyword) so the
+    retry/fallback chain in ``_invoke_with_retry`` engages immediately
+    instead of silently stalling. The orphaned thread is abandoned
+    (``daemon=True`` so it can't block process exit) rather than forcibly
+    killed — Python has no safe way to kill a running thread, and the
+    hung call will eventually terminate on its own (connection reset,
+    provider-side timeout, or the Lambda process exiting at its own
+    ceiling) without blocking anything we still care about.
+    """
+    result_q: queue.Queue = queue.Queue(maxsize=1)
+
+    def _worker() -> None:
+        try:
+            result_q.put(("ok", current.invoke(msgs)))
+        except Exception as e:  # noqa: BLE001 — forwarded to the caller below
+            result_q.put(("error", e))
+
+    threading.Thread(target=_worker, daemon=True).start()
+    try:
+        kind, payload = result_q.get(timeout=timeout_s)
+    except queue.Empty:
+        raise TimeoutError(
+            f"LLM invoke exceeded hard deadline of {timeout_s:.0f}s "
+            "(client-level timeout did not fire in time; abandoning this "
+            "attempt and treating it as transient)"
+        ) from None
+    if kind == "error":
+        raise payload
+    return payload
+
+
 def _invoke_with_retry(llm, messages: list, fallbacks=None) -> AIMessage:
     """
     Invoke the LLM with retry logic. On transient server errors (429 rate
@@ -562,7 +617,7 @@ def _invoke_with_retry(llm, messages: list, fallbacks=None) -> AIMessage:
         for label, provider, current, is_primary in candidates:
             try:
                 msgs = _messages_for_openai(messages) if provider == "openai" else messages
-                return current.invoke(msgs)
+                return _invoke_with_hard_deadline(current, msgs, _LLM_TIMEOUT_SECONDS)
             except Exception as e:  # noqa: BLE001 — classified below
                 last_exc = e
                 transient = _is_transient_exc(e)
