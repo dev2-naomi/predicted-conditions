@@ -1673,11 +1673,22 @@ def guideline_cross_reference_map(doc_type: str, flags: dict) -> dict[str, list[
 
 def apply_guideline_canonicalization(
     docs: list[dict], scenario_summary: dict, canonical_fn=None,
-) -> int:
+) -> tuple[int, list[str]]:
     """Replace `specifications` on every document request whose canonical
     doc_type is covered by data/canonical_doc_specs.json with the
     deterministic, guideline-sourced list resolved against this scenario's
-    flags (mutates in place). Returns the number of documents touched."""
+    flags (mutates in place).
+
+    Returns (touched, uncovered) where `touched` is the number of documents
+    whose specifications were replaced, and `uncovered` is the sorted list
+    of distinct canonical doc_types seen in `docs` that have NO entry in
+    data/canonical_doc_specs.json -- i.e. documents that are silently left
+    on raw LLM-generated (non-deterministic) specifications. Surfaced in
+    merge_document_requests' status message so a canonical-library naming
+    gap (e.g. a doc_type rename on one side not mirrored on the other --
+    this exact bug let "Prequal Response Form" skip canonicalization
+    entirely for an unknown period) gets caught immediately instead of
+    silently persisting, the way it did before this return value existed."""
     flags = derive_flags(scenario_summary)
 
     def canon(name: str) -> str:
@@ -1685,10 +1696,13 @@ def apply_guideline_canonicalization(
         return canonical_fn(n) if canonical_fn else n
 
     touched = 0
+    uncovered: set[str] = set()
     for dr in docs:
         ct = canon(dr.get("document_type") or "")
         specs = guideline_canonical_specs(ct, flags)
         if specs is None:
+            if ct:
+                uncovered.add(ct)
             continue
         dr["specifications"] = specs
         # Internal-only field (never reaches final output — see
@@ -1700,7 +1714,7 @@ def apply_guideline_canonicalization(
         if cross_ref_map:
             dr["_cross_reference_map"] = cross_ref_map
         touched += 1
-    return touched
+    return touched, sorted(uncovered)
 
 
 def apply_other_doc_spec_canonicalization(docs: list[dict], canonical_fn=None) -> int:
