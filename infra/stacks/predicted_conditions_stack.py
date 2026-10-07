@@ -204,22 +204,20 @@ class PredictedConditionsStack(Stack):
         # Lambda (api/Dockerfile), just an entry_point + command override —
         # see the WorkerContainer definition below for why both (not just
         # command) need overriding.
-        worker_vpc = ec2.Vpc(
-            self,
-            "WorkerVpc",
-            # Explicit AZs (rather than max_azs) avoid a CDK context lookup
-            # that needs live AWS credentials at `cdk synth` time — this
-            # stack is already hard-pinned to us-east-2 (see infra/app.py).
-            availability_zones=["us-east-2a", "us-east-2b"],
-            nat_gateways=0,  # no private subnets to route out of -> no NAT cost
-            subnet_configuration=[
-                ec2.SubnetConfiguration(
-                    name="Public",
-                    subnet_type=ec2.SubnetType.PUBLIC,
-                    cidr_mask=24,
-                ),
-            ],
-        )
+        # Reuse the account's existing default VPC instead of provisioning a
+        # new one — this account's us-east-2 VPC quota (5, the AWS default)
+        # was already exhausted by sibling agents' own dedicated worker VPCs
+        # (DocsOrchAgentStack x2, DiscOrchAgentStack x2) plus the account's
+        # own default VPC, confirmed via a failed real deploy on 2026-10-07
+        # (`CREATE_FAILED ... The maximum number of VPCs has been reached`).
+        # A default VPC already has public subnets + an internet gateway in
+        # every AZ with MapPublicIpOnLaunch=true, which is exactly what this
+        # worker needs (public-subnet-only, assignPublicIp=ENABLED below, no
+        # NAT) — no need for a dedicated VPC at all. from_lookup needs a
+        # one-time AWS-credentialed context lookup at `cdk synth` time
+        # (cached afterward in cdk.context.json), same as the AZ-lookup
+        # pitfall already documented elsewhere for this pattern.
+        worker_vpc = ec2.Vpc.from_lookup(self, "WorkerVpc", is_default=True)
 
         worker_security_group = ec2.SecurityGroup(
             self,
