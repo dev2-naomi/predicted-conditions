@@ -346,18 +346,30 @@ def _sort_key(dr: dict) -> tuple:
 # ---------------------------------------------------------------------------
 
 _CANONICAL_NAMES: dict[str, str] = {
-    "executed lease agreement": "lease agreement",
-    "executed lease": "lease agreement",
-    "lease": "lease agreement",
+    # NOTE: these 3 used to route to a standalone "lease agreement" name
+    # that has no entry in data/canonical_doc_specs.json (a dead end that
+    # silently skipped apply_guideline_canonicalization() and let the LLM's
+    # freeform specs through unchecked). "Lease Agreement" and "Rental
+    # Agreement" are the same real-world document -- _DOCTYPE_ALIASES
+    # already folds plain "lease" into "rental agreement" too, so route
+    # these there instead to actually get the deterministic spec library.
+    "executed lease agreement": "rental agreement",
+    "executed lease": "rental agreement",
+    "lease": "rental agreement",
     "rent loss insurance evidence": "rent loss insurance",
     "evidence of rent loss insurance": "rent loss insurance",
     "hazard insurance declaration page": "hazard insurance",
     "hazard insurance": "hazard insurance",
     "property insurance": "hazard insurance",
     "property insurance / hazard insurance": "hazard insurance",
-    "flood determination / flood certificate": "flood determination",
-    "flood certificate": "flood determination",
-    "flood cert": "flood determination",
+    # Same dead-end problem as lease agreement above: "flood determination"
+    # has no canonical_doc_specs.json entry, but "Flood Determination" and
+    # "Flood Hazard Determination" are the same document (the alias group
+    # below even lists "flood determination" as a raw variant of the
+    # covered name) -- route these 3 raw forms straight to the covered name.
+    "flood determination / flood certificate": "flood hazard determination",
+    "flood certificate": "flood hazard determination",
+    "flood cert": "flood hazard determination",
     "mortgage payment history": "mortgage payment history",
     "verification of mortgage": "verification of mortgage",
     "verification of mortgage (vom)": "verification of mortgage",
@@ -374,6 +386,12 @@ _CANONICAL_NAMES: dict[str, str] = {
     "government id": "government id",
     "drivers license": "government id",
     "passport": "government id",
+    # Same dead-end problem: these 2 raw forms used to fall through to the
+    # uncovered "government-issued photo id" name instead of the covered
+    # "government id" name (which every other variant in this group
+    # already resolves to).
+    "photo id": "government id",
+    "identification": "government id",
     "borrower authorization form": "borrower authorization",
     "borrower authorization": "borrower authorization",
     # normalize.py's masterlist canonicalization renames this to the
@@ -384,9 +402,13 @@ _CANONICAL_NAMES: dict[str, str] = {
     # the singular "Borrower Authorization"), producing two separate,
     # undeduped documents in the final output instead of one.
     "borrowers authorization": "borrower authorization",
-    "occupancy certification / investor certification": "occupancy certification",
-    "occupancy certification": "occupancy certification",
-    "investor certification": "occupancy certification",
+    # Same dead-end problem: these 3 raw forms used to fall through to the
+    # uncovered standalone "occupancy certification" name instead of the
+    # covered "owner occupancy certification" name (the alias group below
+    # already lists bare "occupancy certification" as a variant of it).
+    "occupancy certification / investor certification": "owner occupancy certification",
+    "occupancy certification": "owner occupancy certification",
+    "investor certification": "owner occupancy certification",
 }
 
 
@@ -724,7 +746,7 @@ def merge_document_requests(
     # to fully replace (not just rewrite-match) what the LLM generated:
     # same wording AND same (correct, flag-branched) content on every
     # rerun.
-    canonicalized_count = apply_guideline_canonicalization(
+    canonicalized_count, uncovered_doc_types = apply_guideline_canonicalization(
         merged, scenario_summary, canonical_fn=_canonical_doc_type,
     )
     # Rewrite-only fallback for any doc type NOT covered by the guideline-
@@ -754,6 +776,12 @@ def merge_document_requests(
         msg += f" Injected {injected_count} deterministic doc(s) ({', '.join(det_stats['injected'])})."
     if canonicalized_count:
         msg += f" Applied guideline-sourced deterministic specs to {canonicalized_count} document request(s)."
+    if uncovered_doc_types:
+        msg += (
+            f" NOTE: {len(uncovered_doc_types)} doc type(s) have NO entry in "
+            f"data/canonical_doc_specs.json and are left on raw LLM-generated "
+            f"(non-deterministic) specifications: {', '.join(uncovered_doc_types)}."
+        )
     if other_canonicalized_count:
         msg += f" Canonicalized specs on {other_canonicalized_count} other document request(s)."
     if stripped_quality_specs:
@@ -2538,6 +2566,195 @@ def _apply_tri_merge_backstop(
 
 
 # ---------------------------------------------------------------------------
+# Deterministic backstop for cross-document NAME-MATCH specs (e.g. "Name on
+# the ID must match the name on the loan application, credit report, and
+# title documents")
+# ---------------------------------------------------------------------------
+#
+# Discovered live on a Government-Issued Photo ID (Passport) request for
+# Leonardo Miguel Saavedra Cabrera: the cross-referenced Credit Report was
+# submitted, but the LLM-based satisfaction check left the spec at
+# "needs_review" anyway. Root cause — NOT "not enough cross-reference docs
+# present" (cross_ref_map entries are already OR'd: finding just one of the
+# three referenced doc types is structurally enough, see the
+# cross_document_checks loop below) but a genuine data inconsistency WITHIN
+# the single document that WAS found: this credit report's own extraction
+# splits the same two-given-name/two-surname person two different ways in
+# two different sections —
+#   applicant1: firstName="Leonardo Miguel ", lastName="Saavedra Cabrera"
+#     (matches the passport exactly)
+#   scores[].applicant / alerts[].applicant: firstName="Leonardo Saavedra",
+#     lastName="Cabrera" (drops "Miguel", splits differently)
+# The LLM, given the whole extracted_fields blob, reasonably stayed
+# cautious rather than picking one field over the other. This backstop
+# removes that ambiguity deterministically: it recursively collects EVERY
+# name-shaped field (firstName/middleName/lastName triplets, and single
+# joined-name strings like "owner"/"customer") found ANYWHERE in the
+# companion document's extracted_fields, and treats a full-token-subset
+# match against ANY ONE of them as sufficient — exactly mirroring how a
+# human reviewer would scan the whole document for a matching name rather
+# than fixating on whichever field happens to come first.
+# ---------------------------------------------------------------------------
+
+_NAME_MATCH_SPEC_RE = re.compile(
+    r"name.{0,60}match.{0,60}(loan application|credit report|title|vesting|"
+    r"entity name|1003)",
+    re.IGNORECASE,
+)
+# Deliberately excludes the "account holder name" family (handled by the
+# existing _ACCOUNT_HOLDER_NAME_SPEC_RE/ownership_companion_found backstop
+# above — a different evidence source, business ownership docs, not a
+# cross-referenced sibling document).
+_NAME_MATCH_SPEC_EXCLUDE_RE = re.compile(r"account\s*(holder|owner)", re.IGNORECASE)
+
+
+def _normalize_name_tokens(name: str) -> set[str]:
+    """Lowercase, strip punctuation/suffixes, split into a token set for
+    lenient subset comparison. Mirrors the NAME-MATCHING leniency already
+    described in _SATISFACTION_PROMPT (case/punctuation/suffix differences
+    never count as a mismatch) but as a deterministic token-set check
+    instead of an LLM judgment call."""
+    cleaned = re.sub(r"[^a-z0-9\s]", " ", name.lower())
+    tokens = {t for t in cleaned.split() if t}
+    return tokens - {"jr", "sr", "ii", "iii", "iv"}
+
+
+def _collect_name_candidates(obj: Any, _depth: int = 0) -> list[str]:
+    """Recursively walk a nested dict/list structure and return every
+    plausible full-name string found anywhere — reconstructed from
+    firstName/middleName/lastName triplets wherever they're nested, plus
+    single already-joined string fields that read as names (owner/customer/
+    name/applicant-style keys holding a non-placeholder string). Caps
+    recursion depth defensively; real extracted_fields trees are shallow."""
+    if _depth > 8:
+        return []
+    candidates: list[str] = []
+    if isinstance(obj, dict):
+        lower_keys = {k.lower(): k for k in obj}
+        first = obj.get(lower_keys.get("firstname", ""), "")
+        last = obj.get(lower_keys.get("lastname", ""), "")
+        if isinstance(first, str) and isinstance(last, str) and first.strip() and last.strip():
+            middle = obj.get(lower_keys.get("middlename", ""), "") or ""
+            parts = [first.strip(), str(middle).strip(), last.strip()]
+            candidates.append(" ".join(p for p in parts if p))
+        for key in ("owner", "customer", "name", "borrowername"):
+            val = obj.get(lower_keys.get(key, ""))
+            if isinstance(val, str) and val.strip():
+                candidates.append(val.strip())
+        for v in obj.values():
+            candidates.extend(_collect_name_candidates(v, _depth + 1))
+    elif isinstance(obj, list):
+        for item in obj:
+            candidates.extend(_collect_name_candidates(item, _depth + 1))
+    return candidates
+
+
+def _apply_name_cross_reference_backstop(
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    subject_fields: dict,
+    cross_ref_companions: list[tuple[dict, str]],
+) -> None:
+    """Force-satisfy a cross-document name-match spec when the subject
+    document's own name is, in full, a token-subset of ANY name-shaped
+    field found anywhere within a companion document's extracted_fields —
+    see module comment above. Mutates satisfied_specs in place."""
+    if not cross_ref_companions:
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+    pending = [
+        spec for spec in specifications
+        if _spec_text(spec) not in already
+        and _NAME_MATCH_SPEC_RE.search(_spec_text(spec))
+        and not _NAME_MATCH_SPEC_EXCLUDE_RE.search(_spec_text(spec))
+    ]
+    if not pending:
+        return
+
+    subject_names = _collect_name_candidates(subject_fields)
+    if not subject_names:
+        return
+    # The longest candidate is the most complete representation of the
+    # subject's name (e.g. prefers "LEONARDO MIGUEL SAAVEDRA CABRERA" over
+    # a shorter partial/duplicate found elsewhere in the same document).
+    subject_name = max(subject_names, key=len)
+    subject_tokens = _normalize_name_tokens(subject_name)
+    if len(subject_tokens) < 2:
+        return  # too thin (e.g. a single token) to safely assert a match
+
+    for companion_fields, companion_label in cross_ref_companions:
+        for candidate_name in _collect_name_candidates(companion_fields):
+            candidate_tokens = _normalize_name_tokens(candidate_name)
+            if subject_tokens and subject_tokens <= candidate_tokens:
+                for spec in pending:
+                    text = _spec_text(spec)
+                    if text in already:
+                        continue
+                    satisfied_specs.append({
+                        "specification": text,
+                        "reason": (
+                            f"Name match confirmed deterministically — every name token "
+                            f"from this document ('{subject_name.strip()}') is present in the "
+                            f"name recorded on the {companion_label} "
+                            f"('{candidate_name.strip()}')."
+                        ),
+                    })
+                    already.add(text)
+                return  # all pending name-match specs satisfied by one hit
+
+
+# ---------------------------------------------------------------------------
+# Deterministic backstop: "Government ID must verify the borrower's address"
+# does not apply to a Passport
+# ---------------------------------------------------------------------------
+#
+# A Passport, by design, carries no residential address field — unlike a
+# Driver's License or State ID. Leaving this spec perpetually unsatisfied/
+# "needs review" whenever a borrower submits a Passport is a false
+# negative: there is no document a borrower could ever submit (a valid,
+# unexpired Passport is itself an acceptable Government-Issued Photo ID
+# form per `acceptable_types`) that would satisfy it on THIS document.
+# Deterministically mark it not-applicable (using the same "Not applicable"
+# satisfied-with-reason convention already used elsewhere in this module,
+# e.g. the UCDP SSR score-threshold spec) whenever the submitted ID's
+# classified form is a Passport, rather than requiring manual review every
+# single time.
+# ---------------------------------------------------------------------------
+
+_GOVERNMENT_ID_ADDRESS_SPEC_RE = re.compile(r"government\s*id.{0,40}address", re.IGNORECASE)
+
+
+def _apply_passport_no_address_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    primary_label: str,
+) -> None:
+    """Force-satisfy (as not-applicable) the Government ID address-
+    verification spec when the submitted ID is classified as a Passport.
+    Mutates satisfied_specs in place."""
+    if _canonical_doc_type(doc_type) != "government id":
+        return
+    if "passport" not in (primary_label or "").lower():
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        if text in already:
+            continue
+        if _GOVERNMENT_ID_ADDRESS_SPEC_RE.search(text):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Not applicable — submitted document is classified as a Passport, "
+                    "which does not contain a residential address field (unlike a "
+                    "Driver's License or State ID)."
+                ),
+            })
+            already.add(text)
+
+
+# ---------------------------------------------------------------------------
 # Deterministic backstop for the "must include all addenda, amendments,
 # and counter-offers" Purchase Contract spec
 # ---------------------------------------------------------------------------
@@ -3120,6 +3337,14 @@ def run_satisfaction_pass(
         # document isn't in this run's submission set".
         cross_ref_map: dict[str, list[str]] = dr.get("_cross_reference_map") or {}
         cross_ref_found_types: set[str] = set()
+        # Parallel (fields, label) list for the name cross-reference
+        # backstop below — kept separate from all_fields/all_field_labels
+        # (which also mixes in K1/ownership/bank-statement companions) so
+        # that backstop only ever compares against the specific sibling
+        # doc types (1003/credit report/title/etc.) this spec actually
+        # references, never an unrelated companion pulled in for a
+        # different spec family on the same document request.
+        cross_ref_companions: list[tuple[dict, str]] = []
         if cross_ref_map:
             referenced_types: set[str] = set()
             for refs in cross_ref_map.values():
@@ -3129,6 +3354,7 @@ def run_satisfaction_pass(
                     ref_type, submitted_docs,
                 ):
                     cross_ref_found_types.add(ref_type)
+                    cross_ref_companions.append((companion_ef, companion_name))
                     if companion_ef not in all_fields:
                         all_fields.append(companion_ef)
                         all_field_labels.append(companion_name)
@@ -3176,6 +3402,26 @@ def run_satisfaction_pass(
         # this was dead code, never actually invoked).
         _apply_tri_merge_backstop(
             doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
+        # Deterministic backstop for cross-document NAME-MATCH specs — see
+        # _apply_name_cross_reference_backstop for why this can't be left
+        # to the LLM alone (a genuine within-document name-split
+        # inconsistency on the companion doc, not a missing-document issue
+        # — cross_ref_map is already OR'd, see the cross_document_checks
+        # loop below). all_fields[0] is always the subject document's OWN
+        # extracted_fields (the first entries appended, before any K1/
+        # ownership/bank-statement/cross-reference companions).
+        _apply_name_cross_reference_backstop(
+            dr.get("specifications", []), satisfied_specs, all_fields[0], cross_ref_companions,
+        )
+        # Deterministic backstop: Government ID address-verification spec
+        # does not apply to a Passport — see
+        # _apply_passport_no_address_backstop. all_field_labels[0] is the
+        # primary submitted document's classified form name (e.g.
+        # "Passport", "Drivers License"), parallel to all_fields[0].
+        _apply_passport_no_address_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs,
+            all_field_labels[0] if all_field_labels else "",
         )
         # Deterministic backstop for the addenda/amendments/counter-offers
         # Purchase Contract spec — see _apply_addenda_presence_backstop for
