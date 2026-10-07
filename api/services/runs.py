@@ -13,7 +13,9 @@ outside Lambda) instead of an ECS task.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import traceback
 import uuid
 from collections.abc import Iterator
 from typing import Any
@@ -174,8 +176,18 @@ def execute_background_run(
         graph = build_graph(assistant_id, config, checkpointer=_checkpointer_for_run(thread_id))
         result = graph.invoke(run_body.get("input") or {}, config=config)
     except Exception as exc:  # noqa: BLE001 - always record *a* terminal status
-        store.update_run(run_id, status="error", error=str(exc))
-        return {"status": "error", "error": str(exc)}
+        # Full traceback, not just str(exc) — the bare message alone (e.g.
+        # "cannot unpack non-iterable int object") gives no file/line/call
+        # stack to debug from, and this exception is never otherwise logged
+        # anywhere (no logger.exception call existed here before). Surfaced
+        # on the run record's `error` field so it's visible via the normal
+        # GET /threads/{id}/runs/{run_id} polling path without needing
+        # CloudWatch access. Truncated defensively in case of a pathological
+        # recursion-limit traceback.
+        tb = traceback.format_exc()
+        logging.getLogger(__name__).exception("Background run %s failed", run_id)
+        store.update_run(run_id, status="error", error=tb[-4000:])
+        return {"status": "error", "error": tb[-4000:]}
     # `result` is the raw graph.invoke() state — it holds LangChain message
     # objects (HumanMessage/AIMessage/...) that boto3's DynamoDB serializer
     # can't handle directly. _json_safe recursively converts pydantic models
