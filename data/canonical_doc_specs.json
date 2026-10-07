@@ -1165,10 +1165,6 @@
         "condition": null
       },
       {
-        "text": "Transaction Histories are not acceptable in lieu of bank statements.",
-        "condition": null
-      },
-      {
         "text": "Bank statements provided through a Fintech company working on behalf of the bank can be used provided the bank statement reflects the actual bank information, otherwise an internet search is required to confirm the relationship.",
         "condition": null
       },
@@ -2341,18 +2337,6 @@
       {
         "text": "Non-borrowing parties on the account (excluding a non-borrowing spouse) must provide a written statement that the borrower has full access and use of the funds",
         "condition": null
-      },
-      {
-        "text": "Large deposits, defined as > 50% of total gross income for all borrowers, must be documented on Full and Alt Doc purchase transactions when personal accounts are used",
-        "condition": "loan_purpose=purchase"
-      },
-      {
-        "text": "Large deposits are not required to be sourced on business accounts when used for assets",
-        "condition": null
-      },
-      {
-        "text": "Large deposits are not required to be sourced on refinances or DSCR transactions",
-        "condition": "loan_purpose=refinance OR program=dscr"
       },
       {
         "text": "All pages of any statement provided are required; summaries will not be accepted",
