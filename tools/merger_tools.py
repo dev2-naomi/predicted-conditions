@@ -2011,13 +2011,34 @@ def _llm_check_specs(
         not os.environ.get("ANTHROPIC_API_KEY") and _primary_provider != "anthropic"
     )
 
+    # Per-call budget for this satisfaction check. Unlike agent.py's main
+    # orchestrator LLM, this client previously had NO timeout at all -- same
+    # unbounded-hang risk class as the bug fixed in agent.py today (2026-10-07),
+    # just in this file instead. run_satisfaction_pass calls this once PER
+    # document request (x2 for the co-borrower pass), so a single hung call
+    # here blocks the entire satisfaction stage with no recovery. timeout=
+    # kwarg alone isn't fully trustworthy (see agent.py's
+    # _invoke_with_hard_deadline docstring -- the underlying SDK's own
+    # internal timeout/retry plumbing can silently outlast it), so this also
+    # bounds the call with our own wall-clock deadline via a background
+    # thread, exactly like agent.py's fix.
+    _timeout_s = float(os.environ.get("SATISFACTION_CHECK_TIMEOUT_SECONDS", "60"))
+
     try:
         if _use_openai:
             from langchain_openai import ChatOpenAI
 
             model = os.environ.get("SATISFACTION_CHECK_OPENAI_MODEL", "gpt-5-mini")
-            oai_kwargs: dict = {"model": model, "max_retries": 2}
-            effort = os.environ.get("SATISFACTION_CHECK_OPENAI_REASONING_EFFORT", "low")
+            oai_kwargs: dict = {"model": model, "max_retries": 2, "timeout": _timeout_s}
+            # "minimal" (not "low") -- this check's job is applying an
+            # explicit, already-fully-written rubric (_SATISFACTION_PROMPT)
+            # to extracted field data, not open-ended reasoning from scratch.
+            # Lowered 2026-10-07 after finding this per-document call (run
+            # once per document request, x2 for co-borrower) was a major
+            # contributor to total run time -- see agent.py's hard-deadline
+            # fix changelog for the full investigation. Reversible via this
+            # env var alone if accuracy regresses; no code change needed.
+            effort = os.environ.get("SATISFACTION_CHECK_OPENAI_REASONING_EFFORT", "minimal")
             if effort:
                 oai_kwargs["reasoning_effort"] = effort
             llm = ChatOpenAI(**oai_kwargs)
@@ -2025,8 +2046,30 @@ def _llm_check_specs(
             from langchain_anthropic import ChatAnthropic
 
             model = os.environ.get("SATISFACTION_CHECK_MODEL", "claude-haiku-4-5")
-            llm = ChatAnthropic(model=model, max_tokens=4096, max_retries=2)
-        response = llm.invoke(prompt)
+            llm = ChatAnthropic(model=model, max_tokens=4096, max_retries=2, timeout=_timeout_s)
+
+        import queue
+        import threading
+
+        _result_q: queue.Queue = queue.Queue(maxsize=1)
+
+        def _worker() -> None:
+            try:
+                _result_q.put(("ok", llm.invoke(prompt)))
+            except Exception as _e:  # noqa: BLE001 — forwarded below
+                _result_q.put(("error", _e))
+
+        threading.Thread(target=_worker, daemon=True).start()
+        try:
+            _kind, _payload = _result_q.get(timeout=_timeout_s)
+        except queue.Empty:
+            raise TimeoutError(
+                f"Satisfaction check exceeded hard deadline of {_timeout_s:.0f}s "
+                f"for doc_type={doc_type!r}"
+            ) from None
+        if _kind == "error":
+            raise _payload
+        response = _payload
         content = response.content if hasattr(response, "content") else str(response)
 
         if "```json" in content:
