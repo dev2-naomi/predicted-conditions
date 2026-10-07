@@ -86,11 +86,16 @@ jobs:
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL || 'claude-opus-4-5' }}
           ANTHROPIC_FALLBACK_MODEL: ${{ vars.ANTHROPIC_FALLBACK_MODEL || 'claude-sonnet-4-5' }}
           OPENAI_FALLBACK_MODEL: ${{ vars.OPENAI_FALLBACK_MODEL || 'gpt-5' }}
-          # Dev-only ANTHROPIC_API_KEY-outage override (see agent.py /
-          # infra/stacks/predicted_conditions_stack.py) -- set the
-          # PRIMARY_PROVIDER repo/environment variable to "openai" to run
-          # entirely on OpenAI instead of Anthropic. Empty by default so
-          # normal prod behavior is unaffected.
+          # Not previously passed through here at all — every prior deploy
+          # of this workflow silently reverted the live Lambda's
+          # PRIMARY_PROVIDER/OPENAI_PRIMARY_MODEL dev-only override (set
+          # 2026-10-05 for the ANTHROPIC_API_KEY outage) back to empty
+          # defaults on its next run, purely because this step's env block
+          # never mentioned them (discovered via `cdk diff` on 2026-10-07
+          # while adding the Fargate worker below). Environment-scoped
+          # `vars.PRIMARY_PROVIDER`/`vars.OPENAI_PRIMARY_MODEL` on aws-dev
+          # preserve today's actual values; unset on aws-prod so prod is
+          # unaffected.
           PRIMARY_PROVIDER: ${{ vars.PRIMARY_PROVIDER || '' }}
           OPENAI_PRIMARY_MODEL: ${{ vars.OPENAI_PRIMARY_MODEL || '' }}
           LANGCHAIN_TRACING_V2: "true"
