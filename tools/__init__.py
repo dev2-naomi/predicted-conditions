@@ -14,6 +14,7 @@ from tools.general import (
 from tools.scenario_tools import (
     build_scenario_summary,
     detect_contradictions,
+    inspect_raw_xml_data,
     load_doctype_masterlist,
     parse_eligibility_output,
     parse_loan_file,
@@ -44,6 +45,7 @@ GENERAL_TOOLS = [
     write_todo,
     save_step_report,
     get_workflow_status,
+    inspect_raw_xml_data,
 ]
 
 # Per-step tool lists (mirrors registry.py)

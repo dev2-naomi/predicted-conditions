@@ -1376,6 +1376,37 @@ def build_scenario_summary(
     if override_warnings:
         lock_msg += "\n  WARNINGS:\n    " + "\n    ".join(override_warnings)
 
+    # Curated XML-supplemental facts that otherwise never reach the model's
+    # context anywhere (no later tool message surfaces them either) — e.g.
+    # declarations (bankruptcy/foreclosure/undisclosed-mortgage/etc),
+    # liabilities, owned properties, housing expenses, employers/residences,
+    # and credit scores. Without this, STEP_02-07's document-request
+    # generation is reasoning blind to all of it even though it's fully
+    # parsed and sitting in scenario_summary -- confirmed live missing for
+    # closing_date before it was added here; same gap applied to everything
+    # below. Deliberately EXCLUDES borrower_ssns/borrower_dobs (PII with no
+    # bearing on which documents to request) and raw_sections (the full
+    # generic MISMO dump — too large to always include; available on-demand
+    # via inspect_raw_xml_data instead).
+    _SUPPLEMENTAL_CONTEXT_KEYS = (
+        "declarations", "liabilities", "owned_properties", "housing_expenses",
+        "credit_scores", "assets", "employers", "residences", "income_sources",
+        "loan_terms", "closing_date",
+    )
+    supplemental_context = {
+        key: supplemental[key]
+        for key in _SUPPLEMENTAL_CONTEXT_KEYS
+        if supplemental.get(key) not in (None, "", [], {}, "unknown")
+    }
+    supplemental_block = (
+        "\n\nAdditional loan file details from the XML (use these to inform "
+        "document requests — e.g. a declared bankruptcy/foreclosure needs an "
+        "explanation letter, an owned rental property may need a lease/VOR, "
+        "declared liabilities may need verification, etc.):\n"
+        + json.dumps(supplemental_context, indent=2, default=str)
+        if supplemental_context else ""
+    )
+
     return Command(update={
         "scenario_summary": summary,
         "missing_core_variables": missing,
@@ -1394,7 +1425,8 @@ def build_scenario_summary(
                     for m in missing
                 ) if missing else ""
             )
-            + lock_msg,
+            + lock_msg
+            + supplemental_block,
             tool_call_id=tool_call_id,
         )],
     })
@@ -1486,6 +1518,64 @@ def detect_contradictions(
         "contradictions_detected": contradictions,
         "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
     })
+
+
+@tool
+def inspect_raw_xml_data(
+    section_names: Optional[List[str]] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
+) -> str:
+    """
+    On-demand access to the FULL raw MISMO XML extraction -- every leaf tag
+    value from the loan file, grouped by MISMO container (e.g.
+    TERMS_OF_LOAN, LIABILITY, DECLARATION_DETAIL), not just the curated
+    fields already surfaced in the scenario summary and its supplemental
+    data. Use this when you suspect a document requirement or condition
+    depends on an XML fact that isn't already visible elsewhere in your
+    context -- e.g. a specific MISMO section/tag you know or suspect exists
+    in this loan file but that isn't one of the fields this pipeline
+    extracts by name into scenario_summary.
+
+    Call with no arguments first to see which MISMO sections exist in this
+    loan file (and how many entries each has). Call again with
+    section_names=[...] naming the ones you need to get their full content.
+
+    Args:
+        section_names: MISMO container names to retrieve in full (e.g.
+                       ["LIABILITY", "DECLARATION_DETAIL"]). Omit to just
+                       list available section names instead of dumping
+                       content.
+    """
+    s = state or {}
+    ss = s.get("scenario_summary", {}) or {}
+    parsed = ss.get("_parsed_xml") or {}
+    raw = parsed.get("raw_xml") or {}
+
+    if not raw:
+        return (
+            "No raw XML data available -- loan_file_xml was empty/not "
+            "provided, or parse_loan_file hasn't run yet."
+        )
+
+    if not section_names:
+        listing = []
+        for name, val in sorted(raw.items()):
+            count = len(val) if isinstance(val, list) else 1
+            unit = "entry" if count == 1 else "entries"
+            listing.append(f"  {name} ({count} {unit})")
+        return (
+            f"{len(raw)} MISMO section(s) available in this loan file's raw "
+            "XML extraction. Call again with section_names=[...] to "
+            "retrieve full content for specific ones:\n" + "\n".join(listing)
+        )
+
+    result = {name: raw[name] for name in section_names if name in raw}
+    missing = [name for name in section_names if name not in raw]
+    out = json.dumps(result, indent=2, default=str)
+    if missing:
+        out += f"\n\n(Not present in this loan file: {', '.join(missing)})"
+    return out
 
 
 @tool
