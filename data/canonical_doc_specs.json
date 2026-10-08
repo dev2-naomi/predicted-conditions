@@ -36,7 +36,10 @@
       },
       {
         "text": "If the disputed account has delinquency within two years of the credit report date and the account balance is over $2,500, the credit file should be documented with a credit supplement showing the dispute has been resolved",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "credit supplement"
+        ]
       },
       {
         "text": "A tri-merge or Residential Mortgage Credit Report (RMCR) is required for all borrowers on a loan",
@@ -458,7 +461,10 @@
       },
       {
         "text": "Flood insurance must be maintained throughout the duration of the loan",
-        "condition": "flood_insurance_required=true"
+        "condition": "flood_insurance_required=true",
+        "cross_references": [
+          "loan application (1003)"
+        ]
       },
       {
         "text": "Evidence of Insurance must show names of borrowers that reflect the same as the note",
@@ -514,15 +520,24 @@
       },
       {
         "text": "Master property or flood insurance policy must designate the HOA as the named insured",
-        "condition": "property_type=condo_project"
+        "condition": "property_type=condo_project",
+        "cross_references": [
+          "hazard insurance"
+        ]
       },
       {
         "text": "Master property or flood insurance policy can specify an authorized representative of the HOA, including its insured trustee, as the named insured if the condominium's legal documents permit",
-        "condition": "property_type=condo_project"
+        "condition": "property_type=condo_project",
+        "cross_references": [
+          "hazard insurance"
+        ]
       },
       {
         "text": "Master property or flood insurance policy must designate the HOA as the named insured",
-        "condition": "property_type=PUD_project"
+        "condition": "property_type=PUD_project",
+        "cross_references": [
+          "hazard insurance"
+        ]
       }
     ]
   },
@@ -2180,7 +2195,10 @@
       },
       {
         "text": "Non-borrowing parties on the account (excluding a non-borrowing spouse) must provide a written statement that the borrower has full access and use of the funds",
-        "condition": null
+        "condition": null,
+        "cross_references": [
+          "trust documents"
+        ]
       },
       {
         "text": "All pages of any statement provided are required; summaries will not be accepted",
@@ -2722,7 +2740,10 @@
       },
       {
         "text": "Evidence of Certificate of Good Standing must be provided if the entity was formed more than 12 months ago",
-        "condition": "entity_type=LLC AND entity_age>12_months"
+        "condition": "entity_type=LLC AND entity_age>12_months",
+        "cross_references": [
+          "certificate of good standing"
+        ]
       },
       {
         "text": "Certificate of Good Standing is not required if the entity was formed in the last 12 months",
@@ -2734,15 +2755,24 @@
       },
       {
         "text": "If all members are not borrowers, evidence the borrower has authority to sign on behalf of the entity must be provided, which can be validated through the Operating Agreement or Certificate of Authorization",
-        "condition": "entity_type=LLC AND not_all_members_are_borrowers=true"
+        "condition": "entity_type=LLC AND not_all_members_are_borrowers=true",
+        "cross_references": [
+          "operating or partnership agreement"
+        ]
       },
       {
         "text": "If authority to sign cannot be validated through the Operating Agreement or Certificate of Authorization, a Borrowing Certificate is required",
-        "condition": "entity_type=LLC AND not_all_members_are_borrowers=true AND no_authority_in_operating_agreement=true"
+        "condition": "entity_type=LLC AND not_all_members_are_borrowers=true AND no_authority_in_operating_agreement=true",
+        "cross_references": [
+          "operating or partnership agreement"
+        ]
       },
       {
         "text": "Multiple member LLCs require an EIN",
-        "condition": "entity_type=LLC AND members>1"
+        "condition": "entity_type=LLC AND members>1",
+        "cross_references": [
+          "federal tax id number"
+        ]
       },
       {
         "text": "By-Laws (and all amendments) must be provided",
@@ -2750,7 +2780,10 @@
       },
       {
         "text": "Evidence of Good Standing issued by the Secretary of State where the corporation is incorporated must be provided, regardless of when the entity was formed",
-        "condition": "entity_type=Corporation"
+        "condition": "entity_type=Corporation",
+        "cross_references": [
+          "certificate of good standing"
+        ]
       },
       {
         "text": "Borrower Resolution/Corporate Resolution granting authority of signer to enter a loan obligation must be provided",
@@ -2779,7 +2812,10 @@
       },
       {
         "text": "If the operating agreement does not state an authorized signer, then all entity owners must apply as a borrower and complete a 1003 as an individual applicant",
-        "condition": "entity_type=LLC"
+        "condition": "entity_type=LLC",
+        "cross_references": [
+          "loan application (1003)"
+        ]
       },
       {
         "text": "Operating Agreement must be dated and, where required, certified/signed by an authorized officer or manager of the LLC",
