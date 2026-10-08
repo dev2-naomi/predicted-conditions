@@ -1155,6 +1155,15 @@ def build_scenario_summary(
         "doc_profile": list(set(doc_types)),
         "housing_expenses": housing_expenses,
         "cash_out_amount": supplemental.get("cash_out_amount"),
+        # Pre-closing snapshot caveat (same reasoning as Note Date — see
+        # merger_tools.py's 1099 "90 days from Note Date" handling): the loan
+        # hasn't closed yet at this stage, so this is always, at best, an
+        # ESTIMATED closing date (the XML's own LoanEstimatedClosingDate tag
+        # in the one sample file that has this field at all). Exposed to the
+        # satisfaction-check LLM as loan_facts["closing_date_estimated"] (see
+        # merger_tools.py:_build_reference_context) — never treated as a firm
+        # anchor for precise day-count math on document-freshness specs.
+        "closing_date": supplemental.get("closing_date"),
         "channel": meta.get("channel", "unknown"),
         "loan_number": meta.get("loan_number"),
         "dscr_label": meta.get("dscr"),

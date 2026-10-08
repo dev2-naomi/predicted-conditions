@@ -328,6 +328,10 @@ _FIELD_MAP: Dict[str, List[tuple]] = {
     "prepaid_items": [
         ("URLA_DETAIL", "PrepaidItemsEstimatedAmount"),
     ],
+    "closing_date": [
+        ("CLOSING_INFORMATION_DETAIL", "ClosingDate"),
+        ("CLOSING_INFORMATION_DETAIL", "LoanEstimatedClosingDate"),
+    ],
     "property_estate_type": [
         ("PROPERTY_DETAIL", "PropertyEstateType"),
     ],
@@ -736,6 +740,7 @@ def parse_mismo_xml(xml_content: str) -> Dict[str, Any]:
     total_monthly_liabilities_val = _resolve_float(sections, "total_monthly_liabilities")
     proposed_housing_expense = _resolve_float(sections, "proposed_housing_expense")
     borrower_count_raw = _resolve_float(sections, "borrower_count_raw")
+    closing_date = _resolve_str(sections, "closing_date", default=None)
 
     pud = _resolve_bool(sections, "pud_indicator")
     in_project = _resolve_bool(sections, "in_project_indicator")
@@ -825,6 +830,7 @@ def parse_mismo_xml(xml_content: str) -> Dict[str, Any]:
         "total_monthly_income": total_monthly_income,
         "total_monthly_liabilities": total_monthly_liabilities_val,
         "proposed_housing_expense": proposed_housing_expense,
+        "closing_date": closing_date,
         "housing_expenses": housing_expenses,
         "assets": assets,
         "employers": employers,
@@ -980,6 +986,7 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
         "total_monthly_income": parsed.get("total_monthly_income"),
         "total_monthly_liabilities": parsed.get("total_monthly_liabilities"),
         "proposed_housing_expense": parsed.get("proposed_housing_expense"),
+        "closing_date": parsed.get("closing_date"),
         "year_built": parsed.get("year_built"),
         "property_city": parsed.get("property_city"),
         "property_zip": parsed.get("property_zip"),

@@ -1713,6 +1713,13 @@ Rules:
   reporting as mismatched, unmatched, or "not listed" is by definition not
   satisfied and must be OMITTED from the response, never added to it with a
   discrepancy explanation as the reason.
+- `closing_date_estimated`, when present, is a PROJECTION, not an actual closing
+  or Note date — the loan has not closed yet at this stage of the file. Do NOT
+  use it for precise day-count math on document-freshness specs (e.g. "dated
+  within 30 days of closing", "VVOE within 10 business days of closing").
+  Those specs require the loan's actual closing date, which does not exist yet
+  — treat them as needs-review rather than computing a hard pass/fail against
+  this estimate.
 {reference_json}
 """
 
@@ -2915,6 +2922,18 @@ def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict])
         val = ss.get(key)
         if val not in (None, "", [], "unknown"):
             loan_facts[key] = val
+
+    # Named "_estimated" (not "closing_date") deliberately — the loan hasn't
+    # closed yet at this stage, so this is at best a projection (the XML's
+    # LoanEstimatedClosingDate tag, when present at all), never an actual
+    # Note/closing date. Same reasoning as the 1099 "90 days from Note Date"
+    # spec above, which explicitly refuses to substitute any other date as a
+    # stand-in for a date that doesn't exist yet. Do NOT use this for precise
+    # day-count math against document-freshness specs ("within 30 days of
+    # closing", etc.) — see the reference-block prompt's caveat on this key.
+    closing_date_val = ss.get("closing_date")
+    if closing_date_val not in (None, "", [], "unknown"):
+        loan_facts["closing_date_estimated"] = closing_date_val
 
     prop = ss.get("property", {}) or {}
     prop_clean = {
