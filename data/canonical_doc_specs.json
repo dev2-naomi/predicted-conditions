@@ -594,10 +594,6 @@
     ],
     "items": [
       {
-        "text": "Loan must be covered by a title insurance policy that has been paid in full and is valid, binding, and remains in full force and effect.",
-        "condition": null
-      },
-      {
         "text": "Preliminary title must indicate that the final title policy will be issued after funding.",
         "condition": null
       },
@@ -607,10 +603,6 @@
       },
       {
         "text": "Title insurer and policy must conform to Fannie Mae/Freddie Mac requirements.",
-        "condition": null
-      },
-      {
-        "text": "Final title policy must be written on 2006 American Land Title Association (ALTA) standard form, ALTA short form, or ALTA form with amendments required by state law in states in which standard ALTA forms of coverage are not used or in which the 2006 ALTA forms have not yet been adopted, provided those amendments are acceptable to FNMA or Freddie Mac (FHLMC).",
         "condition": null
       },
       {
@@ -634,22 +626,6 @@
         "condition": null
       },
       {
-        "text": "Customary public utility subsurface easements are allowable title exceptions only if the location is fixed and can be verified, and the exercise of rights of easement will not interfere with use and enjoyment of any improvement of the subject property or proposed improvements upon which the appraisal or loan is based.",
-        "condition": null
-      },
-      {
-        "text": "Above-surface public utility easements that extend along one or more property lines for distribution purposes, or along the rear property line for drainage, are allowable title exceptions only if they do not extend more than 12 feet from the subject property lines and do not interfere with any of the buildings or improvements, or with the use of the subject property.",
-        "condition": null
-      },
-      {
-        "text": "Public utility restrictions are allowable title exceptions provided their violation will not result in the forfeiture or reversion of title or a lien of any kind for damages, or have an adverse effect on the fair market value of the subject property.",
-        "condition": null
-      },
-      {
-        "text": "Mutual easement agreements that establish joint driveways or party walls constructed on the subject property and on an adjoining property are allowable title exceptions provided all future owners have unlimited and unrestricted use of them.",
-        "condition": null
-      },
-      {
         "text": "Encroachments of one foot or less on adjoining property by eaves or other overhanging projections or by driveways are allowable title exceptions provided there is at least a 10-foot clearance between the buildings on the subject property and the property line affected by the encroachments.",
         "condition": null
       },
@@ -668,38 +644,6 @@
       {
         "text": "Outstanding oil, water, or mineral rights are allowable title exceptions if they do not materially alter the contour of the property or impair its value or usefulness for its intended purposes.",
         "condition": null
-      },
-      {
-        "text": "Municipals and local searches, when provided, must be cleared/resolved prior to loan funding or purchase.",
-        "condition": null
-      },
-      {
-        "text": "Iowa Title Guaranty is an acceptable title guarantor for properties located in the state of Iowa.",
-        "condition": "state=IA"
-      },
-      {
-        "text": "If surveys are not commonly required in a particular jurisdiction, an ALTA 9 endorsement can be obtained.",
-        "condition": "surveys_not_customary_in_jurisdiction"
-      },
-      {
-        "text": "If neither a survey nor the ALTA 9 endorsement are customary in a particular location, title must not have a survey exception.",
-        "condition": "survey_and_ALTA9_not_customary"
-      },
-      {
-        "text": "If the title company requires a survey or plat map due to an exception noted on the title policy, a copy must be submitted in the loan file.",
-        "condition": "title_company_requires_survey"
-      },
-      {
-        "text": "Surveys must be certified, dated, and signed by the licensed civil engineer or registered surveyor performing the survey.",
-        "condition": "survey_provided"
-      },
-      {
-        "text": "Unimproved land surveys are not acceptable.",
-        "condition": "survey_provided"
-      },
-      {
-        "text": "Surveys should be reviewed for easements, encroachments, flood zone impacts, and boundary violations, based on the location of the dwelling on the property.",
-        "condition": "survey_provided"
       }
     ]
   },
@@ -787,10 +731,6 @@
     ],
     "items": [
       {
-        "text": "Properties with expired leases that have been converted to month-to-month per the terms of the lease will require bank statements for the lesser of two months or the period after the lease has expired.",
-        "condition": null
-      },
-      {
         "text": "Corporate lease agreements are acceptable with lease terms consistent with typical market standards and will be subject to standard market rent verification.",
         "condition": null
       },
@@ -813,66 +753,6 @@
       {
         "text": "All units must be either leased or in lease ready condition meaning the properties have been cleaned, no renovations or repairs to the properties are needed and the properties are immediately available to be leased to an eligible tenant.",
         "condition": "loan_purpose=purchase|rate_term_refinance|cash_out"
-      },
-      {
-        "text": "The term of the leasehold estate must run for at least five years beyond the maturity date of the mortgage unless fee simple title will vest at an earlier date in the borrower's name.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The lease must provide that the leasehold can be assigned, transferred, mortgaged, and sublet an unlimited number of times either without restriction or on payment of a reasonable fee and delivery of reasonable documentation to the lessor.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The lessor may not require a credit review or impose other qualifying criteria on any assignee, transferee, mortgagee, or sublessee.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The lease must provide for the borrower to retain voting rights in any homeowners' association.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The lease must provide that in addition to the obligation to pay lease rents, the borrower will pay taxes, insurance, and homeowners' association dues (if applicable), related to the land in addition to those he or she is paying on the improvements.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The lease must be valid, in good standing, and in full force and effect in all respects.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The lease must not include any default provisions that could give rise to forfeiture or termination of the lease, except for nonpayment of the lease rents.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The lease must include provisions to protect the mortgagee's interests in the event of a property condemnation.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The lease must provide lenders with the right to receive a minimum of 30 days' notice of any default by the borrower.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The lease must provide lenders with the option to either cure the default or take over the borrower's rights under the lease.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The mortgage must be secured by the property improvements and the borrower's leasehold interest in the land.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The leasehold estate and the improvements must constitute real property, be subject to the mortgage lien, and be insured by the lender's title policy.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "The leasehold estate and the mortgage must not be impaired by any merger of title between the lessor and lessee.",
-        "condition": "property_type=leasehold_estate"
-      },
-      {
-        "text": "In the event the mortgage is secured by a sublease of a leasehold estate, the documents must provide that a default under the leasehold estate will not by such default result in the termination of the sublease.",
-        "condition": "property_type=leasehold_estate_sublease"
-      },
-      {
-        "text": "Leasehold condominiums are ineligible.",
-        "condition": "property_type=leasehold_condominium"
       }
     ]
   },
@@ -2841,10 +2721,6 @@
         "condition": "entity_type=LLC"
       },
       {
-        "text": "Tax Identification Number (EIN) must be provided",
-        "condition": "entity_type=LLC"
-      },
-      {
         "text": "Evidence of Certificate of Good Standing must be provided if the entity was formed more than 12 months ago",
         "condition": "entity_type=LLC AND entity_age>12_months"
       },
@@ -2865,16 +2741,8 @@
         "condition": "entity_type=LLC AND not_all_members_are_borrowers=true AND no_authority_in_operating_agreement=true"
       },
       {
-        "text": "Single member LLC may use the EIN or the guarantor's social security number",
-        "condition": "entity_type=LLC AND members=1"
-      },
-      {
         "text": "Multiple member LLCs require an EIN",
         "condition": "entity_type=LLC AND members>1"
-      },
-      {
-        "text": "Filed Certificate/Articles of Incorporation (and all amendments) must be provided",
-        "condition": "entity_type=Corporation"
       },
       {
         "text": "By-Laws (and all amendments) must be provided",
@@ -2885,80 +2753,8 @@
         "condition": "entity_type=Corporation"
       },
       {
-        "text": "Evidence of Good Standing may be satisfied by a Certificate of Good Standing or screen shot from state website",
-        "condition": "entity_type=Corporation"
-      },
-      {
-        "text": "Tax Identification Number (EIN) must be provided",
-        "condition": "entity_type=Corporation"
-      },
-      {
         "text": "Borrower Resolution/Corporate Resolution granting authority of signer to enter a loan obligation must be provided",
         "condition": "entity_type=Corporation"
-      },
-      {
-        "text": "Receipt of current year franchise tax payment or clear search must be provided",
-        "condition": "entity_type=Corporation"
-      },
-      {
-        "text": "Filed Partnership Certificate must be provided",
-        "condition": "entity_type=Partnership"
-      },
-      {
-        "text": "If a general partnership, filing with the Secretary of State may be required",
-        "condition": "entity_type=Partnership AND partnership_type=general"
-      },
-      {
-        "text": "Partnership Agreement and all amendments must be provided",
-        "condition": "entity_type=Partnership"
-      },
-      {
-        "text": "Evidence of Good Standing issued by the Secretary of State where the partnership is registered must be provided, regardless of when the entity was formed",
-        "condition": "entity_type=Partnership"
-      },
-      {
-        "text": "Evidence of Good Standing may be satisfied by a Certificate of Good Standing or screen shot from state website",
-        "condition": "entity_type=Partnership"
-      },
-      {
-        "text": "Tax Identification Number (EIN) must be provided",
-        "condition": "entity_type=Partnership"
-      },
-      {
-        "text": "Limited partner consents must be provided where required by partnership agreement",
-        "condition": "entity_type=Partnership"
-      },
-      {
-        "text": "Entity is limited to a maximum of four owners or members",
-        "condition": "entity_vesting=true"
-      },
-      {
-        "text": "Personal Guaranties are required from all borrowers on the loan along with any individual with 50% or greater ownership in the entity",
-        "condition": "entity_vesting=true"
-      },
-      {
-        "text": "Borrower(s) must have the authority to execute loan documents on behalf of the entity",
-        "condition": "entity_vesting=true"
-      },
-      {
-        "text": "If the operating agreement does not state an authorized signer, then all entity owners must apply as a borrower and complete a 1003 as an individual applicant",
-        "condition": "entity_vesting=true AND no_authorized_signer_in_operating_agreement=true"
-      },
-      {
-        "text": "Entity must be domiciled in the U.S.",
-        "condition": "entity_vesting=true"
-      },
-      {
-        "text": "LLC documentation requirements must be met for each of the layered entities",
-        "condition": "layered_entities=true"
-      },
-      {
-        "text": "A maximum of two (2) layers will be considered for layered entities",
-        "condition": "layered_entities=true"
-      },
-      {
-        "text": "Layered entities are not permitted on No Ratio Loans",
-        "condition": "loan_type=No_Ratio"
       }
     ]
   },
@@ -2994,24 +2790,8 @@
         "condition": "entity_type=Partnership"
       },
       {
-        "text": "Limited partner consents must be provided where required by partnership agreement",
-        "condition": "entity_type=Partnership"
-      },
-      {
         "text": "If all members are not borrowers, evidence the borrower has authority to sign on behalf of the entity must be validated through the Operating Agreement or Certificate of Authorization; if not available, a Borrowing Certificate is required",
         "condition": "entity_type=LLC AND not_all_members_are_borrowers=true"
-      },
-      {
-        "text": "LLC documentation requirements must be met for each of the layered entities",
-        "condition": "layered_entities=true"
-      },
-      {
-        "text": "A maximum of two (2) layers will be considered for layered entities",
-        "condition": "layered_entities=true"
-      },
-      {
-        "text": "Layered entities are not permitted on No Ratio Loans",
-        "condition": "layered_entities=true AND loan_type=No_Ratio"
       }
     ]
   },
