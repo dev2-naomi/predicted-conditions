@@ -43,6 +43,7 @@ from typing_extensions import TypedDict
 from registry import STEP_ORDER
 from step_loader import load_system_prompt, resolve_plan_for_step, resolve_tools_for_step
 from tools import ALL_TOOLS
+from tools.sequential_tool_node import SequentialToolNode
 
 # ---------------------------------------------------------------------------
 # Custom reducers
@@ -735,8 +736,15 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
 
 
 def tool_node_factory(tools: list) -> ToolNode:
-    """Create a ToolNode with all tools (tool_resolver scoping happens at LLM layer)."""
-    return ToolNode(tools)
+    """Create a ToolNode with all tools (tool_resolver scoping happens at LLM layer).
+
+    Uses SequentialToolNode (see tools/sequential_tool_node.py), not the
+    stock ToolNode, so that a multi-tool-call batch with inter-tool
+    dependencies (e.g. build_scenario_summary depending on parse_loan_file's
+    output) is executed correctly regardless of whether the orchestrator LLM
+    happens to batch them into the same turn.
+    """
+    return SequentialToolNode(tools)
 
 
 def should_continue(state: PredictiveConditionsState) -> Literal["tools", "party_split"]:
@@ -840,7 +848,7 @@ def fail_fast_node(state: PredictiveConditionsState) -> dict:
 # Graph construction
 # ---------------------------------------------------------------------------
 
-_tool_node = ToolNode(ALL_TOOLS)
+_tool_node = SequentialToolNode(ALL_TOOLS)
 
 _builder = StateGraph(PredictiveConditionsState)
 _builder.add_node("orchestrator", orchestrator_node)
