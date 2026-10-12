@@ -82,6 +82,47 @@ def _critical_failure_from(result: list) -> dict | None:
     return None
 
 
+class TestRunnableCallableAutoInjectsStoreAndConfig:
+    """Regression test for a real production incident (2026-10-12):
+    ``SequentialToolNode._func``/``_afunc`` were first written with
+    ``from __future__ import annotations`` + ``BaseStore | None`` (PEP 604)
+    annotations. That combination stringifies every annotation (PEP 563),
+    so LangGraph's ``RunnableCallable.__init__`` -- which decides whether to
+    auto-inject ``store``/``config`` by matching each parameter's *literal*
+    annotation object against a hardcoded set of sentinels -- silently
+    stopped detecting ``store`` as injectable. Calling ``._func()`` directly
+    with an explicit ``store=None`` kwarg (as the other tests in this file
+    do) masked the bug completely; it only reproduced through the REAL
+    ``.invoke()`` / graph-execution path, which is what production uses.
+    This crashed a live deployed run with:
+    ``TypeError: SequentialToolNode._func() missing 1 required
+    keyword-only argument: 'store'``.
+    """
+
+    def test_func_accepts_detects_store_and_config(self):
+        node = SequentialToolNode(ALL_TOOLS)
+        assert "store" in node.func_accepts, (
+            "RunnableCallable failed to detect 'store' as an injectable "
+            "kwarg on SequentialToolNode._func -- likely caused by "
+            "postponed annotation evaluation (PEP 563) or PEP 604 "
+            "'X | None' syntax on the store/config parameters, which "
+            "LangGraph's signature introspection does not recognize."
+        )
+        assert "config" in node.func_accepts
+
+    def test_invoke_does_not_crash_on_multi_call_batch(self):
+        """The actual bug reproduction: must go through .invoke(), NOT
+        ._func() directly, since .invoke() is what exercises LangGraph's
+        store/config auto-injection machinery."""
+        state = _make_batch_state("parse_loan_file", "build_scenario_summary")
+        node = SequentialToolNode(ALL_TOOLS)
+        result = node.invoke(dict(state))  # must not raise TypeError
+        ss = _scenario_summary_from(result)
+        assert ss is not None
+        assert ss["numbers"]["LTV"] == 70
+        assert ss["occupancy"] == "Primary"
+
+
 class TestReproducesAndFixesTheRaceCondition:
     """The core regression test: parse_loan_file + build_scenario_summary
     batched into ONE AI turn. The stock ToolNode gets this wrong (confirms

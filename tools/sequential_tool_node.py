@@ -39,10 +39,27 @@ For a single-tool-call batch (the common case, and the only shape the
 original ToolNode semantics were ever actually correct for anyway), this
 defers entirely to the stock ``ToolNode`` implementation -- zero behavior
 change for that path.
-"""
-from __future__ import annotations
 
-from typing import Any, Callable
+IMPORTANT -- do NOT add ``from __future__ import annotations`` to this
+file. LangGraph's ``RunnableCallable.__init__`` (see
+``langgraph/_internal/_runnable.py``) decides whether to auto-inject
+``config``/``store`` into a node function by introspecting the function's
+*literal* parameter annotations against a hardcoded set of sentinels
+(``BaseStore``, ``"BaseStore"``, ``Optional[BaseStore]``,
+``"Optional[BaseStore]"``). If PEP 563 postponed evaluation is active, every
+annotation becomes an arbitrary string (e.g. ``"BaseStore | None"``), which
+matches none of those sentinels -- so ``store`` silently stops being
+auto-injected, and the real graph pipeline crashes with
+``TypeError: _func() missing 1 required keyword-only argument: 'store'``.
+This was hit and fixed live on 2026-10-12: a from __future__ import
+annotations + ``BaseStore | None`` (PEP 604) combination worked fine when
+testing ``_func`` directly with an explicit ``store=...`` kwarg, but broke
+the real ``graph.invoke()`` path, which relies on this introspection. Use
+``typing.Optional[BaseStore]`` (not ``BaseStore | None``) for exactly this
+reason -- this also keeps the module importable on Python 3.9, which does
+not support PEP 604 ``X | Y`` syntax without the future import.
+"""
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
@@ -57,7 +74,7 @@ from langgraph.types import Command
 # imports ALL_TOOLS, which imports this module, transitively).
 
 
-def _merge_dicts(old: dict | None, new: dict | None) -> dict:
+def _merge_dicts(old: Optional[dict], new: Optional[dict]) -> dict:
     if old is None:
         old = {}
     if new is None:
@@ -71,7 +88,7 @@ def _merge_dicts(old: dict | None, new: dict | None) -> dict:
     return merged
 
 
-def _append_list(old: list | None, new: list | None) -> list:
+def _append_list(old: Optional[list], new: Optional[list]) -> list:
     return (old or []) + (new or [])
 
 
@@ -79,7 +96,7 @@ def _last_value(old: Any, new: Any) -> Any:  # noqa: ARG001
     return new
 
 
-_STATE_REDUCERS: dict[str, Callable[[Any, Any], Any]] = {
+_STATE_REDUCERS: Dict[str, Callable[[Any, Any], Any]] = {
     "messages": add_messages,
     "scenario_summary": _merge_dicts,
     "docs_by_facet": _merge_dicts,
@@ -98,7 +115,7 @@ _STATE_REDUCERS: dict[str, Callable[[Any, Any], Any]] = {
 }
 
 
-def _apply_state_update(running_state: dict, update: dict | None) -> dict:
+def _apply_state_update(running_state: dict, update: Optional[dict]) -> dict:
     """Merges a single tool's Command.update into a running state snapshot,
     using the same per-field reducer the real graph uses -- so a later tool
     call in the same batch sees exactly what it would have seen had the
@@ -131,10 +148,10 @@ class SequentialToolNode(ToolNode):
 
     def _func(
         self,
-        input: dict[str, Any],
+        input: Union[List[Any], Dict[str, Any], Any],
         config: RunnableConfig,
         *,
-        store: BaseStore | None,
+        store: Optional[BaseStore],
     ) -> Any:
         if not isinstance(input, dict):
             # This pipeline always invokes the tools node with the full
@@ -150,7 +167,7 @@ class SequentialToolNode(ToolNode):
             return super()._func(input, config, store=store)
 
         running_state = dict(input)
-        outputs: list[Any] = []
+        outputs: List[Any] = []
         for call in raw_calls:
             injected_call = self.inject_tool_args(dict(call), running_state, store)
             output = self._run_one(injected_call, input_type, config)
@@ -161,10 +178,10 @@ class SequentialToolNode(ToolNode):
 
     async def _afunc(
         self,
-        input: dict[str, Any],
+        input: Union[List[Any], Dict[str, Any], Any],
         config: RunnableConfig,
         *,
-        store: BaseStore | None,
+        store: Optional[BaseStore],
     ) -> Any:
         if not isinstance(input, dict):
             return await super()._afunc(input, config, store=store)
@@ -174,7 +191,7 @@ class SequentialToolNode(ToolNode):
             return await super()._afunc(input, config, store=store)
 
         running_state = dict(input)
-        outputs: list[Any] = []
+        outputs: List[Any] = []
         for call in raw_calls:
             injected_call = self.inject_tool_args(dict(call), running_state, store)
             output = await self._arun_one(injected_call, input_type, config)
@@ -183,7 +200,7 @@ class SequentialToolNode(ToolNode):
 
         return self._combine_tool_outputs(outputs, input_type)
 
-    def _raw_tool_calls(self, input: dict[str, Any]) -> tuple[list[dict], str]:
+    def _raw_tool_calls(self, input: Dict[str, Any]) -> Tuple[List[dict], str]:
         """Extracts the tool_calls list from the latest AIMessage WITHOUT
         performing state/store injection (that happens per-call, against the
         running state snapshot, in _func/_afunc above) -- mirrors
