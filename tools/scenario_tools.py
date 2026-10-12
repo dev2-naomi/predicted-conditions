@@ -947,6 +947,36 @@ def build_scenario_summary(
     meta = profile.get("metadata", {})
     loan_program = meta.get("loan_program", {})
 
+    # --- Bare-minimum-fields failure gate -----------------------------------
+    # Empirically confirmed across all 16 local sample loan files: when NO
+    # eligibility_json is provided at all, the MISMO XML alone NEVER supplies
+    # FicoScore, IncomeDocType, Channel, or BorrowerType, and almost never
+    # supplies DTI -- these are genuinely eligibility-engine-exclusive data,
+    # not a parsing gap (see tests/ and the live field-coverage check run
+    # 2026-10-09). Rather than silently generating a full document-request
+    # set reasoned off a loan file missing these fundamental inputs, fail the
+    # run deterministically here and let agent.py's route_after_tools /
+    # fail_fast_node skip STEP_01-08 entirely instead of trusting the
+    # orchestrator LLM to notice and stop on its own (c.f. the softer
+    # advisory-only `missing_core_variables` below, which the LLM can ignore).
+    critical_failure: dict[str, Any] | None = None
+    if not s.get("eligibility_json"):
+        missing_bare_minimum = [
+            elig_key for elig_key, meta_key in _ELIGIBILITY_FIELD_MAP.items()
+            if meta.get(meta_key) in (None, "", "unknown")
+        ]
+        if missing_bare_minimum:
+            critical_failure = {
+                "reason": "missing_bare_minimum_fields",
+                "message": (
+                    "No eligibility_json was provided, and the MISMO loan "
+                    "XML alone does not supply all fields required to "
+                    "generate reliable document conditions. Missing: "
+                    + ", ".join(missing_bare_minimum)
+                ),
+                "missing_fields": missing_bare_minimum,
+            }
+
     doc_types = [d.get("doc_type") for d in submitted_docs if d.get("doc_type")]
 
     # Determine income types.
@@ -1407,11 +1437,20 @@ def build_scenario_summary(
         if supplemental_context else ""
     )
 
+    failure_msg = ""
+    if critical_failure:
+        failure_msg = (
+            "\n\n*** CRITICAL FAILURE — RUN CANNOT PROCEED ***\n"
+            f"{critical_failure['message']}\n"
+            "This run will stop here; no document requests will be generated."
+        )
+
     return Command(update={
         "scenario_summary": summary,
         "missing_core_variables": missing,
         "document_inventory": doc_inventory,
         "guideline_section_refs": guideline_refs,
+        "critical_failure": critical_failure,
         "messages": [ToolMessage(
             f"Scenario summary built. Program: {summary['program']}, Purpose: {purpose}, "
             f"Occupancy: {summary['occupancy']}, LTV: {summary['numbers']['LTV']}, FICO: {fico}, "
@@ -1426,7 +1465,8 @@ def build_scenario_summary(
                 ) if missing else ""
             )
             + lock_msg
-            + supplemental_block,
+            + supplemental_block
+            + failure_msg,
             tool_call_id=tool_call_id,
         )],
     })

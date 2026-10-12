@@ -108,6 +108,13 @@ class PredictiveConditionsState(TypedDict, total=False):
     final_output: Annotated[NotRequired[dict], _last_value]
     dev_mode: NotRequired[dict]
 
+    # Deterministic failure gate (see tools.scenario_tools.build_scenario_summary):
+    # set when NO eligibility_json was provided AND the MISMO XML alone is
+    # missing one or more of the 16 bare-minimum eligibility-engine fields.
+    # When set, route_after_tools() routes straight to fail_fast_node instead
+    # of back to the orchestrator, skipping STEP_01-08 entirely.
+    critical_failure: Annotated[NotRequired[dict], _last_value]
+
 
 # ---------------------------------------------------------------------------
 # LLM
@@ -775,6 +782,60 @@ def party_split_node(state: PredictiveConditionsState) -> dict:
     return apply_coborrower_pass(dict(state))
 
 
+def route_after_tools(state: PredictiveConditionsState) -> Literal["orchestrator", "fail_fast"]:
+    """After every tool-execution batch, check whether build_scenario_summary
+    (STEP_00) just flagged a critical_failure (no eligibility_json provided
+    AND the MISMO XML alone is missing bare-minimum eligibility fields).
+
+    If so, route straight to fail_fast_node instead of back to the
+    orchestrator -- a deterministic short-circuit that skips STEP_01-08
+    entirely, rather than relying on the orchestrator LLM to notice an
+    advisory message and choose to stop on its own.
+    """
+    if state.get("critical_failure"):
+        return "fail_fast"
+    return "orchestrator"
+
+
+def fail_fast_node(state: PredictiveConditionsState) -> dict:
+    """Deterministic terminal node for the critical_failure short-circuit.
+
+    Emits a clean, empty-document-requests final_output carrying the failure
+    reason, instead of letting STEP_01-08 run guideline reasoning against a
+    loan file known to be missing fundamental inputs (FICO, income doc type,
+    etc. -- see tools.scenario_tools.build_scenario_summary).
+    """
+    cf = state.get("critical_failure") or {}
+    scenario_summary = state.get("scenario_summary", {}) or {}
+
+    final_output = {
+        "scenario_summary": scenario_summary,
+        "seen_conflicts": state.get("seen_conflicts", []),
+        "document_requests": [],
+        "stats": {
+            "total_document_requests": 0,
+            "status": "failed",
+            "failure_reason": cf.get("reason", "unknown"),
+            "missing_fields": cf.get("missing_fields", []),
+        },
+        "error": cf.get(
+            "message",
+            "Run failed: critical eligibility fields missing and no "
+            "eligibility_json was provided.",
+        ),
+    }
+
+    return {
+        "final_output": final_output,
+        "current_step": "FAILED",
+        "messages": [AIMessage(
+            content="Run stopped before document generation: " + cf.get(
+                "message", "critical fields missing.",
+            )
+        )],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Graph construction
 # ---------------------------------------------------------------------------
@@ -785,6 +846,7 @@ _builder = StateGraph(PredictiveConditionsState)
 _builder.add_node("orchestrator", orchestrator_node)
 _builder.add_node("tools", _tool_node)
 _builder.add_node("party_split", party_split_node)
+_builder.add_node("fail_fast", fail_fast_node)
 
 _builder.set_entry_point("orchestrator")
 _builder.add_conditional_edges(
@@ -792,8 +854,13 @@ _builder.add_conditional_edges(
     should_continue,
     {"tools": "tools", "party_split": "party_split"},
 )
-_builder.add_edge("tools", "orchestrator")
+_builder.add_conditional_edges(
+    "tools",
+    route_after_tools,
+    {"orchestrator": "orchestrator", "fail_fast": "fail_fast"},
+)
 _builder.add_edge("party_split", END)
+_builder.add_edge("fail_fast", END)
 
 
 def build_agent(checkpointer: Any | None = None):
