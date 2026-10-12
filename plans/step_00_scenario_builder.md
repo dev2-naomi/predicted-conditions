@@ -199,22 +199,39 @@ Produce:
 
 ## Rules
 
-### 0. Eligibility engine data is AUTHORITATIVE
+### 0. The loan file (XML or flat loan-data JSON) takes priority over eligibility engine data when both are present
 
-When an eligibility engine output is provided (via `parse_eligibility_output`), its fields
-ALWAYS take priority over XML/DU findings for:
+`loan_file_xml` and the eligibility engine output (via `parse_eligibility_output`) can both
+supply values for the same fields:
 - Occupancy (NOO, Primary, Second Home)
-- Program name (Flex Select, DSCR, etc.)
 - Loan amount, LTV, CLTV, DTI, FICO
 - Income documentation type
 - Property type
 
+2026-10-12 design decision: when BOTH sources supply a value for one of these fields, the
+loan file (XML or flat JSON) wins -- it's the more current/authoritative source, since the
+eligibility engine can run on an earlier snapshot, before final loan terms are locked in the
+closing package. Eligibility engine data is only used to fill in a field the loan file left
+genuinely blank. `build_scenario_summary` enforces this precedence deterministically, so
+there's no need to manually reconcile conflicting values yourself -- just surface
+`scenario_summary`'s already-resolved value as-is.
+
+**Exception: Program name** (Flex Select, DSCR, etc.) has no loan-file equivalent -- the loan
+file never names a retail loan program -- so it continues to come authoritatively from the
+eligibility engine's eligible programs list.
+
 The DU/LP XML may contain data about MULTIPLE properties owned by the borrower
 (primary residence, investment properties, REO). Do NOT confuse these with the
-SUBJECT PROPERTY. The eligibility engine has already identified the correct
-subject property and loan parameters. If the XML shows "PrimaryResidence" for
-one property and "Investment" for another, use the eligibility engine's
-Occupancy field to determine which is the subject.
+SUBJECT PROPERTY. If it's ambiguous which property in the XML is the subject property,
+use the eligibility engine's Occupancy field to help identify the correct one -- but once
+the subject property is identified, its own XML-reported Occupancy value takes priority per
+the rule above (i.e. this disambiguation use is about WHICH XML property record to read,
+not about overriding that record's own value).
+
+`loan_file_xml` may also arrive as a flat JSON object (e.g. `{"FicoScore": 724, "LTV": 70,
+"CLTV": 70, ...}`, the same field names eligibility's application_data uses) instead of real
+MISMO XML text, when no MISMO document is available. `parse_loan_file` handles both shapes
+transparently -- treat it exactly like XML-derived data either way.
 
 ### 1. Do not guess
 
