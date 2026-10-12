@@ -490,6 +490,25 @@ _ELIGIBILITY_FIELD_MAP: dict[str, str] = {
     "LoanType": "loan_type",
 }
 
+# Field pairs where EITHER member being present satisfies the bare-minimum
+# requirement for that pair (the other, if also present, is just additional
+# supporting info -- it is never required on its own). Per explicit design
+# decision 2026-10-12:
+#   - LTV/CLTV: two measures of the same leverage concept (CLTV folds in
+#     subordinate financing on top of LTV); knowing either one is enough to
+#     proceed, only fail if NEITHER is known.
+#   - State/County: two granularities of the same location concept; knowing
+#     either one is enough, only fail if NEITHER is known.
+# This only changes the bare-minimum FAILURE GATE's behavior -- it does not
+# change how LTV/CLTV or State/County are stored, merged, or surfaced
+# elsewhere (each still flows into its own independent metadata key/summary
+# field, with no cross-validation between the two members of a pair).
+_ELIGIBILITY_EITHER_OF_PAIRS: tuple[tuple[str, str], ...] = (
+    ("LTV", "CLTV"),
+    ("State", "County"),
+)
+_PAIRED_ELIGIBILITY_KEYS: set[str] = {k for pair in _ELIGIBILITY_EITHER_OF_PAIRS for k in pair}
+
 
 def _mine_fico_from_passed_programs(
     program_results: dict[str, Any],
@@ -959,12 +978,26 @@ def build_scenario_summary(
     # fail_fast_node skip STEP_01-08 entirely instead of trusting the
     # orchestrator LLM to notice and stop on its own (c.f. the softer
     # advisory-only `missing_core_variables` below, which the LLM can ignore).
+    #
+    # LTV/CLTV and State/County are each treated as an "either-of" pair
+    # (see _ELIGIBILITY_EITHER_OF_PAIRS) rather than two independently
+    # required fields: either member being known is sufficient, and the
+    # other (if also present) is just additional supporting info -- only
+    # fail the pair if NEITHER member is known.
     critical_failure: dict[str, Any] | None = None
     if not s.get("eligibility_json"):
         missing_bare_minimum = [
             elig_key for elig_key, meta_key in _ELIGIBILITY_FIELD_MAP.items()
-            if meta.get(meta_key) in (None, "", "unknown")
+            if elig_key not in _PAIRED_ELIGIBILITY_KEYS
+            and meta.get(meta_key) in (None, "", "unknown")
         ]
+        # Either-of pairs (LTV/CLTV, State/County): only missing if BOTH
+        # members of the pair are unknown -- see _ELIGIBILITY_EITHER_OF_PAIRS.
+        for key_a, key_b in _ELIGIBILITY_EITHER_OF_PAIRS:
+            a_present = meta.get(_ELIGIBILITY_FIELD_MAP[key_a]) not in (None, "", "unknown")
+            b_present = meta.get(_ELIGIBILITY_FIELD_MAP[key_b]) not in (None, "", "unknown")
+            if not a_present and not b_present:
+                missing_bare_minimum.extend([key_a, key_b])
         if missing_bare_minimum:
             critical_failure = {
                 "reason": "missing_bare_minimum_fields",

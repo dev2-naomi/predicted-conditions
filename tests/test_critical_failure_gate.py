@@ -32,6 +32,7 @@ load_dotenv(REPO_DIR / ".env")
 import pytest
 
 from tools.scenario_tools import (
+    _ELIGIBILITY_EITHER_OF_PAIRS,
     _ELIGIBILITY_FIELD_MAP,
     build_scenario_summary,
     parse_eligibility_output,
@@ -247,3 +248,122 @@ class TestEligibilityFieldMapContract:
             "LoanType",
         }
         assert set(_ELIGIBILITY_FIELD_MAP.keys()) == expected
+
+
+# ---------------------------------------------------------------------------
+# "Either-of" pairs (LTV/CLTV, State/County) -- 2026-10-12 design decision:
+# either member of the pair being known is sufficient; only fail the pair if
+# NEITHER member is known. These are synthetic (not real-sample-driven)
+# because no local sample happens to be missing exactly one member of a
+# pair -- real MISMO XML almost always computes LTV and supplies
+# State/County together, so this behavior needs direct construction to
+# actually exercise both branches.
+# ---------------------------------------------------------------------------
+
+# A complete, synthetic metadata dict satisfying all 16 bare-minimum fields
+# except where overridden by the caller -- isolates exactly the field(s)
+# under test rather than relying on a real (messier) sample's gaps.
+_FULL_META: dict = {
+    "fico": 720,
+    "ltv_pct": 80.0,
+    "cltv_pct": 80.0,
+    "dti": 35.0,
+    "loan_amount": 400000,
+    "property_value": 500000,
+    "property_type": "sfr",
+    "occupancy": "owner_occupied",
+    "purpose": "purchase",
+    "income_doc": "full_doc",
+    "channel": "wholesale",
+    "borrower_type": "individual",
+    "citizenship": "us_citizen",
+    "state": "CA",
+    "county": "Los Angeles",
+    "loan_type": "conventional",
+}
+
+
+def _run_gate_with_meta(meta_overrides: dict) -> dict | None:
+    """Builds a synthetic scenario_summary._loan_profile.metadata (complete
+    except for the given overrides) and runs build_scenario_summary's gate
+    directly, bypassing XML parsing entirely -- lets us isolate exactly the
+    either-of-pair fields under test."""
+    meta = {**_FULL_META, **meta_overrides}
+    state = {
+        "scenario_summary": {"_loan_profile": {"metadata": meta}},
+    }
+    cmd = build_scenario_summary.func(state=state)
+    return cmd.update.get("critical_failure")
+
+
+class TestEitherOfPairsContract:
+    def test_pairs_are_ltv_cltv_and_state_county(self):
+        assert _ELIGIBILITY_EITHER_OF_PAIRS == (("LTV", "CLTV"), ("State", "County"))
+
+    def test_fully_complete_meta_never_fails(self):
+        """Sanity baseline: with every field present (including both
+        members of both pairs), the gate must not fire."""
+        assert _run_gate_with_meta({}) is None
+
+
+class TestLtvCltvEitherOfPair:
+    def test_both_present_does_not_fail(self):
+        assert _run_gate_with_meta({"ltv_pct": 75.0, "cltv_pct": 75.0}) is None
+
+    def test_only_ltv_present_does_not_fail(self):
+        cf = _run_gate_with_meta({"ltv_pct": 75.0, "cltv_pct": None})
+        assert cf is None
+
+    def test_only_cltv_present_does_not_fail(self):
+        cf = _run_gate_with_meta({"ltv_pct": None, "cltv_pct": 75.0})
+        assert cf is None
+
+    def test_neither_present_fails_with_both_named(self):
+        cf = _run_gate_with_meta({"ltv_pct": None, "cltv_pct": None})
+        assert cf is not None
+        assert {"LTV", "CLTV"} <= set(cf["missing_fields"])
+
+    def test_cltv_zero_is_not_treated_as_present(self):
+        """Regression guard for the xml_parser.py 'or 0' bug fixed alongside
+        this feature: a real CLTV of exactly 0 is nonsensical for a
+        mortgage (0% CLTV implies no lien at all), so it must never be
+        silently treated as "known" -- only non-null/non-empty/non-unknown
+        values count as present. (This test exercises the gate's own
+        (None, "", "unknown") check directly; it does not depend on the
+        xml_parser.py fix, which is a separate, complementary guard against
+        the raw value ever becoming 0 in the first place.)"""
+        cf = _run_gate_with_meta({"ltv_pct": None, "cltv_pct": None})
+        assert cf is not None
+        assert "CLTV" in cf["missing_fields"]
+
+
+class TestStateCountyEitherOfPair:
+    def test_both_present_does_not_fail(self):
+        assert _run_gate_with_meta({"state": "NY", "county": "Westchester"}) is None
+
+    def test_only_state_present_does_not_fail(self):
+        cf = _run_gate_with_meta({"state": "NY", "county": None})
+        assert cf is None
+
+    def test_only_county_present_does_not_fail(self):
+        cf = _run_gate_with_meta({"state": None, "county": "Westchester"})
+        assert cf is None
+
+    def test_neither_present_fails_with_both_named(self):
+        cf = _run_gate_with_meta({"state": None, "county": None})
+        assert cf is not None
+        assert {"State", "County"} <= set(cf["missing_fields"])
+
+    def test_county_unknown_sentinel_is_not_treated_as_present(self):
+        cf = _run_gate_with_meta({"state": None, "county": "unknown"})
+        assert cf is not None
+        assert {"State", "County"} <= set(cf["missing_fields"])
+
+
+class TestEitherOfPairsDoNotMaskOtherMissingFields:
+    def test_unrelated_missing_field_still_reported_even_when_pairs_satisfied(self):
+        """The either-of-pair logic must only affect LTV/CLTV and
+        State/County -- every other field stays independently required."""
+        cf = _run_gate_with_meta({"fico": None})
+        assert cf is not None
+        assert cf["missing_fields"] == ["FicoScore"]

@@ -915,7 +915,13 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
             "first_name": primary.get("first_name", ""),
             "middle_name": primary.get("middle_name", ""),
         },
-        "cltv_pct": parsed.get("cltv") or 0,
+        # NOTE: intentionally no "or 0" fallback here (unlike some other
+        # fields) -- a genuinely-unknown CLTV must stay None, not silently
+        # become a false "0% CLTV" sentinel. build_scenario_summary's
+        # bare-minimum-fields gate (tools/scenario_tools.py) relies on None
+        # to detect "CLTV truly unknown" vs. a real value; defaulting to 0
+        # would make that check permanently unable to catch missing CLTV.
+        "cltv_pct": parsed.get("cltv"),
         "loan_type": _LIEN_MAP.get(parsed.get("lien_priority", ""), parsed.get("lien_priority")),
         "occupancy": parsed.get("occupancy"),
         "income_doc": None,
