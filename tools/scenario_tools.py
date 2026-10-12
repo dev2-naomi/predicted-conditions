@@ -661,8 +661,11 @@ def parse_eligibility_output(
     Parse the eligibility engine output JSON and enrich the loan profile.
 
     Extracts:
-      - application_data: authoritative loan fields (FICO, LTV, CLTV, DTI,
-        reserves, property type, etc.) that override XML-derived values.
+      - application_data: loan fields (FICO, LTV, CLTV, DTI, reserves,
+        property type, etc.) that fill in any fields the loan XML didn't
+        supply. When the loan XML also provides a value for one of these
+        fields, the XML value wins (see build_scenario_summary's re-apply
+        step) -- eligibility data only fills genuine gaps.
       - eligible_programs: list of programs that passed eligibility.
       - program_results: per-program pass/fail details.
 
@@ -829,17 +832,32 @@ def parse_eligibility_output(
     if extra_fields:
         summary_msg += f" Extra fields: {list(extra_fields.keys())}"
 
+    # NOTE: intentionally NOT writing meta_overlay into scenario_summary's
+    # _loan_profile here (unlike earlier versions of this tool). Doing so
+    # would let eligibility values silently clobber XML-derived values in
+    # state (via agent.py's _merge_dicts reducer, "last writer wins")
+    # whenever this tool happens to run after parse_loan_file -- before
+    # build_scenario_summary ever gets a chance to apply the intended
+    # precedence. Instead, stash the fully-resolved eligibility metadata
+    # (meta_overlay, which already incorporates the entity-level/FICO-mining
+    # fallbacks above) under _eligibility_data.resolved_metadata, where
+    # build_scenario_summary's single, authoritative re-apply step (below)
+    # can compare it against the untouched XML metadata and decide
+    # precedence explicitly -- XML wins when both are present (2026-10-12
+    # design decision: eligibility output can be an earlier snapshot run
+    # before final loan terms were locked in the closing package), and
+    # eligibility only fills genuine gaps.
     return Command(update={
         "scenario_summary": {
             "_eligibility_data": {
                 "application_data": app_data,
+                "resolved_metadata": meta_overlay,
                 "extra_fields": extra_fields,
                 "eligible_programs": eligible,
                 "ineligible_programs": ineligible,
                 "program_detail": program_detail,
                 "required_doc_categories": required_doc_categories,
             },
-            "_loan_profile": {"metadata": meta_overlay} if meta_overlay else {},
         },
         "messages": [ToolMessage(summary_msg, tool_call_id=tool_call_id)],
     })
@@ -949,19 +967,38 @@ def build_scenario_summary(
     supplemental: dict = ss.get("_xml_supplemental", {}) or profile.get("_xml_supplemental", {})
     submitted_docs: list[dict] = ss.get("_submitted_docs", [])
 
-    # Re-apply eligibility engine data (highest priority for numeric fields)
+    # Re-apply eligibility engine data -- fills gaps the XML didn't supply.
+    #
+    # 2026-10-12 design decision: when BOTH the loan XML and the eligibility
+    # engine output supply a value for the same field, the loan XML wins
+    # (it's the more current/authoritative source -- the eligibility engine
+    # can run on an earlier snapshot, before final loan terms are locked in
+    # the closing package's XML). Eligibility data is only used to fill
+    # fields the XML left genuinely blank; it never overrides an XML value
+    # that's already present. (Previously eligibility always won on
+    # conflict -- see git history if that behavior is ever needed again.)
     eligibility_data = ss.get("_eligibility_data", {})
-
     elig_app = eligibility_data.get("application_data", {})
-    if elig_app:
-        elig_meta: dict[str, Any] = {}
-        for elig_key, meta_key in _ELIGIBILITY_FIELD_MAP.items():
-            val = elig_app.get(elig_key)
-            if val is not None:
-                elig_meta[meta_key] = val
-        if elig_meta:
+    elig_resolved_meta = eligibility_data.get("resolved_metadata", {})
+    if not elig_resolved_meta and elig_app:
+        # Backward-compat fallback for any caller (e.g. tests) that passes
+        # application_data directly without going through
+        # parse_eligibility_output's resolved_metadata.
+        elig_resolved_meta = {
+            meta_key: val
+            for elig_key, meta_key in _ELIGIBILITY_FIELD_MAP.items()
+            if (val := elig_app.get(elig_key)) is not None
+        }
+    if elig_resolved_meta:
+        xml_meta = profile.get("metadata", {})
+        elig_fill_ins = {
+            meta_key: val
+            for meta_key, val in elig_resolved_meta.items()
+            if xml_meta.get(meta_key) in (None, "", "unknown")
+        }
+        if elig_fill_ins:
             profile = dict(profile)
-            profile["metadata"] = _deep_merge(profile.get("metadata", {}), elig_meta)
+            profile["metadata"] = _deep_merge(xml_meta, elig_fill_ins)
 
     meta = profile.get("metadata", {})
     loan_program = meta.get("loan_program", {})
@@ -1002,8 +1039,9 @@ def build_scenario_summary(
             critical_failure = {
                 "reason": "missing_bare_minimum_fields",
                 "message": (
-                    "No eligibility_json was provided, and the MISMO loan "
-                    "XML alone does not supply all fields required to "
+                    "No eligibility_json was provided, and the loan_file_xml "
+                    "input (MISMO XML or flat loan-data JSON) alone does not "
+                    "supply all fields required to "
                     "generate reliable document conditions. Missing: "
                     + ", ".join(missing_bare_minimum)
                 ),
@@ -1376,9 +1414,17 @@ def build_scenario_summary(
         ", ".join(m["field"] for m in missing) if missing else "none"
     )
 
-    # --- Eligibility Override Validation (Scenario Lock) ---
-    # When eligibility engine data is available, it is AUTHORITATIVE.
-    # Emit an explicit lock message so downstream steps cannot deviate.
+    # --- Eligibility/XML Consistency Check (Scenario Lock) ---
+    # 2026-10-12 design decision: occupancy/loan_amount/LTV/income_doc are
+    # each already resolved with "XML wins when both present" semantics by
+    # the re-apply step above (meta already reflects that precedence by the
+    # time `summary` was built from it). So when this check finds a
+    # discrepancy here, it means XML had a value AND eligibility disagreed --
+    # that's surfaced as an informational note only; the already-resolved
+    # (XML-priority) value in `summary` is kept, NOT overridden back to
+    # eligibility. `program` has no XML equivalent (XML never names a
+    # retail loan program), so it's the one field still force-set from
+    # eligibility's eligible_programs list.
     override_warnings: list[str] = []
     if elig_app:
         _LOCK_FIELDS = {
@@ -1392,6 +1438,11 @@ def build_scenario_summary(
         elig_programs = eligibility_data.get("eligible_programs", [])
         if elig_programs:
             _LOCK_FIELDS["program"] = ("Program", elig_programs[0])
+
+        # Fields with a genuine XML source where XML must win on conflict
+        # (c.f. _ELIGIBILITY_FIELD_MAP) -- "program" is NOT in this set, so
+        # it keeps the old force-override behavior below.
+        _XML_PRIORITY_FIELDS = {"occupancy", "numbers.loan_amount", "numbers.LTV", "income_profile.income_doc_label"}
 
         for field_path, (label, elig_val) in _LOCK_FIELDS.items():
             if elig_val is None:
@@ -1408,20 +1459,19 @@ def build_scenario_summary(
             curr_norm = str(current_val).strip().lower() if current_val else ""
 
             if curr_norm and elig_norm and curr_norm != elig_norm:
+                if field_path in _XML_PRIORITY_FIELDS:
+                    override_warnings.append(
+                        f"NOTE: {label} is '{current_val}' per the loan XML, but the eligibility "
+                        f"engine says '{elig_val}' -- keeping the XML value (XML takes priority "
+                        f"over eligibility engine data when both are present)."
+                    )
+                    continue
                 override_warnings.append(
                     f"OVERRIDE: {label} was '{current_val}' but eligibility engine says '{elig_val}' — using eligibility value"
                 )
-                # Force the override
-                if field_path == "occupancy":
-                    summary["occupancy"] = str(elig_val)
-                elif field_path == "program":
+                # Force the override (program only -- no XML source to prioritize)
+                if field_path == "program":
                     summary["program"] = str(elig_val)
-                elif field_path == "numbers.loan_amount":
-                    summary["numbers"]["loan_amount"] = elig_val
-                elif field_path == "numbers.LTV":
-                    summary["numbers"]["LTV"] = elig_val
-                elif field_path == "income_profile.income_doc_label":
-                    summary["income_profile"]["income_doc_label"] = str(elig_val)
 
     lock_msg = (
         f"\n\n*** SCENARIO LOCK (AUTHORITATIVE — DO NOT DEVIATE) ***\n"
@@ -1433,7 +1483,7 @@ def build_scenario_summary(
         f"  Income Type: {summary['income_profile']['primary_income_type']}\n"
         f"  Property Type: {summary['property']['property_type']} in {summary['property']['state']}\n"
         f"  Loan Amount: {summary['numbers']['loan_amount']}\n"
-        f"{'  Source: Eligibility Engine (overrides XML/manifest if conflicting)' if elig_app else '  Source: XML/Manifest (no eligibility engine data available)'}\n"
+        f"{'  Source: XML/Manifest, with Eligibility Engine filling any gaps (XML takes priority if both are present)' if elig_app else '  Source: XML/Manifest (no eligibility engine data available)'}\n"
         f"*** ALL SUBSEQUENT STEPS MUST USE THESE VALUES ***"
     )
     if override_warnings:
