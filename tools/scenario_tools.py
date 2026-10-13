@@ -1402,7 +1402,12 @@ def build_scenario_summary(
             "doc_id": doc.get("doc_id", ""),
             "document_ids": document_ids,
             "detected_document_type": detected_type,
-            "doctype_id": None,
+            # The manifest's own classifier category_id (e.g. "117" = Credit
+            # Report) — same value as "doc_id" above, exposed under this key
+            # too since downstream consumers (e.g. data/doctype_masterlist.json
+            # lookups) expect a "doctype_id" field. This used to be hardcoded
+            # to None and never populated.
+            "doctype_id": doc.get("doc_id") or None,
             "category": doc.get("category_name", "") or doc.get("doc_type", ""),
             "available": True,
             "completeness_signals": [],

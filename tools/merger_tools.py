@@ -3649,6 +3649,41 @@ def generate_final_output(
     # Enforce consistent field schema on every document request
     document_requests = [normalize_document_structure(dr) for dr in document_requests]
 
+    # Populate category_ids on every document request: the manifest's own
+    # upstream classifier category_id(s) (e.g. "117" = Credit Report),
+    # merged from two sources —
+    #   (a) the manifest documents that ended up satisfying this request
+    #       (dr["document_ids"], the physical file UUIDs) looked up against
+    #       document_inventory's doc_id (its category_id), and
+    #   (b) required_documents_json's per-item category_ids, already
+    #       carried on the dict by tools.doc_rules.required_documents_floor
+    #       when this request came from that checklist.
+    # Order: doc-extraction-derived ids first, then any checklist-derived
+    # ids not already covered, de-duplicated.
+    category_id_by_document_id: dict[str, str] = {}
+    for inv in _as_list(s.get("document_inventory", [])):
+        cat_id = inv.get("doc_id")
+        if not cat_id:
+            continue
+        for uuid in _as_list(inv.get("document_ids", [])):
+            if uuid:
+                category_id_by_document_id[str(uuid)] = str(cat_id)
+
+    for dr in document_requests:
+        merged_ids: list[str] = []
+        seen_ids: set[str] = set()
+        for uuid in dr.get("document_ids") or []:
+            cat_id = category_id_by_document_id.get(str(uuid))
+            if cat_id and cat_id not in seen_ids:
+                merged_ids.append(cat_id)
+                seen_ids.add(cat_id)
+        for cat_id in dr.get("category_ids") or []:
+            cat_id = str(cat_id)
+            if cat_id not in seen_ids:
+                merged_ids.append(cat_id)
+                seen_ids.add(cat_id)
+        dr["category_ids"] = merged_ids
+
     scenario_summary = s.get("scenario_summary", {})
 
     # Deterministic guard: correct any fabricated subject-property address

@@ -676,6 +676,7 @@ def required_documents_floor(ss: dict) -> list[dict]:
             [label],
             [f"Required by the loan's Submission Requirements checklist for "
              f"{program_name}.", status_note],
+            category_ids=item.get("category_ids"),
         ))
     return docs
 
@@ -724,8 +725,9 @@ def _doc(
     severity: str,
     specifications: list[str],
     reasons_needed: list[str],
+    category_ids: list | None = None,
 ) -> dict:
-    return {
+    out = {
         "document_type": document_type,
         "document_category": category,
         "priority": priority,
@@ -733,6 +735,15 @@ def _doc(
         "specifications": list(specifications),
         "reasons_needed": list(reasons_needed),
     }
+    if category_ids:
+        # Carried through verbatim from the Submission Requirements
+        # checklist's (required_documents_json) per-item `category_ids`
+        # array, so the classifier's own category ids survive onto this
+        # floor-injected document request. Merged at STEP_08
+        # (generate_final_output) with any category ids derived from the
+        # manifest documents that ended up satisfying this request.
+        out["category_ids"] = [str(c) for c in category_ids if c is not None]
+    return out
 
 
 # ---------------------------------------------------------------------------
