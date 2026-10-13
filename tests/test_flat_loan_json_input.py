@@ -169,3 +169,171 @@ class TestFlatJsonThroughFullPipeline:
         cf = cmd2.update.get("critical_failure")
         assert cf is not None
         assert "PropertyType" in cf["missing_fields"]
+
+
+# ---------------------------------------------------------------------------
+# "Incomes" array shape (2026-10-13 follow-up)
+# ---------------------------------------------------------------------------
+# The flat shape's old top-level "IncomeDocType"/"BorrowerType" scalar
+# fields are being replaced by an "Incomes" array, so multiple borrowers'
+# income documentation (primary, secondary, co-borrower) can be captured at
+# once instead of just one -- matching the same array shape the eligibility
+# engine itself consumes. The bare-minimum gate only requires the PRIMARY
+# BORROWER's entry (income_tier == "Primary" AND is_primary_borrower ==
+# True) to carry income_doc + borrower_type; other entries (that borrower's
+# own secondary income, or a co-borrower's income of any tier) are not
+# required for the gate, though they're preserved verbatim for any future
+# consumer.
+# ---------------------------------------------------------------------------
+
+SAMPLE_INCOMES_ARRAY: list[dict] = [
+    {
+        "income_tier": "Primary",
+        "is_primary_borrower": True,
+        "borrower_type": "Retired / Fixed Income",
+        "income_doc": "Asset Utilization",
+        "bank_statements_kind": None,
+    },
+    {
+        "income_tier": "Secondary",
+        "is_primary_borrower": True,
+        "borrower_type": "Wage Earner",
+        "income_doc": "Written VOE",
+        "bank_statements_kind": None,
+    },
+    {
+        "income_tier": "Primary",
+        "is_primary_borrower": False,
+        "borrower_type": "Self-Employed",
+        "income_doc": "Bank Statements: 12 Mo.",
+        "bank_statements_kind": "Personal",
+    },
+]
+
+SAMPLE_FLAT_JSON_WITH_INCOMES: dict = {
+    k: v for k, v in SAMPLE_FLAT_JSON.items() if k not in ("IncomeDocType", "BorrowerType")
+}
+SAMPLE_FLAT_JSON_WITH_INCOMES["Incomes"] = SAMPLE_INCOMES_ARRAY
+
+
+class TestIncomesArrayDetectionAndMapping:
+    def test_primary_borrowers_entry_populates_income_doc_and_borrower_type(self):
+        """income_tier == "Primary" alone is not enough -- the entry with
+        is_primary_borrower == False also has income_tier == "Primary" (its
+        OWN primary income, not the primary borrower's), and must be
+        skipped in favor of the entry where is_primary_borrower is True."""
+        meta = xml_to_loan_profile(SAMPLE_FLAT_JSON_WITH_INCOMES)["metadata"]
+        assert meta["income_doc"] == "Asset Utilization"
+        assert meta["borrower_type"] == "Retired / Fixed Income"
+
+    def test_secondary_and_coborrower_entries_do_not_leak_into_metadata(self):
+        meta = xml_to_loan_profile(SAMPLE_FLAT_JSON_WITH_INCOMES)["metadata"]
+        assert meta["income_doc"] != "Written VOE"
+        assert meta["borrower_type"] != "Self-Employed"
+
+    def test_full_incomes_array_preserved_in_supplemental_data(self):
+        profile = xml_to_loan_profile(SAMPLE_FLAT_JSON_WITH_INCOMES)
+        assert profile["_xml_supplemental"]["incomes"] == SAMPLE_INCOMES_ARRAY
+
+    def test_incomes_key_not_treated_as_an_unrecognized_extra_field(self):
+        profile = xml_to_loan_profile(SAMPLE_FLAT_JSON_WITH_INCOMES)
+        assert "Incomes" not in profile["_xml_supplemental"]["extra_flat_json_fields"]
+
+    def test_old_flat_fields_still_work_when_incomes_array_absent(self):
+        """Backward compatibility: a caller not yet sending "Incomes" at
+        all should still work exactly as before, via the old flat
+        IncomeDocType/BorrowerType fields."""
+        meta = xml_to_loan_profile(SAMPLE_FLAT_JSON)["metadata"]
+        assert meta["income_doc"] == "Bank Statements: 12 Mo."
+        assert meta["borrower_type"] == "Self-Employed"
+
+    def test_incomes_array_takes_priority_over_stale_flat_fields_if_both_present(self):
+        both = dict(SAMPLE_FLAT_JSON_WITH_INCOMES)
+        both["IncomeDocType"] = "W2"
+        both["BorrowerType"] = "Wage Earner"
+        meta = xml_to_loan_profile(both)["metadata"]
+        assert meta["income_doc"] == "Asset Utilization"
+        assert meta["borrower_type"] == "Retired / Fixed Income"
+
+    def test_no_matching_primary_borrower_entry_leaves_fields_none(self):
+        """Only secondary-income / non-primary-borrower entries present --
+        income_doc/borrower_type must come up empty (not accidentally pick
+        up one of those), so the bare-minimum gate correctly flags them as
+        missing rather than silently using the wrong borrower's data."""
+        no_primary = dict(SAMPLE_FLAT_JSON_WITH_INCOMES)
+        no_primary["Incomes"] = [
+            e for e in SAMPLE_INCOMES_ARRAY if not e["is_primary_borrower"]
+        ]
+        meta = xml_to_loan_profile(no_primary)["metadata"]
+        assert meta["income_doc"] is None
+        assert meta["borrower_type"] is None
+
+    def test_empty_incomes_array_leaves_fields_none(self):
+        empty = dict(SAMPLE_FLAT_JSON_WITH_INCOMES)
+        empty["Incomes"] = []
+        meta = xml_to_loan_profile(empty)["metadata"]
+        assert meta["income_doc"] is None
+        assert meta["borrower_type"] is None
+
+    def test_malformed_incomes_value_does_not_crash(self):
+        """A caller sending "Incomes" as something other than a list (e.g.
+        a stray string or dict) should degrade gracefully to "no primary
+        income known", not raise."""
+        malformed = dict(SAMPLE_FLAT_JSON_WITH_INCOMES)
+        malformed["Incomes"] = "not a list"
+        meta = xml_to_loan_profile(malformed)["metadata"]
+        assert meta["income_doc"] is None
+        assert meta["borrower_type"] is None
+        assert xml_to_loan_profile(malformed)["_xml_supplemental"]["incomes"] == []
+
+
+class TestIncomesArrayThroughFullPipeline:
+    def test_gate_does_not_fail_with_incomes_array_covering_primary_borrower(self):
+        state = {"loan_file_xml": json.dumps(SAMPLE_FLAT_JSON_WITH_INCOMES)}
+        cmd1 = parse_loan_file.func(state=state)
+        state.update(cmd1.update)
+        cmd2 = build_scenario_summary.func(state=state)
+        assert cmd2.update.get("critical_failure") is None
+
+    def test_gate_fires_when_incomes_array_has_no_primary_borrower_entry(self):
+        """Matches the user-reported scenario precisely: the Incomes array
+        is present and non-empty, but every entry's is_primary_borrower is
+        False (only secondary/co-borrower income is covered) -- the gate
+        must still fire, naming both IncomeDocType and BorrowerType."""
+        no_primary = dict(SAMPLE_FLAT_JSON_WITH_INCOMES)
+        no_primary["Incomes"] = [
+            e for e in SAMPLE_INCOMES_ARRAY if not e["is_primary_borrower"]
+        ]
+        state = {"loan_file_xml": json.dumps(no_primary)}
+        cmd1 = parse_loan_file.func(state=state)
+        state.update(cmd1.update)
+        cmd2 = build_scenario_summary.func(state=state)
+        cf = cmd2.update.get("critical_failure")
+        assert cf is not None
+        assert {"IncomeDocType", "BorrowerType"} <= set(cf["missing_fields"])
+
+    def test_gate_does_not_fail_when_eligibility_json_present_even_without_incomes(self):
+        """Sanity: eligibility_json presence still bypasses the gate
+        entirely, same as every other field -- the Incomes array only
+        matters for the no-eligibility-json path."""
+        no_income_info = {
+            k: v for k, v in SAMPLE_FLAT_JSON.items()
+            if k not in ("IncomeDocType", "BorrowerType")
+        }
+        state = {
+            "loan_file_xml": json.dumps(no_income_info),
+            "eligibility_json": json.dumps({"application_data": {
+                "IncomeDocType": "Full Doc", "BorrowerType": "Wage Earner",
+            }}),
+        }
+        cmd1 = parse_loan_file.func(state=state)
+        state.update(cmd1.update)
+        from tools.scenario_tools import parse_eligibility_output
+
+        cmd_e = parse_eligibility_output.func(state=state)
+        state["scenario_summary"] = {
+            **state.get("scenario_summary", {}),
+            **cmd_e.update.get("scenario_summary", {}),
+        }
+        cmd2 = build_scenario_summary.func(state=state)
+        assert cmd2.update.get("critical_failure") is None

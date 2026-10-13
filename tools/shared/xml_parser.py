@@ -740,6 +740,59 @@ _FLAT_JSON_FIELD_MAP: Dict[str, str] = {
 # object) -- avoids false positives on a stray `{"State": "CA"}`-ish value.
 _FLAT_JSON_MIN_MATCHING_KEYS = 3
 
+# 2026-10-13: the flat shape's old top-level "IncomeDocType"/"BorrowerType"
+# scalar fields are being replaced by an "Incomes" array, to accommodate
+# multiple borrowers' income documentation (primary, secondary, co-borrower)
+# instead of just one -- matching the same array shape the eligibility
+# engine itself consumes:
+#   "Incomes": [
+#       {"income_tier": "Primary", "is_primary_borrower": true,
+#        "borrower_type": "Retired / Fixed Income",
+#        "income_doc": "Asset Utilization", "bank_statements_kind": null},
+#       {"income_tier": "Secondary", "is_primary_borrower": true,
+#        "borrower_type": "Wage Earner", "income_doc": "Written VOE",
+#        "bank_statements_kind": null},
+#       {"income_tier": "Primary", "is_primary_borrower": false,
+#        "borrower_type": "Self-Employed",
+#        "income_doc": "Bank Statements: 12 Mo.",
+#        "bank_statements_kind": "Personal"},
+#   ]
+# Only the PRIMARY BORROWER's entry -- income_tier == "Primary" AND
+# is_primary_borrower == True -- is required for/consumed by the
+# bare-minimum-fields gate (tools/scenario_tools.py's _ELIGIBILITY_FIELD_MAP
+# check against metadata["income_doc"]/["borrower_type"]); note that
+# "Primary" here is a TIER label (this borrower's own primary income
+# source), not a borrower-order label, so a non-primary-borrower's income
+# can also carry income_tier == "Primary" (their own primary income) --
+# is_primary_borrower is what actually identifies the primary borrower,
+# income_tier narrows down to THEIR primary (as opposed to secondary)
+# income. Secondary-income and co-borrower entries are preserved verbatim
+# in `_xml_supplemental["incomes"]` for any downstream consumer that wants
+# them, but are not required for the gate.
+#
+# The OLD flat top-level "IncomeDocType"/"BorrowerType" keys are still
+# honored as a fallback for any caller not yet sending "Incomes" (and for
+# this flat shape's existing field-mapping detection logic below).
+_PRIMARY_INCOME_TIER = "primary"
+
+
+def _primary_borrower_income(incomes: Any) -> Dict[str, Any]:
+    """Finds the primary borrower's entry in a flat-JSON "Incomes" array
+    (income_tier == "Primary" and is_primary_borrower == True, both
+    case/type-tolerant). Returns ``{}`` if ``incomes`` isn't a non-empty
+    list or no entry matches -- callers should treat a ``{}`` result the
+    same as "no income_doc/borrower_type known from this array", not
+    raise or special-case it."""
+    if not isinstance(incomes, list):
+        return {}
+    for entry in incomes:
+        if not isinstance(entry, dict):
+            continue
+        tier = str(entry.get("income_tier") or "").strip().lower()
+        if tier == _PRIMARY_INCOME_TIER and bool(entry.get("is_primary_borrower")):
+            return entry
+    return {}
+
 
 def _try_parse_flat_loan_json(xml_content: Any) -> Optional[Dict[str, Any]]:
     """Detects whether ``xml_content`` is actually a flat loan-data JSON
@@ -775,6 +828,9 @@ def _flat_loan_json_to_profile(data: Dict[str, Any]) -> Dict[str, Any]:
     left at the same None/empty defaults the real MISMO-XML path uses when
     that data is genuinely absent from the XML -- i.e. this is a strict
     subset of what real XML can supply, never a richer/different shape."""
+    incomes = data.get("Incomes")
+    primary_income = _primary_borrower_income(incomes)
+
     metadata: Dict[str, Any] = {
         "dti": data.get("DTI"),
         "dscr": None,
@@ -791,7 +847,10 @@ def _flat_loan_json_to_profile(data: Dict[str, Any]) -> Dict[str, Any]:
         "cltv_pct": data.get("CLTV"),
         "loan_type": data.get("LoanType"),
         "occupancy": data.get("Occupancy"),
-        "income_doc": data.get("IncomeDocType"),
+        # "Incomes" array (primary borrower's entry) takes priority over the
+        # old flat IncomeDocType/BorrowerType fields when both are somehow
+        # present -- see the _primary_borrower_income() module comment above.
+        "income_doc": primary_income.get("income_doc") or data.get("IncomeDocType"),
         "citizenship": data.get("Citizenship"),
         "co_borrower": None,
         "loan_amount": data.get("LoanAmount"),
@@ -801,7 +860,7 @@ def _flat_loan_json_to_profile(data: Dict[str, Any]) -> Dict[str, Any]:
             "id": None, "name": None, "rate": None, "type": None,
             "rateRange": None, "originalApiKey": None,
         },
-        "borrower_type": data.get("BorrowerType"),
+        "borrower_type": primary_income.get("borrower_type") or data.get("BorrowerType"),
         "property_type": data.get("PropertyType"),
         "property_value": data.get("PropertyValue"),
         # Distinct, non-collapsed values — see property_value note in
@@ -827,7 +886,7 @@ def _flat_loan_json_to_profile(data: Dict[str, Any]) -> Dict[str, Any]:
         "military": None,
     }
 
-    known_keys = set(_FLAT_JSON_FIELD_MAP.keys()) | {"ReservesMonths"}
+    known_keys = set(_FLAT_JSON_FIELD_MAP.keys()) | {"ReservesMonths", "Incomes"}
     extra_fields = {k: v for k, v in data.items() if k not in known_keys}
 
     supplemental: Dict[str, Any] = {
@@ -861,6 +920,14 @@ def _flat_loan_json_to_profile(data: Dict[str, Any]) -> Dict[str, Any]:
         # FirstTimeHomeBuyer) -- preserved here rather than silently
         # dropped, even though no profile field consumes them today.
         "extra_flat_json_fields": extra_fields,
+        # Full "Incomes" array verbatim (not just the primary borrower's
+        # entry already folded into metadata["income_doc"]/["borrower_type"]
+        # above) -- secondary-income and co-borrower entries have no
+        # metadata field of their own yet, but are preserved here for any
+        # future consumer (e.g. coborrower.py) rather than silently dropped.
+        # Distinct from the unrelated, differently-shaped "income_sources"
+        # key above (1003-declared income-by-source for real MISMO XML).
+        "incomes": incomes if isinstance(incomes, list) else [],
     }
 
     return {
