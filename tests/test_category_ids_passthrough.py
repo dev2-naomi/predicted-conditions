@@ -29,7 +29,7 @@ sys.path.insert(0, str(REPO_DIR))
 
 import pytest
 
-from tools.doc_rules import _doc, required_documents_floor
+from tools.doc_rules import _doc, apply_deterministic_rules, required_documents_floor
 from tools.shared.normalize import normalize_document_structure
 from tools.merger_tools import generate_final_output
 
@@ -73,6 +73,82 @@ class TestRequiredDocumentsFloorPassesThroughCategoryIds:
             category_ids=[117, None, "349"],
         )
         assert d["category_ids"] == ["117", "349"]
+
+
+class TestApplyDeterministicRulesMergesCategoryIdsIntoExistingDoc:
+    """Regression test for a bug found during live dev verification: when a
+    required_documents_json checklist item's document_type canon-matches a
+    doc the LLM already drafted (e.g. "Bank Statement"), apply_deterministic_rules's
+    _inject(bypass_negative_gates=True) merge path only merged
+    reasons_needed into the existing entry and silently dropped the
+    checklist item's category_ids. Fixed via _merge_category_ids.
+    """
+
+    _BASE_SS = {
+        "occupancy": "Primary",
+        "purpose": "Purchase",
+        "program": "Flex Supreme",
+        "property": {"property_type": "SFR"},
+        "reo_summary": {"total_properties_owned": 0},
+        "asset_profile": {},
+        "income_profile": {"income_doc_label": "Bank Statement"},
+    }
+
+    def test_checklist_category_ids_merge_into_preexisting_llm_doc(self):
+        llm_docs = [
+            {
+                "document_type": "Bank Statement",
+                "document_category": "Income",
+                "priority": "P1",
+                "severity": "HARD-STOP",
+                "specifications": ["12 months of statements"],
+                "reasons_needed": ["Bank-statement income qualification"],
+            },
+        ]
+        ss = dict(self._BASE_SS, _required_documents_data={
+            "program_name": "Test",
+            "documents": [
+                {
+                    "label": "Bank Statements",
+                    "category": "bank_statement",
+                    "category_ids": [169, 170],
+                    "status": "completed",
+                },
+            ],
+        })
+        docs, _stats = apply_deterministic_rules(llm_docs, ss)
+        bank_stmt = next(d for d in docs if d["document_type"] == "Bank Statement")
+        assert bank_stmt["category_ids"] == ["169", "170"]
+        # reasons_needed merge must still work alongside the category_ids merge
+        assert "Bank-statement income qualification" in bank_stmt["reasons_needed"]
+        assert any("Submission Requirements checklist" in r for r in bank_stmt["reasons_needed"])
+
+    def test_checklist_category_ids_dedup_against_existing(self):
+        llm_docs = [
+            {
+                "document_type": "Bank Statement",
+                "document_category": "Income",
+                "priority": "P1",
+                "severity": "HARD-STOP",
+                "specifications": [],
+                "reasons_needed": [],
+                "category_ids": ["169"],
+            },
+        ]
+        ss = dict(self._BASE_SS, _required_documents_data={
+            "program_name": "Test",
+            "documents": [
+                {
+                    "label": "Bank Statements",
+                    "category": "bank_statement",
+                    "category_ids": [169, 170],
+                    "status": "completed",
+                },
+            ],
+        })
+        docs, _stats = apply_deterministic_rules(llm_docs, ss)
+        bank_stmt = next(d for d in docs if d["document_type"] == "Bank Statement")
+        assert bank_stmt["category_ids"] == ["169", "170"]
 
 
 class TestNormalizePreservesCategoryIds:

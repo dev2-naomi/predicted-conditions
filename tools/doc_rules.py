@@ -1104,6 +1104,27 @@ def apply_deterministic_rules(
                 current.append(r)
                 seen.add(norm)
 
+    def _merge_category_ids(target: dict, new_ids) -> None:
+        """Append any of new_ids not already present onto
+        target["category_ids"] in place. Used so a required_documents_json
+        checklist item's category_ids survive even when its document_type
+        canon-matches a doc the LLM (or another deterministic layer) already
+        drafted under the same name — otherwise only reasons_needed would
+        get merged in and the checklist's own category_ids would be
+        silently dropped on the floor."""
+        if not new_ids:
+            return
+        current = target.get("category_ids")
+        if not isinstance(current, list):
+            current = list(current) if current else []
+            target["category_ids"] = current
+        seen_ids = {str(c) for c in current}
+        for c in new_ids:
+            c = str(c)
+            if c not in seen_ids:
+                current.append(c)
+                seen_ids.add(c)
+
     def _inject(candidates: list[dict], bypass_negative_gates: bool = False) -> None:
         for cand in candidates:
             # candidate may itself be gated out — UNLESS bypass_negative_gates
@@ -1153,6 +1174,7 @@ def apply_deterministic_rules(
                 target = existing_by_key.get(key)
                 if target is not None:
                     _merge_reasons(target, cand.get("reasons_needed"))
+                    _merge_category_ids(target, cand.get("category_ids"))
 
     _inject(mandatory_docs())
     _inject(conditional_docs(flags))
