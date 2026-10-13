@@ -392,16 +392,30 @@ _CANONICAL_NAMES: dict[str, str] = {
     # already resolves to).
     "photo id": "government id",
     "identification": "government id",
-    "borrower authorization form": "borrower authorization",
-    "borrower authorization": "borrower authorization",
-    # normalize.py's masterlist canonicalization renames this to the
-    # plural "Borrowers Authorization" (matching doctype_masterlist.json's
-    # curated entry) BEFORE merge_document_requests ever sees an
-    # LLM-generated doc — without this entry, that plural form fails to
-    # collapse onto doc_rules.py's mandatory_docs() floor doc (which uses
-    # the singular "Borrower Authorization"), producing two separate,
+    # 2026-10-13: canonical key flipped from singular to plural. Originally
+    # both forms collapsed onto the singular "borrower authorization"
+    # because, at the time, doc_rules.py's mandatory_docs() floor doc used
+    # that singular wording and normalize.py's masterlist canonicalization
+    # independently renamed LLM-generated docs to the plural — without a
+    # shared canonical key, those two sources produced two separate,
     # undeduped documents in the final output instead of one.
-    "borrowers authorization": "borrower authorization",
+    #
+    # doc_rules.py's floor doc now uses the plural "Borrowers Authorization"
+    # (matching data/doctype_masterlist.json's curated entry, id 237), so
+    # the canonical key is flipped to match. This also fixes category_ids
+    # resolution for the (common) case where an LLM module independently
+    # drafts its own singular-worded request from guideline/checklist text
+    # and wins the merge before the floor doc is even injected — that
+    # singular-raw-text request now canonicalizes to the SAME plural key
+    # the masterlist name-lookup fallback actually has an entry for, so it
+    # resolves to 237 instead of silently coming up empty. (Live-verified
+    # gap: a real dev rerun had this exact LLM-drafted-singular case end up
+    # with correct category_ids ONLY because its required_documents_json
+    # checklist item happened to already carry category_ids=["237"] of its
+    # own — a loan without that checklist coverage would have gotten zero.)
+    "borrower authorization form": "borrowers authorization",
+    "borrower authorization": "borrowers authorization",
+    "borrowers authorization": "borrowers authorization",
     # Same dead-end problem: these 3 raw forms used to fall through to the
     # uncovered standalone "occupancy certification" name instead of the
     # covered "owner occupancy certification" name (the alias group below

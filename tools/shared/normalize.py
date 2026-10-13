@@ -419,7 +419,28 @@ _DOCTYPE_ALIASES: dict[str, str] = {
 _OUTPUT_DISPLAY_NAMES: dict[str, str] = {
     # --- Minimum Submission Requirements (All Loans) ---
     "loan application (1003)": "Initial Loan Application (1003)",
-    "borrowers authorization": "Borrower Authorization",
+    # 2026-10-13: was "Borrower Authorization" (singular) to match NQMF's
+    # "Order for Presenting Documents" wording at the time this override was
+    # added. Per explicit request, the engine's final output should now use
+    # the plural form instead, matching the masterlist/canonical name (id
+    # 237) and tools/doc_rules.py's floor-doc label.
+    #
+    # BOTH spellings are keyed here (not just "borrowers authorization")
+    # because this lookup is a literal .lower() of whatever raw document_type
+    # text survived merge-dedup -- NOT the canonical merge key. _merge_two()
+    # never rewrites document_type; it's first-source-wins. The canonical
+    # merge key for both spellings is actually "borrower authorization"
+    # (singular — confirmed via _canonical_doc_type), so in practice an
+    # LLM-drafted module (e.g. module 01, independently phrasing its own
+    # "Borrower Authorization" text from guideline/checklist wording) very
+    # often claims the merge key *before* doc_rules.py's plural floor doc
+    # even gets injected, and that LLM-drafted singular text is what wins
+    # and survives to this display step -- live-verified on a real dev
+    # rerun. Mapping only the plural spelling silently no-ops for that (very
+    # common) case, so both forms must map here to guarantee plural output
+    # regardless of which source won the merge.
+    "borrower authorization": "Borrowers Authorization",
+    "borrowers authorization": "Borrowers Authorization",
     # --- Income / rental ---
     "rental agreement": "Current Lease Agreement",
     # --- LLC / business entity ---

@@ -551,6 +551,48 @@ class TestBorrowersAuthorizationLabelMatchesMasterlist:
             "Borrower Authorization"
         )
 
+    def test_final_output_display_label_is_also_plural(self):
+        """2026-10-13: tools/shared/normalize.py's _OUTPUT_DISPLAY_NAMES had
+        a separate, pre-existing override (added 2026-07-23 to match NQMF's
+        "Order for Presenting Documents" wording at the time) that forced the
+        canonical plural name back to the singular "Borrower Authorization"
+        at the final-output boundary -- independently of doc_rules.py's
+        floor-doc label and completely undoing it for the customer-facing
+        output. Live-verified via a real rerun on deployed dev: category_ids
+        resolved correctly (237) but the displayed document_type still read
+        "Borrower Authorization" singular. Per explicit follow-up request,
+        this override now maps to the plural instead, so the final output
+        label matches the masterlist/floor-doc label too."""
+        from tools.shared.normalize import apply_output_display_name
+
+        assert apply_output_display_name("Borrowers Authorization") == "Borrowers Authorization"
+        assert apply_output_display_name("borrowers authorization") == "Borrowers Authorization"
+
+    def test_generate_final_output_emits_plural_label_end_to_end(self):
+        """End-to-end: a document_request that merges to the "borrowers
+        authorization" canonical key must come out of generate_final_output
+        with the plural display label, not just at the canonicalization or
+        override-lookup layer in isolation."""
+        state = {
+            "document_inventory": [],
+            "module_outputs": {
+                "08": {
+                    "ranked_document_requests": [
+                        {
+                            "document_type": "Borrower Authorization",
+                            "document_category": "Cross-Cutting",
+                            "document_ids": [],
+                        },
+                    ]
+                }
+            },
+            "scenario_summary": {},
+        }
+        cmd = generate_final_output.func(state=state)
+        drs = cmd.update["final_output"]["document_requests"]
+        assert drs[0]["document_type"] == "Borrowers Authorization"
+        assert drs[0]["category_ids"] == ["237"]
+
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
