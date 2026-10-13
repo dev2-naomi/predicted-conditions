@@ -29,7 +29,7 @@ sys.path.insert(0, str(REPO_DIR))
 
 import pytest
 
-from tools.doc_rules import _doc, apply_deterministic_rules, required_documents_floor
+from tools.doc_rules import _doc, apply_deterministic_rules, mandatory_docs, required_documents_floor
 from tools.shared.normalize import normalize_document_structure
 from tools.merger_tools import generate_final_output
 from registry import GENERAL_TOOL_NAMES, STEP_CONFIG
@@ -413,6 +413,43 @@ class TestGenerateFinalOutputFallsBackToMasterlistNameLookup:
         }
         drs = self._invoke(state)
         assert drs[0]["category_ids"] == ["323", "845"]
+
+
+class TestBorrowersAuthorizationLabelMatchesMasterlist:
+    """2026-10-13 follow-up: doc_rules.py's floor docs used to emit the
+    singular "Borrower Authorization", while data/doctype_masterlist.json's
+    curated entry (id 237) -- and tools.shared.normalize's LLM-doc
+    canonicalization -- both already used the plural "Borrowers
+    Authorization". The singular form never had a direct masterlist name
+    match (only resolved via doc-extraction/checklist sources), so renamed
+    the floor docs to the plural to match the masterlist/eligibility-engine
+    schema exactly and pick up the name-lookup fallback too.
+    """
+
+    def test_mandatory_docs_emits_plural_label(self):
+        docs = mandatory_docs()
+        labels = {d["document_type"] for d in docs}
+        assert "Borrowers Authorization" in labels
+        assert "Borrower Authorization" not in labels
+
+    def test_plural_label_resolves_directly_against_masterlist(self):
+        from tools.merger_tools import _doctype_id_by_name
+
+        assert _doctype_id_by_name().get("borrowers authorization") == "237"
+
+    def test_required_docs_category_map_uses_plural_label(self):
+        from tools.doc_rules import _REQUIRED_DOCS_CATEGORY_MAP
+
+        assert _REQUIRED_DOCS_CATEGORY_MAP["borrowers_authorization"] == "Borrowers Authorization"
+
+    def test_singular_and_plural_still_merge_to_the_same_key(self):
+        """Dedup must still work regardless of which form a given source
+        (deterministic floor vs. LLM-drafted-then-normalized) emits."""
+        from tools.merger_tools import _canonical_doc_type
+
+        assert _canonical_doc_type("Borrowers Authorization") == _canonical_doc_type(
+            "Borrower Authorization"
+        )
 
 
 if __name__ == "__main__":

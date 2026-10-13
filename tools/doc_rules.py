@@ -447,7 +447,7 @@ def _eligibility_category_doc_map() -> dict[str, dict]:
             ["Final signed loan application required for all loans"],
         ),
         "borrower authorization (when nqmf is pulling credit)": _doc(
-            "Borrower Authorization", "Cross-Cutting", "P1", "HARD-STOP",
+            "Borrowers Authorization", "Cross-Cutting", "P1", "HARD-STOP",
             ["Signed authorization for the lender to verify credit, employment, "
              "income, and asset information", "Signed and dated by all borrowers"],
             ["Program eligibility requires a general borrower authorization on file"],
@@ -487,7 +487,7 @@ def _eligibility_category_doc_map() -> dict[str, dict]:
             ["Program eligibility requires a profit and loss statement"],
         ),
         "borrower authorization": _doc(
-            "Borrower Authorization", "Cross-Cutting", "P1", "HARD-STOP",
+            "Borrowers Authorization", "Cross-Cutting", "P1", "HARD-STOP",
             ["Signed authorization for the lender to verify credit, employment, "
              "income, and asset information", "Signed and dated by all borrowers"],
             ["Program eligibility requires a general borrower authorization on file"],
@@ -610,7 +610,7 @@ _REQUIRED_DOCS_CATEGORY_MAP: dict[str, str] = {
     "urla_1003": "Loan Application (1003)",
     "credit_report": "Credit Report",
     "bank_statement": "Bank Statement",
-    "borrowers_authorization": "Borrower Authorization",
+    "borrowers_authorization": "Borrowers Authorization",
     "title_invoice": "Title Invoice",
     "non_qm_bank_statement_analysis_worksheet": "Non QM Bank Statement Analysis Worksheet",
     "business_license": "Business License",
@@ -838,7 +838,7 @@ def mandatory_docs() -> list[dict]:
         # never actually a substitute. Promoted to the universal floor so
         # this doesn't depend on either the plan wording or the eligibility
         # engine's per-run category output.
-        _doc("Borrower Authorization", "Cross-Cutting", "P1", "HARD-STOP",
+        _doc("Borrowers Authorization", "Cross-Cutting", "P1", "HARD-STOP",
              ["Signed authorization for the lender to verify credit, employment, "
               "income, and asset information", "Signed and dated by all borrowers"],
              ["Required for all transactions per NQMF submission requirements "
