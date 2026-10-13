@@ -415,6 +415,106 @@ class TestGenerateFinalOutputFallsBackToMasterlistNameLookup:
         assert drs[0]["category_ids"] == ["323", "845"]
 
 
+class TestAlwaysMergeAliasNamesFoldsExtraIdsIntoHostDocument:
+    """2026-10-13 follow-up: "LLC Member List" is a real, distinct
+    eligibility-engine checklist category, but per an earlier product
+    decision its content is folded into "Operating Or Partnership
+    Agreement" rather than shown as its own document -- so it never gets
+    its own document_request to carry a category_id on. _ALWAYS_MERGE_
+    ALIAS_NAMES folds its id in as an EXTRA category_id on the Operating
+    Agreement request instead, unconditionally (regardless of whether
+    sources (a)/(b)/(c) already resolved something for it).
+
+    As of this test's writing neither "Borrower Authorization to Sign" nor
+    "LLC Member List" exist in data/doctype_masterlist.json yet (proposed
+    ids 5001/5002) -- these tests monkeypatch the masterlist lookup to
+    simulate them existing, so the mechanism is verified ahead of the real
+    schema update landing.
+    """
+
+    def _invoke(self, state: dict) -> list[dict]:
+        cmd = generate_final_output.func(state=state)
+        return cmd.update["final_output"]["document_requests"]
+
+    def test_llc_member_list_id_folds_into_operating_agreement(self, monkeypatch):
+        import tools.merger_tools as mt
+
+        fake_by_name = dict(mt._doctype_id_by_name())
+        fake_by_name["llc member list"] = "5002"
+        monkeypatch.setattr(mt, "_doctype_id_by_name", lambda: fake_by_name)
+
+        state = {
+            "document_inventory": [],
+            "module_outputs": {
+                "08": {
+                    "ranked_document_requests": [
+                        {
+                            "document_type": "Operating Or Partnership Agreement",
+                            "document_category": "Income",
+                            "document_ids": [],
+                        },
+                    ]
+                }
+            },
+            "scenario_summary": {},
+        }
+        drs = self._invoke(state)
+        # Own masterlist id (2159) first, folded-in extra (5002) second.
+        assert drs[0]["category_ids"] == ["2159", "5002"]
+
+    def test_extra_id_folds_in_even_when_doc_extraction_already_matched(self, monkeypatch):
+        """The fold-in must apply unconditionally, not just as a fallback
+        for an otherwise-empty category_ids list."""
+        import tools.merger_tools as mt
+
+        fake_by_name = dict(mt._doctype_id_by_name())
+        fake_by_name["llc member list"] = "5002"
+        monkeypatch.setattr(mt, "_doctype_id_by_name", lambda: fake_by_name)
+
+        state = {
+            "document_inventory": [
+                {"doc_id": "2159", "document_ids": ["uuid-op-agreement-1"]},
+            ],
+            "module_outputs": {
+                "08": {
+                    "ranked_document_requests": [
+                        {
+                            "document_type": "Operating Or Partnership Agreement",
+                            "document_category": "Income",
+                            "document_ids": ["uuid-op-agreement-1"],
+                        },
+                    ]
+                }
+            },
+            "scenario_summary": {},
+        }
+        drs = self._invoke(state)
+        assert drs[0]["category_ids"] == ["2159", "5002"]
+
+    def test_no_op_against_the_real_current_masterlist(self):
+        """Until the real masterlist/schema actually gains ids for
+        "Borrower Authorization to Sign" (5001) and "LLC Member List"
+        (5002), this mechanism must be a safe no-op: Operating Agreement
+        resolves to only its own existing id."""
+        state = {
+            "document_inventory": [],
+            "module_outputs": {
+                "08": {
+                    "ranked_document_requests": [
+                        {
+                            "document_type": "Operating Or Partnership Agreement",
+                            "document_category": "Income",
+                            "document_ids": [],
+                        },
+                    ]
+                }
+            },
+            "scenario_summary": {},
+        }
+        drs = self._invoke(state)
+        assert drs[0]["category_ids"] == ["2159"]
+
+
 class TestBorrowersAuthorizationLabelMatchesMasterlist:
     """2026-10-13 follow-up: doc_rules.py's floor docs used to emit the
     singular "Borrower Authorization", while data/doctype_masterlist.json's

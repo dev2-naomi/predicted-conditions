@@ -473,6 +473,32 @@ def _doctype_id_by_name() -> dict[str, str]:
     return _DOCTYPE_ID_BY_NAME
 
 
+# Explicitly-curated "always also include this id" list, separate from (and
+# deliberately NOT derived from) _DOCTYPE_ALIASES/_get_aliases(). Those alias
+# groups mix true "same document, different name" variants (safe to merge)
+# with pure satisfaction/evidence aliases that represent genuinely DIFFERENT
+# real documents (e.g. "Prequal Response Form"'s aliases include several
+# state-specific rate-lock disclosures -- merging THEIR ids in would be
+# wrong), so blanket-merging every alias's id was rejected as unsafe. This
+# dict is a small, hand-reviewed allowlist instead: canonical document_type
+# -> extra name variant(s) whose masterlist id should always ride along,
+# because we've deliberately decided they're the same requirement.
+#
+# "LLC Member List" is a real, distinct eligibility-engine checklist
+# category (see tools.doc_rules's "llc member list" entry), but per an
+# earlier product decision its content (owners/ownership %, managing member)
+# is folded into "Operating Or Partnership Agreement" rather than shown as
+# its own document -- so its id should surface as an extra category_id on
+# the Operating Agreement request instead of being dropped. NOTE: as of
+# 2026-10-13 neither "Borrower Authorization to Sign" nor "LLC Member List"
+# exist yet in data/doctype_masterlist.json / eligibility-engine's
+# schema.txt (proposed ids 5001/5002) -- this entry is a no-op (by_name
+# lookup returns None) until the masterlist is updated to include it.
+_ALWAYS_MERGE_ALIAS_NAMES: dict[str, set[str]] = {
+    "operating or partnership agreement": {"llc member list"},
+}
+
+
 def _merge_key(dr: dict) -> str:
     """Compute a merge key from canonical document_type + document_context fields."""
     raw_type = dr.get("document_type") or dr.get("document_name") or ""
@@ -3748,6 +3774,16 @@ def generate_final_output(
                     variant_id = by_name.get(variant)
                     if variant_id and variant_id not in merged_ids:
                         merged_ids.append(variant_id)
+        # (d) Explicitly-curated extras (_ALWAYS_MERGE_ALIAS_NAMES) -- applies
+        # unconditionally, regardless of whether (a)/(b)/(c) already resolved
+        # something, since these represent a deliberately-folded-together
+        # requirement (e.g. "LLC Member List" riding along on every Operating
+        # Agreement request), not a fallback for an empty result.
+        canon_name = _canonical_doc_type(dr.get("document_type") or "")
+        for extra_name in _ALWAYS_MERGE_ALIAS_NAMES.get(canon_name, ()):
+            extra_id = _doctype_id_by_name().get(extra_name)
+            if extra_id and extra_id not in merged_ids:
+                merged_ids.append(extra_id)
         dr["category_ids"] = merged_ids
 
     scenario_summary = s.get("scenario_summary", {})
