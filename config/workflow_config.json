@@ -10,7 +10,7 @@
     },
     "FINALIZATION": {
       "order": 3,
-      "steps": [8]
+      "steps": [8, 9]
     }
   },
   "steps": {
@@ -125,7 +125,8 @@
   "general_tools": [
     "write_todo",
     "get_workflow_status",
-    "save_step_report"
+    "save_step_report",
+    "inspect_raw_xml_data"
   ],
   "middleware": {
     "summarization": { "enabled": true },
