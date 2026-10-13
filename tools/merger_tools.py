@@ -434,6 +434,45 @@ def _canonical_doc_type(name: str) -> str:
     return key
 
 
+_DOCTYPE_ID_BY_NAME: dict[str, str] | None = None
+
+
+def _doctype_id_by_name() -> dict[str, str]:
+    """
+    Lazily load data/doctype_masterlist.json into a {lowercase document_type:
+    doctype_id} lookup. This is the 3rd (last-resort) source for
+    document_requests.category_ids: after (a) doc-extraction matches and (b)
+    required_documents_json checklist ids have both been applied, any
+    document_request still missing category_ids gets one final shot at
+    resolving an id by matching its own document_type name directly against
+    the masterlist -- covering requests the LLM drafted deterministically
+    (e.g. from doc_rules.py floors) that were never satisfied by an actual
+    uploaded file and weren't present on the borrower's checklist either.
+
+    This intentionally reads the full masterlist (not just the NQM-relevant
+    subset cached on scenario_summary["_doctype_masterlist"] by
+    load_doctype_masterlist), since it must work even when that tool wasn't
+    called this run, and loads once per process via a module-level cache.
+    """
+    global _DOCTYPE_ID_BY_NAME
+    if _DOCTYPE_ID_BY_NAME is None:
+        from pathlib import Path
+
+        _DOCTYPE_ID_BY_NAME = {}
+        masterlist_path = Path(__file__).parent.parent / "data" / "doctype_masterlist.json"
+        if masterlist_path.exists():
+            import json as _json
+
+            with open(masterlist_path, encoding="utf-8") as f:
+                all_types = _json.load(f)
+            for t in all_types:
+                doctype_id = t.get("doctype_id")
+                document_type = (t.get("document_type") or "").strip().lower()
+                if doctype_id is not None and document_type:
+                    _DOCTYPE_ID_BY_NAME.setdefault(document_type, str(doctype_id))
+    return _DOCTYPE_ID_BY_NAME
+
+
 def _merge_key(dr: dict) -> str:
     """Compute a merge key from canonical document_type + document_context fields."""
     raw_type = dr.get("document_type") or dr.get("document_name") or ""
@@ -3651,15 +3690,20 @@ def generate_final_output(
 
     # Populate category_ids on every document request: the manifest's own
     # upstream classifier category_id(s) (e.g. "117" = Credit Report),
-    # merged from two sources —
+    # merged from three sources, in priority order —
     #   (a) the manifest documents that ended up satisfying this request
     #       (dr["document_ids"], the physical file UUIDs) looked up against
-    #       document_inventory's doc_id (its category_id), and
+    #       document_inventory's doc_id (its category_id),
     #   (b) required_documents_json's per-item category_ids, already
     #       carried on the dict by tools.doc_rules.required_documents_floor
-    #       when this request came from that checklist.
-    # Order: doc-extraction-derived ids first, then any checklist-derived
-    # ids not already covered, de-duplicated.
+    #       when this request came from that checklist, and
+    #   (c) last resort: the request's own document_type name, canonicalized
+    #       and matched directly against data/doctype_masterlist.json. This
+    #       covers deterministic/LLM-drafted requests that have no matching
+    #       uploaded document and weren't on the borrower's checklist either
+    #       -- the goal is that every returned document_request ends up with
+    #       at least one category_id where the masterlist has one to give.
+    # De-duplicated; (c) only runs if (a)+(b) produced nothing.
     category_id_by_document_id: dict[str, str] = {}
     for inv in _as_list(s.get("document_inventory", [])):
         cat_id = inv.get("doc_id")
@@ -3682,6 +3726,14 @@ def generate_final_output(
             if cat_id not in seen_ids:
                 merged_ids.append(cat_id)
                 seen_ids.add(cat_id)
+        if not merged_ids:
+            doc_type = dr.get("document_type") or ""
+            canon_name = _canonical_doc_type(doc_type)
+            fallback_id = _doctype_id_by_name().get(canon_name) or _doctype_id_by_name().get(
+                doc_type.strip().lower()
+            )
+            if fallback_id:
+                merged_ids.append(fallback_id)
         dr["category_ids"] = merged_ids
 
     scenario_summary = s.get("scenario_summary", {})

@@ -287,6 +287,8 @@ class TestGenerateFinalOutputMergesCategoryIds:
         assert drs[0]["category_ids"] == ["323"]
 
     def test_no_matching_document_and_no_checklist_ids_yields_empty_list(self):
+        """Even the name-lookup fallback should yield nothing for a document
+        type that genuinely has no masterlist entry."""
         state = {
             "document_inventory": [],
             "module_outputs": {
@@ -295,6 +297,110 @@ class TestGenerateFinalOutputMergesCategoryIds:
                         {
                             "document_type": "No Match Doc",
                             "document_category": "Other",
+                            "document_ids": [],
+                        },
+                    ]
+                }
+            },
+            "scenario_summary": {},
+        }
+        drs = self._invoke(state)
+        assert drs[0]["category_ids"] == []
+
+
+class TestGenerateFinalOutputFallsBackToMasterlistNameLookup:
+    """2026-10-13 follow-up: sources (a) doc-extraction and (b) checklist
+    both require some upstream signal (a satisfying uploaded document, or
+    a borrower checklist entry). Deterministic/LLM-drafted document_requests
+    with neither still deserve a category_id if the masterlist has one for
+    their exact (canonicalized) document_type name -- this is the 3rd,
+    last-resort source, confirmed against real dev data to resolve ~89%
+    of the requests that sources (a)/(b) left empty.
+    """
+
+    def _invoke(self, state: dict) -> list[dict]:
+        cmd = generate_final_output.func(state=state)
+        return cmd.update["final_output"]["document_requests"]
+
+    def test_falls_back_to_name_lookup_when_no_document_or_checklist_ids(self):
+        state = {
+            "document_inventory": [],
+            "module_outputs": {
+                "08": {
+                    "ranked_document_requests": [
+                        {
+                            "document_type": "Appraisal Report",
+                            "document_category": "Property",
+                            "document_ids": [],
+                        },
+                    ]
+                }
+            },
+            "scenario_summary": {},
+        }
+        drs = self._invoke(state)
+        assert drs[0]["category_ids"] == ["162"]
+
+    def test_name_lookup_goes_through_canonical_alias_resolution(self):
+        """'Flood Certificate' has no direct masterlist entry under that
+        exact name, but merger_tools._canonical_doc_type() already maps it
+        to 'flood hazard determination', which does."""
+        state = {
+            "document_inventory": [],
+            "module_outputs": {
+                "08": {
+                    "ranked_document_requests": [
+                        {
+                            "document_type": "Flood Certificate",
+                            "document_category": "Property",
+                            "document_ids": [],
+                        },
+                    ]
+                }
+            },
+            "scenario_summary": {},
+        }
+        drs = self._invoke(state)
+        assert drs[0]["category_ids"] == ["1800"]
+
+    def test_name_lookup_only_runs_when_both_other_sources_are_empty(self):
+        """Doc-extraction/checklist ids (even a single one) must win outright
+        -- the name-lookup fallback must never run or append on top."""
+        state = {
+            "document_inventory": [
+                {"doc_id": "999", "document_ids": ["uuid-1"]},
+            ],
+            "module_outputs": {
+                "08": {
+                    "ranked_document_requests": [
+                        {
+                            "document_type": "Appraisal Report",
+                            "document_category": "Property",
+                            "document_ids": ["uuid-1"],
+                        },
+                    ]
+                }
+            },
+            "scenario_summary": {},
+        }
+        drs = self._invoke(state)
+        # Must be exactly the doc-extraction id (999), NOT also/instead 162.
+        assert drs[0]["category_ids"] == ["999"]
+
+    def test_umbrella_doc_type_with_no_single_masterlist_entry_stays_empty(self):
+        """'Government-Issued Photo ID' canonicalizes to 'government id',
+        which intentionally has no single masterlist row (it maps to
+        multiple real documents -- Drivers License, Passport, etc.). This
+        is accepted/expected: a real uploaded ID document resolves via
+        source (a) instead."""
+        state = {
+            "document_inventory": [],
+            "module_outputs": {
+                "08": {
+                    "ranked_document_requests": [
+                        {
+                            "document_type": "Government-Issued Photo ID",
+                            "document_category": "Cross-Cutting",
                             "document_ids": [],
                         },
                     ]
