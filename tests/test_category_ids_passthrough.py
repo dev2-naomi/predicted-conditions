@@ -32,6 +32,52 @@ import pytest
 from tools.doc_rules import _doc, apply_deterministic_rules, required_documents_floor
 from tools.shared.normalize import normalize_document_structure
 from tools.merger_tools import generate_final_output
+from registry import GENERAL_TOOL_NAMES, STEP_CONFIG
+from step_loader import resolve_tools_for_step
+
+
+class TestParseRequiredDocumentsIsReachableByTheOrchestrator:
+    """Regression test for a bug found during live dev verification: the
+    parse_required_documents tool existed in tools/scenario_tools.py, was
+    imported into tools.ALL_TOOLS, and was listed in agent.py's default
+    initial prompt's STEP_00 sequence -- but was NEVER added to
+    config/workflow_config.json / registry.py's STEP_00 tool list. Since
+    step_loader.resolve_tools_for_step() only binds tools present in the
+    current step's registry entry (or GENERAL_TOOL_NAMES), the orchestrator
+    LLM could never actually call it, regardless of prompt wording -- a
+    live run confirmed required_documents_json was provided but
+    scenario_summary._required_documents_data stayed None because the tool
+    was silently absent from the model's available-tools list every turn.
+
+    Fixed by adding it to config/workflow_config.json's STEP_00 substeps
+    and registry.py's generated STEP_CONFIG (hand-applied to registry.py
+    rather than via config/generate.py, since workflow_config.json is
+    currently stale in unrelated ways -- missing STEP_09 and
+    inspect_raw_xml_data entirely -- and a full regen would have silently
+    regressed those).
+    """
+
+    def test_parse_required_documents_in_step_00_registry_tools(self):
+        assert "parse_required_documents" in STEP_CONFIG["STEP_00"]["tools"]
+
+    def test_parse_required_documents_bound_by_resolve_tools_for_step(self):
+        tools = resolve_tools_for_step({"current_step": "STEP_00"})
+        names = {t.name for t in tools}
+        assert "parse_required_documents" in names
+
+    def test_other_step_00_tools_and_general_tools_still_present(self):
+        """Guard against a careless future edit (e.g. a full
+        config/generate.py regen against the still-stale workflow_config.json)
+        silently dropping unrelated tools again."""
+        step_00_tools = set(STEP_CONFIG["STEP_00"]["tools"])
+        for expected in (
+            "parse_loan_file", "parse_manifest_documents",
+            "parse_eligibility_output", "load_doctype_masterlist",
+            "build_scenario_summary", "detect_contradictions", "route_to_facets",
+        ):
+            assert expected in step_00_tools
+        assert "STEP_09" in STEP_CONFIG
+        assert "inspect_raw_xml_data" in GENERAL_TOOL_NAMES
 
 
 class TestRequiredDocumentsFloorPassesThroughCategoryIds:

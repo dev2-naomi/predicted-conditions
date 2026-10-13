@@ -18,7 +18,7 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         "name": "Scenario Builder",
         "description": "Parse MISMO XML, manifest documents, and eligibility output into scenario_summary; detect missing variables and contradictions; build document inventory; route docs and overlays to facets.",
         "plan_file": "step_00_scenario_builder.md",
-        "tools": ["parse_loan_file", "parse_manifest_documents", "parse_eligibility_output", "load_doctype_masterlist", "build_scenario_summary", "detect_contradictions", "route_to_facets"],
+        "tools": ["parse_loan_file", "parse_manifest_documents", "parse_eligibility_output", "parse_required_documents", "load_doctype_masterlist", "build_scenario_summary", "detect_contradictions", "route_to_facets"],
         "substeps": [
                 {
                         "id": "0.1",
@@ -39,6 +39,13 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                         "name": "Parse eligibility engine output",
                         "tools": [
                                 "parse_eligibility_output"
+                        ]
+                },
+                {
+                        "id": "0.35",
+                        "name": "Parse Submission Requirements checklist (required_documents_json)",
+                        "tools": [
+                                "parse_required_documents"
                         ]
                 },
                 {
