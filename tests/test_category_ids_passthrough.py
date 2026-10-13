@@ -387,12 +387,15 @@ class TestGenerateFinalOutputFallsBackToMasterlistNameLookup:
         # Must be exactly the doc-extraction id (999), NOT also/instead 162.
         assert drs[0]["category_ids"] == ["999"]
 
-    def test_umbrella_doc_type_with_no_single_masterlist_entry_stays_empty(self):
+    def test_umbrella_doc_type_resolves_to_all_acceptable_form_ids(self):
         """'Government-Issued Photo ID' canonicalizes to 'government id',
-        which intentionally has no single masterlist row (it maps to
-        multiple real documents -- Drivers License, Passport, etc.). This
-        is accepted/expected: a real uploaded ID document resolves via
-        source (a) instead."""
+        which has no single masterlist row of its own (it's an umbrella for
+        several distinct real documents). Rather than leaving category_ids
+        empty, resolve every acceptable-form name variant known via
+        _get_aliases()/_DOCTYPE_ALIASES against the masterlist and return
+        the full set: Drivers License (323) and Passport (845). A real
+        uploaded ID document still resolves its own single id via source
+        (a) when one has actually been matched."""
         state = {
             "document_inventory": [],
             "module_outputs": {
@@ -409,7 +412,7 @@ class TestGenerateFinalOutputFallsBackToMasterlistNameLookup:
             "scenario_summary": {},
         }
         drs = self._invoke(state)
-        assert drs[0]["category_ids"] == []
+        assert drs[0]["category_ids"] == ["323", "845"]
 
 
 if __name__ == "__main__":

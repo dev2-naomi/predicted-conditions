@@ -3729,11 +3729,25 @@ def generate_final_output(
         if not merged_ids:
             doc_type = dr.get("document_type") or ""
             canon_name = _canonical_doc_type(doc_type)
-            fallback_id = _doctype_id_by_name().get(canon_name) or _doctype_id_by_name().get(
-                doc_type.strip().lower()
-            )
+            by_name = _doctype_id_by_name()
+            fallback_id = by_name.get(canon_name) or by_name.get(doc_type.strip().lower())
             if fallback_id:
                 merged_ids.append(fallback_id)
+            else:
+                # Multi-form document types have no single masterlist row of
+                # their own -- e.g. "Government-Issued Photo ID" is an
+                # umbrella that can be satisfied by a Drivers License (323),
+                # Passport (845), etc., each a distinct real document in the
+                # masterlist. _get_aliases() already knows every name variant
+                # that counts as "the same requirement" (see _DOCTYPE_ALIASES
+                # above); resolve each one against the masterlist and return
+                # the full set so downstream consumers know every id that
+                # would satisfy this request, instead of leaving it empty
+                # just because no single umbrella id exists.
+                for variant in sorted(_get_aliases(doc_type)):
+                    variant_id = by_name.get(variant)
+                    if variant_id and variant_id not in merged_ids:
+                        merged_ids.append(variant_id)
         dr["category_ids"] = merged_ids
 
     scenario_summary = s.get("scenario_summary", {})
