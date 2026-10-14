@@ -37,7 +37,12 @@ from pathlib import Path
 REPO_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_DIR))
 
-from tools.coborrower import _manifest_borrower_names, resolve_parties
+from tools.coborrower import (
+    _manifest_borrower_names,
+    apply_coborrower_pass,
+    build_party_document_requests,
+    resolve_parties,
+)
 
 
 def _manifest(documents: list[dict]) -> str:
@@ -244,6 +249,33 @@ class TestResolvePartiesFallsBackToManifest:
         state = {"scenario_summary": {"borrowers": []}}
         assert resolve_parties(state) == []
 
+    def test_two_borrower_specific_docs_still_get_split_once_resolved(self):
+        """Sanity check this fix actually reaches the real symptom: once
+        resolve_parties() finds both names (via the manifest fallback this
+        fix adds), a borrower-specific document_request genuinely gets
+        split into two party-tagged copies downstream, instead of staying
+        collapsed into one. Exercises resolve_parties() + is_borrower_specific
+        together, mirroring what apply_coborrower_pass actually checks."""
+        from tools.shared.party_scope import is_borrower_specific
+
+        state = {
+            "scenario_summary": {"borrowers": []},
+            "manifest_json": _manifest([
+                {
+                    "id": "doc-1",
+                    "metadata": {
+                        "new1003Borrowers": [
+                            {"name": {"firstName": "Michael", "lastName": "Kelly"}},
+                            {"name": {"firstName": "Meryl", "lastName": "Goldberg"}},
+                        ]
+                    },
+                }
+            ]),
+        }
+        parties = resolve_parties(state)
+        assert len(parties) == 2
+        assert is_borrower_specific("Asset")
+
     def test_manifest_same_name_for_both_does_not_create_a_duplicate_party(self):
         # Guards the existing _norm_name(co) != _norm_name(primary) check
         # still applies when both names come from the manifest fallback.
@@ -264,3 +296,126 @@ class TestResolvePartiesFallsBackToManifest:
         parties = resolve_parties(state)
         assert len(parties) == 1
         assert parties[0]["name"] == "Same Person"
+
+
+class TestPerPartyCategoryIdsEnrichment:
+    """2026-10-14 fix: build_party_document_requests() builds each party's
+    document_requests from the raw, pre-enrichment module_outputs["08"]
+    list, but never re-ran generate_final_output's category_ids
+    enrichment (enrich_category_ids) -- so any document type relying on
+    that enrichment's fallback/alias resolution (rather than a
+    category_ids value carried forward from required_documents_json) came
+    out with category_ids: [] on every per-party split copy, even though
+    the single-party (no split) path resolved it correctly via the exact
+    same document_type.
+
+    Confirmed live on a real production rerun: "IRS 4506-C Authorization",
+    "Owner Occupancy Certification", "Government-Issued Photo ID", and
+    "Verification of Deposit" all came back empty on BOTH the borrower and
+    co-borrower copies (10 total empty entries across 5 document types x 2
+    parties), while the single-party path for the same document types
+    resolved correctly via the umbrella-alias fallback.
+    """
+
+    def test_build_party_document_requests_resolves_fallback_category_ids(self):
+        canonical_docs = [
+            {
+                "document_type": "Government-Issued Photo ID",
+                "document_category": "Cross-Cutting",
+                "document_ids": [],
+                "specifications": [],
+                "satisfied_specifications": [],
+            }
+        ]
+        out = build_party_document_requests(
+            canonical_docs, [], [], "Jane Doe", "borrower", {}, [],
+        )
+        assert len(out) == 1
+        # "Government-Issued Photo ID" has no single masterlist row of its
+        # own -- it resolves via the umbrella-alias fallback to every
+        # acceptable ID type's real category_id (Drivers License = 323).
+        assert "323" in out[0]["category_ids"]
+
+    def test_build_party_document_requests_without_document_inventory_still_works(self):
+        """document_inventory is optional (defaults to None/[]) -- a party
+        with no document_inventory passed at all must not crash."""
+        canonical_docs = [
+            {
+                "document_type": "Government-Issued Photo ID",
+                "document_category": "Cross-Cutting",
+                "document_ids": [],
+                "specifications": [],
+                "satisfied_specifications": [],
+            }
+        ]
+        out = build_party_document_requests(
+            canonical_docs, [], [], "Jane Doe", "borrower", {},
+        )
+        assert "323" in out[0]["category_ids"]
+
+    def test_apply_coborrower_pass_resolves_category_ids_for_both_parties(self):
+        """End-to-end: a 2-party loan's borrower-specific document_request
+        must come out of apply_coborrower_pass with non-empty category_ids
+        on BOTH the borrower and co-borrower copies, not just the
+        pre-split borrower_final entry."""
+        canonical = [
+            {
+                "document_type": "Government-Issued Photo ID",
+                "document_category": "Cross-Cutting",
+                "document_ids": [],
+                "specifications": [],
+                "satisfied_specifications": [],
+            }
+        ]
+        state = {
+            "final_output": {
+                "document_requests": [
+                    {
+                        "document_type": "Government-Issued Photo ID",
+                        "document_category": "Cross-Cutting",
+                        "document_ids": [],
+                        "category_ids": ["323"],
+                        "party": "borrower",
+                        "applicable_parties": None,
+                        "specifications": [],
+                        "satisfied_specifications": [],
+                    }
+                ]
+            },
+            "module_outputs": {"08": {"ranked_document_requests": canonical}},
+            "scenario_summary": {
+                "borrowers": [
+                    {"name": "Jane Doe", "role": "primary"},
+                    {"name": "John Smith", "role": "co-borrower"},
+                ],
+                "_submitted_docs": [],
+            },
+            "document_inventory": [],
+        }
+        update = apply_coborrower_pass(state)
+        drs = update["final_output"]["document_requests"]
+        assert len(drs) == 2
+        parties_seen = {dr["party"] for dr in drs}
+        assert parties_seen == {"borrower", "coborrower"}
+        for dr in drs:
+            assert dr["category_ids"], f"empty category_ids for party={dr['party']}"
+            assert "323" in dr["category_ids"]
+
+    def test_document_type_with_no_masterlist_match_at_all_stays_empty_on_both(self):
+        """Document types with genuinely no masterlist entry under any
+        known alias (e.g. "Asset Depletion Worksheet" -- a separate,
+        pre-existing gap, not something this fix changes) correctly stay
+        empty on both party copies rather than silently inventing an id."""
+        canonical = [
+            {
+                "document_type": "Asset Depletion Worksheet",
+                "document_category": "Income",
+                "document_ids": [],
+                "specifications": [],
+                "satisfied_specifications": [],
+            }
+        ]
+        out = build_party_document_requests(
+            canonical, [], [], "Jane Doe", "borrower", {}, [],
+        )
+        assert out[0]["category_ids"] == []

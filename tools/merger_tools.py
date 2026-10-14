@@ -3705,47 +3705,41 @@ def cross_check_satisfaction(
     })
 
 
-@tool
-def generate_final_output(
-    tool_call_id: Annotated[str, InjectedToolCallId] = "",
-    state: Annotated[dict, InjectedState] = None,
-) -> Command:
+def enrich_category_ids(
+    document_requests: list[dict],
+    document_inventory: list,
+) -> None:
+    """Populate category_ids on every document request in place: the
+    manifest's own upstream classifier category_id(s) (e.g. "117" = Credit
+    Report), merged from three sources, in priority order —
+      (a) the manifest documents that ended up satisfying this request
+          (dr["document_ids"], the physical file UUIDs) looked up against
+          document_inventory's doc_id (its category_id),
+      (b) required_documents_json's per-item category_ids, already
+          carried on the dict by tools.doc_rules.required_documents_floor
+          when this request came from that checklist, and
+      (c) last resort: the request's own document_type name, canonicalized
+          and matched directly against data/doctype_masterlist.json. This
+          covers deterministic/LLM-drafted requests that have no matching
+          uploaded document and weren't on the borrower's checklist either
+          -- the goal is that every returned document_request ends up with
+          at least one category_id where the masterlist has one to give.
+    De-duplicated; (c) only runs if (a)+(b) produced nothing.
+
+    Expects CANONICAL (pre-rename) document_type values -- call this
+    before any apply_output_display_name() pass, same as
+    generate_final_output does.
+
+    Callable a second time against a different document_requests list with
+    the SAME document_inventory -- e.g. tools.coborrower's per-party split
+    builds each party's own document_requests (with document_ids rescoped
+    to only that party's assigned documents) from the raw, pre-enrichment
+    module_outputs["08"] list, and must re-run this exact enrichment itself
+    rather than reusing generate_final_output's already-computed result,
+    since (a) depends on which document_ids are actually on each dict.
     """
-    Assemble the final output JSON: scenario_summary, seen_conflicts,
-    ranked document_requests, and aggregate stats.
-    """
-    s = state or {}
-    mo = s.get("module_outputs", {})
-
-    document_requests: list[dict] = _as_list(
-        mo.get("08", {}).get("ranked_document_requests", [])
-    )
-    if not document_requests:
-        document_requests = _as_list(
-            mo.get("08", {}).get("merged_document_requests", [])
-        )
-
-    # Enforce consistent field schema on every document request
-    document_requests = [normalize_document_structure(dr) for dr in document_requests]
-
-    # Populate category_ids on every document request: the manifest's own
-    # upstream classifier category_id(s) (e.g. "117" = Credit Report),
-    # merged from three sources, in priority order —
-    #   (a) the manifest documents that ended up satisfying this request
-    #       (dr["document_ids"], the physical file UUIDs) looked up against
-    #       document_inventory's doc_id (its category_id),
-    #   (b) required_documents_json's per-item category_ids, already
-    #       carried on the dict by tools.doc_rules.required_documents_floor
-    #       when this request came from that checklist, and
-    #   (c) last resort: the request's own document_type name, canonicalized
-    #       and matched directly against data/doctype_masterlist.json. This
-    #       covers deterministic/LLM-drafted requests that have no matching
-    #       uploaded document and weren't on the borrower's checklist either
-    #       -- the goal is that every returned document_request ends up with
-    #       at least one category_id where the masterlist has one to give.
-    # De-duplicated; (c) only runs if (a)+(b) produced nothing.
     category_id_by_document_id: dict[str, str] = {}
-    for inv in _as_list(s.get("document_inventory", [])):
+    for inv in _as_list(document_inventory):
         cat_id = inv.get("doc_id")
         if not cat_id:
             continue
@@ -3799,6 +3793,32 @@ def generate_final_output(
             if extra_id and extra_id not in merged_ids:
                 merged_ids.append(extra_id)
         dr["category_ids"] = merged_ids
+
+
+@tool
+def generate_final_output(
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
+) -> Command:
+    """
+    Assemble the final output JSON: scenario_summary, seen_conflicts,
+    ranked document_requests, and aggregate stats.
+    """
+    s = state or {}
+    mo = s.get("module_outputs", {})
+
+    document_requests: list[dict] = _as_list(
+        mo.get("08", {}).get("ranked_document_requests", [])
+    )
+    if not document_requests:
+        document_requests = _as_list(
+            mo.get("08", {}).get("merged_document_requests", [])
+        )
+
+    # Enforce consistent field schema on every document request
+    document_requests = [normalize_document_structure(dr) for dr in document_requests]
+
+    enrich_category_ids(document_requests, s.get("document_inventory", []))
 
     scenario_summary = s.get("scenario_summary", {})
 

@@ -30,7 +30,7 @@ import re
 from difflib import SequenceMatcher
 from typing import Any
 
-from tools.merger_tools import assign_statuses, run_satisfaction_pass
+from tools.merger_tools import assign_statuses, enrich_category_ids, run_satisfaction_pass
 from tools.presentation_tools import _aus_restyle_spec
 from tools.shared.normalize import (
     apply_output_display_name,
@@ -119,6 +119,7 @@ def build_party_document_requests(
     party_name: str,
     party_tag: str,
     scenario_summary: dict,
+    document_inventory: list | None = None,
 ) -> list[dict]:
     """Produce one party's document_requests (tagged ``party=party_tag``).
 
@@ -132,6 +133,10 @@ def build_party_document_requests(
         party_name: the party's display name (goes into ``applicable_parties``).
         party_tag: "borrower" or "coborrower".
         scenario_summary: shared scenario (loan facts + eligibility).
+        document_inventory: state["document_inventory"] — needed to re-run
+            generate_final_output's category_ids enrichment per party (see
+            enrich_category_ids's docstring for why this can't just reuse
+            borrower_final_docs's already-computed category_ids).
     """
     docs = copy.deepcopy(canonical_docs)
     for dr in docs:
@@ -155,6 +160,16 @@ def build_party_document_requests(
     # Re-evaluate satisfaction + status against this party's assigned documents.
     run_satisfaction_pass(docs, party_submitted_docs, scenario_summary)
     assign_statuses(docs, party_submitted_docs)
+
+    # Re-run the same category_ids enrichment generate_final_output ran on
+    # the (whole-manifest) borrower output — on canonical_docs straight from
+    # module_outputs["08"], category_ids is usually still unset for anything
+    # that relied on that enrichment's fallback/alias resolution (vs. being
+    # carried forward from required_documents_json), and borrower_final_docs'
+    # already-computed values can't just be copied over since document_ids
+    # here is rescoped to only this party's own documents. Must run BEFORE
+    # apply_output_display_name below (canonical, not display, names).
+    enrich_category_ids(docs, document_inventory or [])
 
     # Map borrower final display blocks by their (renamed) document_type so we
     # can reuse styling.
@@ -584,6 +599,7 @@ def apply_coborrower_pass(state: dict) -> dict:
             if is_borrower_specific(dr.get("document_type", ""))
         ]
         assignments = assign_docs_to_parties(submitted_docs, parties)
+        document_inventory = state.get("document_inventory", [])
         per_party: list[dict] = []
         for party in parties:
             party_docs = assignments.get(party["name"], [])
@@ -592,6 +608,7 @@ def apply_coborrower_pass(state: dict) -> dict:
                     build_party_document_requests(
                         canonical_borrower_specific, borrower_specific_final,
                         party_docs, party["name"], party["tag"], scenario_summary,
+                        document_inventory,
                     )
                 )
             except Exception as e:  # noqa: BLE001 — never break borrower output
