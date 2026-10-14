@@ -178,14 +178,28 @@ def build_party_document_requests(
 
 
 def _fold_party_into_display(dr: dict) -> None:
-    """Surface the ``party`` tag inside ``display`` so the frontend — which
-    renders only ``display`` — knows whether a document belongs to the borrower
-    or the co-borrower. Mutates in place."""
+    """Surface the ``party`` tag (and the root-level ``document_ids``) inside
+    ``display`` so the frontend — which renders only ``display`` — always has
+    both, regardless of whether STEP_09's style_document_requests actually ran
+    for this document. Mutates in place.
+
+    style_document_requests (tools/presentation_tools.py) is the tool that
+    normally copies document_ids into display, but it only runs when STEP_09
+    executes and styles that specific document_type. On a run that ends at
+    STEP_08 (e.g. the orchestrator stops before STEP_09 — observed live on a
+    single-borrower thread), display never gets that copy and is left as the
+    bare ``{"party": ...}`` placeholder with no document_ids at all, even
+    though the root-level ``document_ids`` field is already populated. Since
+    this function runs unconditionally for every document request on every
+    run (the single choke point before final_output is returned), re-syncing
+    document_ids here too guarantees the invariant holds either way.
+    """
     display = dr.get("display")
     if not isinstance(display, dict):
         display = {}
         dr["display"] = display
     display["party"] = dr.get("party", "borrower")
+    display["document_ids"] = dr.get("document_ids") or []
 
 
 # ---------------------------------------------------------------------------
@@ -270,14 +284,91 @@ def _xml_borrower_names(state: dict) -> list[str]:
         return []
 
 
+# Manifest metadata keys that carry a structured, ordered list of borrower
+# entries (index 0 = primary, index 1+ = co-borrower(s)) — seen on the URLA
+# 1003 and the Prequal Response Form respectively. Checked in this order on
+# every manifest document; the first one found wins.
+_MANIFEST_BORROWER_LIST_KEYS = ("new1003Borrowers", "borrowers")
+_BLANK_NAME_PLACEHOLDERS = {"", "[blank]", "unknown", "n/a"}
+
+
+def _manifest_borrower_name(entry: dict) -> str:
+    name_obj = entry.get("name") if isinstance(entry.get("name"), dict) else entry
+    if not isinstance(name_obj, dict):
+        return ""
+    first = str(name_obj.get("firstName") or name_obj.get("first_name") or "").strip()
+    last = str(name_obj.get("lastName") or name_obj.get("last_name") or "").strip()
+    if first.lower() in _BLANK_NAME_PLACEHOLDERS:
+        first = ""
+    if last.lower() in _BLANK_NAME_PLACEHOLDERS:
+        last = ""
+    return " ".join(p for p in (first, last) if p)
+
+
+def _manifest_borrower_names(state: dict) -> list[str]:
+    """Extracts borrower names directly from manifest documents' own
+    structured fields, when present (e.g. the URLA 1003's
+    ``new1003Borrowers`` array, or the Prequal Response Form's ``borrowers``
+    array) — index 0 is the primary borrower, index 1+ are co-borrower(s).
+
+    This is by far the most reliably *present* party-identity source (nearly
+    every loan has a URLA 1003 or Prequal form, regardless of loan_file_xml
+    format or whether eligibility_json was supplied), but is checked last in
+    resolve_parties() since the other sources are more explicitly
+    authoritative when present. It exists specifically to cover loans whose
+    loan_file_xml is the flat-JSON shape (which never carries borrower names
+    by design — see _flat_loan_json_to_profile) and which don't separately
+    supply eligibility_json either; without this fallback such loans report
+    zero resolved parties and every borrower-specific document silently
+    collapses into one undifferentiated "borrower" entry.
+    """
+    raw = state.get("manifest_json")
+    if isinstance(raw, str) and raw.strip():
+        try:
+            manifest = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    elif isinstance(raw, dict):
+        manifest = raw
+    else:
+        return []
+    if not isinstance(manifest, dict):
+        return []
+
+    for doc in manifest.get("documents") or []:
+        if not isinstance(doc, dict):
+            continue
+        metadata = doc.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+        for key in _MANIFEST_BORROWER_LIST_KEYS:
+            entries = metadata.get(key)
+            if not isinstance(entries, list) or not entries:
+                continue
+            names = [
+                _manifest_borrower_name(e) for e in entries if isinstance(e, dict)
+            ]
+            names = [n for n in names if n]
+            if names:
+                return names
+    return []
+
+
 def resolve_parties(state: dict) -> list[dict]:
     """Resolve the loan's parties as [{"name","role","tag"}].
 
-    Identity order (elig-then-xml):
+    Identity order:
       - primary: scenario_summary.borrowers[primary] -> eligibility
-        borrower_first/last_name -> loan XML BORROWER_1.
+        borrower_first/last_name -> loan XML BORROWER_1 -> manifest
+        documents' own structured borrower array (index 0).
       - co-borrower: scenario_summary.borrowers[co-borrower] -> eligibility
-        CoBorrowerFirstName/LastName -> loan XML BORROWER_2.
+        CoBorrowerFirstName/LastName -> loan XML BORROWER_2 -> manifest
+        documents' own structured borrower array (index 1).
+
+    The manifest-derived source is checked last (see
+    ``_manifest_borrower_names``) — it's a fallback for when none of the
+    more explicit sources carry any identity data at all, not a
+    replacement for them.
 
     Returns a single primary when no distinct co-borrower is found.
     """
@@ -312,6 +403,13 @@ def resolve_parties(state: dict) -> list[dict]:
             primary = xml_names[0]
         if not co and len(xml_names) > 1:
             co = xml_names[1]
+
+    if not primary or not co:
+        manifest_names = _manifest_borrower_names(state)
+        if not primary and manifest_names:
+            primary = manifest_names[0]
+        if not co and len(manifest_names) > 1:
+            co = manifest_names[1]
 
     parties: list[dict] = []
     if primary:
@@ -470,7 +568,13 @@ def apply_coborrower_pass(state: dict) -> dict:
         # primary's name. Shared docs stay party=None regardless.
         primary_name = parties[0]["name"] if parties else ""
         for dr in borrower_specific_final:
-            dr.setdefault("party", "borrower")
+            # Force (not setdefault) to "borrower": on a single-party loan
+            # this is the only correct value regardless of what an earlier
+            # per-module LLM step may have already stamped here (observed to
+            # sometimes be the borrower's literal full name instead of the
+            # "borrower"/"coborrower" tag — non-deterministic LLM wording,
+            # not a real per-party distinction on a single-borrower loan).
+            dr["party"] = "borrower"
             if primary_name and not dr.get("applicable_parties"):
                 dr["applicable_parties"] = [primary_name]
         combined = shared_docs + borrower_specific_final
@@ -496,8 +600,9 @@ def apply_coborrower_pass(state: dict) -> dict:
                 )
         if not per_party and borrower_specific_final:
             # Fall back to the untouched borrower-specific set on total failure.
+            # Force (see comment above) rather than setdefault.
             for dr in borrower_specific_final:
-                dr.setdefault("party", "borrower")
+                dr["party"] = "borrower"
             per_party = borrower_specific_final
         combined = shared_docs + per_party
 
