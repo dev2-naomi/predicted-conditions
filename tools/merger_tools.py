@@ -968,7 +968,24 @@ _CONFIDENCE_BASE_BY_SOURCE: dict[str, float] = {
 # itself is separately vetted/canonical (not improvised), there's
 # meaningfully less room for the request to be substantively wrong, even
 # if the applicability call could still be mistaken.
-_CONFIDENCE_BASE_LLM_GROUNDED = 0.85
+#
+# "Grounded" is graded, not flat, within [_CONFIDENCE_BASE_LLM_GROUNDED_MIN,
+# _CONFIDENCE_BASE_LLM_GROUNDED_MAX] -- see _grounded_llm_base() -- using two
+# more signals doc_rules.apply_guideline_canonicalization also stamps:
+# dr["_guideline_spec_count"] (how many canonical specs actually resolved
+# for this scenario -- a thin, generic canonical entry is less thoroughly
+# specified than one with a dozen resolved items) and
+# dr["_guideline_specificity_ratio"] (what fraction of those were gated by
+# a real, scenario-specific condition rather than applying unconditionally
+# -- more of this document's requirement text was actually tailored to THIS
+# scenario's facts, not generic boilerplate for the doc_type).
+_CONFIDENCE_BASE_LLM_GROUNDED_MIN = 0.80
+_CONFIDENCE_BASE_LLM_GROUNDED_MAX = 0.90
+# Resolved spec count at/above which thoroughness is considered "maxed
+# out" for grading purposes -- chosen from observed canonical_doc_specs.json
+# entries, which commonly range from 1-2 items (thin) to 15-30+ (thorough,
+# e.g. Hazard Insurance, Non-QM Bank Statement Analysis Worksheet).
+_GROUNDING_SPEC_COUNT_SATURATION = 10
 _CONFIDENCE_BASE_LLM_UNGROUNDED = 0.65
 # Missing/unrecognized source_module -- conservative fallback.
 _CONFIDENCE_BASE_UNKNOWN = 0.60
@@ -999,6 +1016,38 @@ _CONFIDENCE_EVIDENCE_WEIGHT = 0.15
 _CONFIDENCE_DOCUMENT_MATCH_BONUS = 0.05
 
 
+def _grounded_llm_base(dr: dict) -> float:
+    """Graded base score for a guideline-grounded LLM-authored request
+    (``dr["_guideline_grounded"]`` is truthy), within
+    [_CONFIDENCE_BASE_LLM_GROUNDED_MIN, _CONFIDENCE_BASE_LLM_GROUNDED_MAX].
+
+    Blends two signals doc_rules.apply_guideline_canonicalization stamps
+    alongside ``_guideline_grounded`` (equal weight, averaged 0-1 each):
+
+    - thoroughness: ``_guideline_spec_count`` scaled by
+      ``_GROUNDING_SPEC_COUNT_SATURATION`` -- a doc_type with many resolved
+      canonical specs for this scenario is more thoroughly specified than
+      one with just one or two.
+    - specificity: ``_guideline_specificity_ratio`` as-is (already 0-1) --
+      what fraction of those specs were gated by a real, scenario-specific
+      condition rather than applying unconditionally to every scenario.
+
+    Falls back to the midpoint of the grounded range if either field is
+    missing (e.g. a hand-built dict, or state captured before this grading
+    was added) -- same intent as the old flat 0.85 constant, just as a
+    graceful degradation rather than the normal path.
+    """
+    spec_count = dr.get("_guideline_spec_count")
+    specificity_ratio = dr.get("_guideline_specificity_ratio")
+    if spec_count is None or specificity_ratio is None:
+        return (_CONFIDENCE_BASE_LLM_GROUNDED_MIN + _CONFIDENCE_BASE_LLM_GROUNDED_MAX) / 2
+
+    thoroughness = min(spec_count / _GROUNDING_SPEC_COUNT_SATURATION, 1.0)
+    quality = (thoroughness + specificity_ratio) / 2
+    span = _CONFIDENCE_BASE_LLM_GROUNDED_MAX - _CONFIDENCE_BASE_LLM_GROUNDED_MIN
+    return _CONFIDENCE_BASE_LLM_GROUNDED_MIN + quality * span
+
+
 def compute_document_confidence(dr: dict) -> float:
     """Deterministic confidence score (0.0-1.0) for a single document_request.
 
@@ -1007,12 +1056,14 @@ def compute_document_confidence(dr: dict) -> float:
          ``_CONFIDENCE_BASE_BY_SOURCE`` (low interpretive risk regardless of
          anything else).
        - any other truthy ``source_module`` ("02"-"07", an LLM-authored
-         request): ``_CONFIDENCE_BASE_LLM_GROUNDED`` if
-         ``dr["_guideline_grounded"]`` is set (specifications were replaced
-         with vetted, guideline-sourced text -- see
-         ``doc_rules.apply_guideline_canonicalization``), else
-         ``_CONFIDENCE_BASE_LLM_UNGROUNDED``. Then, if
-         ``dr["_corroborating_modules"]`` (set by
+         request): if ``dr["_guideline_grounded"]`` is set (specifications
+         were replaced with vetted, guideline-sourced text -- see
+         ``doc_rules.apply_guideline_canonicalization``), a GRADED score
+         from ``_grounded_llm_base()`` reflecting how thoroughly/
+         specifically that canonical coverage applies to this scenario;
+         else the flat ``_CONFIDENCE_BASE_LLM_UNGROUNDED`` (nothing to
+         grade against -- the doc_type isn't in the canonical library at
+         all). Then, if ``dr["_corroborating_modules"]`` (set by
          ``merge_document_requests``) has >= 2 distinct entries, add
          ``_CONFIDENCE_CORROBORATION_BONUS`` -- independent agreement across
          modules is evidence the applicability call itself is more likely
@@ -1034,7 +1085,8 @@ def compute_document_confidence(dr: dict) -> float:
        consumers always read this as "high/low confidence" rather than a
        hard guarantee in either direction.
 
-    NOTE: ``_guideline_grounded`` and ``_corroborating_modules`` are
+    NOTE: ``_guideline_grounded``, ``_guideline_spec_count``,
+    ``_guideline_specificity_ratio``, and ``_corroborating_modules`` are all
     internal-only fields (never reach final output -- dropped by
     tools.shared.normalize.normalize_document_structure's field allow-list
     like every other underscore-prefixed key). Callers MUST run this
@@ -1047,7 +1099,7 @@ def compute_document_confidence(dr: dict) -> float:
     if base is None:
         if source_module:
             base = (
-                _CONFIDENCE_BASE_LLM_GROUNDED
+                _grounded_llm_base(dr)
                 if dr.get("_guideline_grounded")
                 else _CONFIDENCE_BASE_LLM_UNGROUNDED
             )

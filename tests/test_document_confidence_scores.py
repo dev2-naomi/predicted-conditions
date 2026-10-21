@@ -9,13 +9,18 @@ document_requests).
 
 from __future__ import annotations
 
+import pytest
+
 from tools.merger_tools import (
     _CONFIDENCE_BASE_BY_SOURCE,
-    _CONFIDENCE_BASE_LLM_GROUNDED,
+    _CONFIDENCE_BASE_LLM_GROUNDED_MAX,
+    _CONFIDENCE_BASE_LLM_GROUNDED_MIN,
     _CONFIDENCE_BASE_LLM_UNGROUNDED,
     _CONFIDENCE_BASE_UNKNOWN,
     _CONFIDENCE_CORROBORATION_BONUS,
     _CONFIDENCE_DOCUMENT_MATCH_BONUS,
+    _GROUNDING_SPEC_COUNT_SATURATION,
+    _grounded_llm_base,
     assign_confidence_scores,
     compute_document_confidence,
 )
@@ -59,6 +64,63 @@ class TestComputeDocumentConfidenceBaseScores:
         assert score == _CONFIDENCE_BASE_UNKNOWN
 
 
+class TestGroundedLLMBaseGrading:
+    """_grounded_llm_base grades a guideline-grounded document's base score
+    within [MIN, MAX] using thoroughness (resolved spec count) and
+    specificity (fraction of those specs gated by a real, scenario-specific
+    condition) rather than treating "grounded" as one more flat constant."""
+
+    def test_thin_ungated_entry_lands_near_the_floor(self):
+        # One resolved spec, no specific condition -- minimal thoroughness
+        # and zero specificity.
+        score = _grounded_llm_base(
+            _dr(_guideline_grounded=True, _guideline_spec_count=1, _guideline_specificity_ratio=0.0)
+        )
+        assert score == pytest.approx(_CONFIDENCE_BASE_LLM_GROUNDED_MIN, abs=0.02)
+
+    def test_thorough_fully_specific_entry_lands_near_the_ceiling(self):
+        # Spec count at/above the saturation point, every resolved spec
+        # gated by a real scenario-specific condition.
+        score = _grounded_llm_base(
+            _dr(
+                _guideline_grounded=True,
+                _guideline_spec_count=_GROUNDING_SPEC_COUNT_SATURATION * 2,
+                _guideline_specificity_ratio=1.0,
+            )
+        )
+        assert score == pytest.approx(_CONFIDENCE_BASE_LLM_GROUNDED_MAX, abs=0.001)
+
+    def test_more_resolved_specs_increases_the_base(self):
+        thin = _grounded_llm_base(
+            _dr(_guideline_grounded=True, _guideline_spec_count=1, _guideline_specificity_ratio=0.0)
+        )
+        thorough = _grounded_llm_base(
+            _dr(_guideline_grounded=True, _guideline_spec_count=8, _guideline_specificity_ratio=0.0)
+        )
+        assert thorough > thin
+
+    def test_higher_specificity_ratio_increases_the_base(self):
+        generic = _grounded_llm_base(
+            _dr(_guideline_grounded=True, _guideline_spec_count=5, _guideline_specificity_ratio=0.0)
+        )
+        tailored = _grounded_llm_base(
+            _dr(_guideline_grounded=True, _guideline_spec_count=5, _guideline_specificity_ratio=1.0)
+        )
+        assert tailored > generic
+
+    def test_missing_grading_fields_falls_back_to_grounded_midpoint(self):
+        dr = _dr(_guideline_grounded=True)  # no _guideline_spec_count/_guideline_specificity_ratio
+        score = _grounded_llm_base(dr)
+        midpoint = (_CONFIDENCE_BASE_LLM_GROUNDED_MIN + _CONFIDENCE_BASE_LLM_GROUNDED_MAX) / 2
+        assert score == pytest.approx(midpoint)
+
+    def test_score_never_exceeds_the_grounded_ceiling_even_with_extreme_inputs(self):
+        score = _grounded_llm_base(
+            _dr(_guideline_grounded=True, _guideline_spec_count=1000, _guideline_specificity_ratio=1.0)
+        )
+        assert score <= _CONFIDENCE_BASE_LLM_GROUNDED_MAX
+
+
 class TestComputeDocumentConfidenceLLMTierSignals:
     """The two structural signals that give LLM-authored (source_module
     "02"-"07") requests a dynamic base instead of one flat constant."""
@@ -66,10 +128,15 @@ class TestComputeDocumentConfidenceLLMTierSignals:
     def test_guideline_grounded_specs_get_higher_base_than_ungrounded(self):
         ungrounded = compute_document_confidence(_dr(source_module="02"))
         grounded = compute_document_confidence(
-            _dr(source_module="02", _guideline_grounded=True)
+            _dr(
+                source_module="02",
+                _guideline_grounded=True,
+                _guideline_spec_count=5,
+                _guideline_specificity_ratio=0.5,
+            )
         )
         assert ungrounded == _CONFIDENCE_BASE_LLM_UNGROUNDED
-        assert grounded == _CONFIDENCE_BASE_LLM_GROUNDED
+        assert _CONFIDENCE_BASE_LLM_GROUNDED_MIN <= grounded <= _CONFIDENCE_BASE_LLM_GROUNDED_MAX
         assert grounded > ungrounded
 
     def test_corroboration_by_two_plus_modules_adds_bonus(self):
@@ -96,14 +163,16 @@ class TestComputeDocumentConfidenceLLMTierSignals:
         assert score == _CONFIDENCE_BASE_LLM_UNGROUNDED
 
     def test_grounding_and_corroboration_stack(self):
-        score = compute_document_confidence(
-            _dr(
-                source_module="02",
-                _guideline_grounded=True,
-                _corroborating_modules=["02", "04"],
-            )
+        dr = _dr(
+            source_module="02",
+            _guideline_grounded=True,
+            _guideline_spec_count=5,
+            _guideline_specificity_ratio=0.5,
+            _corroborating_modules=["02", "04"],
         )
-        assert score == round(_CONFIDENCE_BASE_LLM_GROUNDED + _CONFIDENCE_CORROBORATION_BONUS, 2)
+        score = compute_document_confidence(dr)
+        expected_grounded_base = _grounded_llm_base(dr)
+        assert score == round(expected_grounded_base + _CONFIDENCE_CORROBORATION_BONUS, 2)
 
     def test_deterministic_and_01_sources_ignore_grounding_and_corroboration(self):
         # Fixed-base sources' risk profile doesn't depend on these LLM-tier
@@ -273,7 +342,8 @@ class TestMergeDocumentRequestsStampsConfidenceSignals:
     def test_canonical_doc_spec_covered_type_gets_guideline_grounded_stamped(self):
         # "Appraisal Report" has an entry in data/canonical_doc_specs.json,
         # so apply_guideline_canonicalization (run inside merge_document_requests)
-        # should replace its specifications and stamp _guideline_grounded.
+        # should replace its specifications and stamp _guideline_grounded
+        # plus the two grading signals compute_document_confidence uses.
         merged = self._run_merge({
             "05": {"document_requests": [{"document_type": "Appraisal Report", "specifications": ["placeholder"]}]},
         })
@@ -283,6 +353,10 @@ class TestMergeDocumentRequestsStampsConfidenceSignals:
         # the real guideline-sourced list, not just appended to.
         assert "placeholder" not in appraisal["specifications"]
         assert len(appraisal["specifications"]) > 0
+        # Grading signals: spec count should match the resolved specs list,
+        # and specificity ratio should be a valid fraction.
+        assert appraisal["_guideline_spec_count"] == len(appraisal["specifications"])
+        assert 0.0 <= appraisal["_guideline_specificity_ratio"] <= 1.0
 
 
 class TestConfidenceSurvivesNormalization:

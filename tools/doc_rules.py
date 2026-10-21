@@ -1669,6 +1669,46 @@ def guideline_canonical_specs(doc_type: str, flags: dict) -> list[str] | None:
     return out
 
 
+def guideline_grounding_quality(doc_type: str, flags: dict) -> tuple[int, float]:
+    """Return (resolved_spec_count, specific_condition_ratio) for the specs
+    guideline_canonical_specs() would resolve for this doc_type/scenario --
+    the two raw signals used to GRADE how thoroughly grounded a document's
+    canonicalized specifications are, rather than treating "is this doc_type
+    covered by canonical_doc_specs.json at all" as a flat yes/no:
+
+    - resolved_spec_count: how many specs actually apply to this scenario.
+      A doc_type with one thin, generic canonical entry is less thoroughly
+      specified than one with a dozen resolved items, even though both are
+      equally "grounded" in the binary sense.
+    - specific_condition_ratio: of those resolved specs, what fraction were
+      gated by a real (non-null) `condition` rather than applying
+      unconditionally to every scenario. A higher ratio means more of this
+      document's requirement text was specifically tailored to THIS
+      scenario's facts (program, occupancy, documentation type, etc.)
+      rather than generic boilerplate for the doc_type.
+
+    Returns (0, 0.0) if this doc type isn't covered by the guideline
+    library at all -- callers should treat that as "ungrounded", not as a
+    low-quality grounded result.
+    """
+    lib = _load_guideline_specs()
+    entry = lib.get(doc_type)
+    if not entry:
+        return (0, 0.0)
+    resolved = 0
+    specific = 0
+    for item in entry.get("items", []):
+        text = item.get("text")
+        if not text:
+            continue
+        if _resolve_condition(item.get("condition"), flags):
+            resolved += 1
+            if item.get("condition"):
+                specific += 1
+    ratio = (specific / resolved) if resolved else 0.0
+    return (resolved, ratio)
+
+
 def guideline_cross_reference_map(doc_type: str, flags: dict) -> dict[str, list[str]]:
     """Return {spec_text: [other canonical doc_types]} for every spec on
     this canonical doc_type (resolved against the current scenario's flags,
@@ -1746,7 +1786,7 @@ def apply_guideline_canonicalization(
         cross_ref_map = guideline_cross_reference_map(ct, flags)
         if cross_ref_map:
             dr["_cross_reference_map"] = cross_ref_map
-        # Internal-only field (same non-persistence as _cross_reference_map
+        # Internal-only fields (same non-persistence as _cross_reference_map
         # above) marking that this request's specifications are vetted,
         # guideline-sourced text rather than raw LLM-generated wording --
         # consumed by tools.merger_tools.compute_document_confidence as a
@@ -1754,7 +1794,18 @@ def apply_guideline_canonicalization(
         # document: an LLM module can correctly judge that a document
         # applies to this scenario even though the REQUIREMENT TEXT itself
         # is then fully vetted/canonical, not improvised.
+        #
+        # _guideline_grounded alone is a flat yes/no though -- it doesn't
+        # distinguish a doc_type with one thin, generic canonical entry from
+        # one with a dozen specs tailored to this exact scenario. So also
+        # stamp the raw (spec_count, specific_condition_ratio) pair from
+        # guideline_grounding_quality(), which compute_document_confidence
+        # uses to grade the grounded base score instead of treating it as
+        # one more flat constant.
         dr["_guideline_grounded"] = True
+        spec_count, specificity_ratio = guideline_grounding_quality(ct, flags)
+        dr["_guideline_spec_count"] = spec_count
+        dr["_guideline_specificity_ratio"] = round(specificity_ratio, 3)
         touched += 1
     return touched, sorted(uncovered)
 
