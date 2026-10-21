@@ -11,8 +11,10 @@ from __future__ import annotations
 
 from tools.merger_tools import (
     _CONFIDENCE_BASE_BY_SOURCE,
-    _CONFIDENCE_BASE_DEFAULT,
+    _CONFIDENCE_BASE_LLM_GROUNDED,
+    _CONFIDENCE_BASE_LLM_UNGROUNDED,
     _CONFIDENCE_BASE_UNKNOWN,
+    _CONFIDENCE_CORROBORATION_BONUS,
     _CONFIDENCE_DOCUMENT_MATCH_BONUS,
     assign_confidence_scores,
     compute_document_confidence,
@@ -41,10 +43,10 @@ class TestComputeDocumentConfidenceBaseScores:
         score = compute_document_confidence(_dr(source_module="01"))
         assert score == _CONFIDENCE_BASE_BY_SOURCE["01"]
 
-    def test_other_numeric_modules_get_default_base(self):
+    def test_other_numeric_modules_ungrounded_get_ungrounded_base(self):
         for mod in ("02", "03", "04", "05", "06", "07"):
             score = compute_document_confidence(_dr(source_module=mod))
-            assert score == _CONFIDENCE_BASE_DEFAULT, f"module {mod} should use default base"
+            assert score == _CONFIDENCE_BASE_LLM_UNGROUNDED, f"module {mod} should use ungrounded base"
 
     def test_missing_source_module_gets_conservative_fallback(self):
         score = compute_document_confidence(_dr(source_module=""))
@@ -57,11 +59,72 @@ class TestComputeDocumentConfidenceBaseScores:
         assert score == _CONFIDENCE_BASE_UNKNOWN
 
 
+class TestComputeDocumentConfidenceLLMTierSignals:
+    """The two structural signals that give LLM-authored (source_module
+    "02"-"07") requests a dynamic base instead of one flat constant."""
+
+    def test_guideline_grounded_specs_get_higher_base_than_ungrounded(self):
+        ungrounded = compute_document_confidence(_dr(source_module="02"))
+        grounded = compute_document_confidence(
+            _dr(source_module="02", _guideline_grounded=True)
+        )
+        assert ungrounded == _CONFIDENCE_BASE_LLM_UNGROUNDED
+        assert grounded == _CONFIDENCE_BASE_LLM_GROUNDED
+        assert grounded > ungrounded
+
+    def test_corroboration_by_two_plus_modules_adds_bonus(self):
+        uncorroborated = compute_document_confidence(
+            _dr(source_module="02", _corroborating_modules=["02"])
+        )
+        corroborated = compute_document_confidence(
+            _dr(source_module="02", _corroborating_modules=["02", "05"])
+        )
+        assert round(corroborated - uncorroborated, 2) == _CONFIDENCE_CORROBORATION_BONUS
+
+    def test_corroboration_by_single_module_gets_no_bonus(self):
+        score = compute_document_confidence(
+            _dr(source_module="02", _corroborating_modules=["02"])
+        )
+        assert score == _CONFIDENCE_BASE_LLM_UNGROUNDED
+
+    def test_missing_corroborating_modules_field_gets_no_bonus(self):
+        # merge_document_requests always sets this, but compute_document_confidence
+        # must not blow up if it's ever absent (e.g. a hand-built test dict).
+        dr = _dr(source_module="02")
+        dr.pop("_corroborating_modules", None)
+        score = compute_document_confidence(dr)
+        assert score == _CONFIDENCE_BASE_LLM_UNGROUNDED
+
+    def test_grounding_and_corroboration_stack(self):
+        score = compute_document_confidence(
+            _dr(
+                source_module="02",
+                _guideline_grounded=True,
+                _corroborating_modules=["02", "04"],
+            )
+        )
+        assert score == round(_CONFIDENCE_BASE_LLM_GROUNDED + _CONFIDENCE_CORROBORATION_BONUS, 2)
+
+    def test_deterministic_and_01_sources_ignore_grounding_and_corroboration(self):
+        # Fixed-base sources' risk profile doesn't depend on these LLM-tier
+        # signals -- a "deterministic" or "01" request already has low
+        # interpretive risk regardless of how many modules also proposed it.
+        plain = compute_document_confidence(_dr(source_module="deterministic"))
+        with_signals = compute_document_confidence(
+            _dr(
+                source_module="deterministic",
+                _guideline_grounded=False,
+                _corroborating_modules=["deterministic", "02", "05"],
+            )
+        )
+        assert plain == with_signals == _CONFIDENCE_BASE_BY_SOURCE["deterministic"]
+
+
 class TestComputeDocumentConfidenceEvidenceAdjustment:
     def test_no_specs_evaluated_leaves_score_at_base(self):
         dr = _dr(source_module="02", specifications=[], satisfied_specifications=[])
         score = compute_document_confidence(dr)
-        assert score == _CONFIDENCE_BASE_DEFAULT
+        assert score == _CONFIDENCE_BASE_LLM_UNGROUNDED
 
     def test_all_specs_satisfied_moves_score_up_from_base(self):
         base_only = compute_document_confidence(
@@ -84,7 +147,7 @@ class TestComputeDocumentConfidenceEvidenceAdjustment:
         all_outstanding = compute_document_confidence(
             _dr(source_module="02", specifications=["a", "b"], satisfied_specifications=[])
         )
-        assert all_outstanding == _CONFIDENCE_BASE_DEFAULT
+        assert all_outstanding == _CONFIDENCE_BASE_LLM_UNGROUNDED
 
     def test_mixed_satisfaction_lands_between_base_and_fully_satisfied(self):
         mixed = compute_document_confidence(
@@ -104,7 +167,7 @@ class TestComputeDocumentConfidenceEvidenceAdjustment:
                 ],
             )
         )
-        assert _CONFIDENCE_BASE_DEFAULT < mixed < all_satisfied
+        assert _CONFIDENCE_BASE_LLM_UNGROUNDED < mixed < all_satisfied
 
 
 class TestComputeDocumentConfidenceDocumentMatchBonus:
@@ -175,6 +238,51 @@ class TestAssignConfidenceScores:
         second_score = dr["confidence"]
 
         assert second_score > first_score
+
+
+class TestMergeDocumentRequestsStampsConfidenceSignals:
+    """Integration-level checks that merge_document_requests and
+    doc_rules.apply_guideline_canonicalization actually stamp the two
+    internal signals compute_document_confidence reads, end-to-end through
+    the real STEP_08 merge tool (not just unit-tested in isolation above)."""
+
+    def _run_merge(self, module_outputs: dict) -> list[dict]:
+        from tools.merger_tools import merge_document_requests
+
+        cmd = merge_document_requests.func(
+            tool_call_id="call-1",
+            state={"module_outputs": module_outputs, "scenario_summary": {}},
+        )
+        return cmd.update["module_outputs"]["08"]["merged_document_requests"]
+
+    def test_two_modules_proposing_same_document_get_corroboration_stamped(self):
+        merged = self._run_merge({
+            "02": {"document_requests": [{"document_type": "Bank Statement", "specifications": []}]},
+            "04": {"document_requests": [{"document_type": "Bank Statement", "specifications": []}]},
+        })
+        bank_stmt = next(dr for dr in merged if dr["document_type"].lower() == "bank statement")
+        assert sorted(bank_stmt["_corroborating_modules"]) == ["02", "04"]
+
+    def test_single_module_proposal_has_one_corroborating_module(self):
+        merged = self._run_merge({
+            "02": {"document_requests": [{"document_type": "Bank Statement", "specifications": []}]},
+        })
+        bank_stmt = next(dr for dr in merged if dr["document_type"].lower() == "bank statement")
+        assert bank_stmt["_corroborating_modules"] == ["02"]
+
+    def test_canonical_doc_spec_covered_type_gets_guideline_grounded_stamped(self):
+        # "Appraisal Report" has an entry in data/canonical_doc_specs.json,
+        # so apply_guideline_canonicalization (run inside merge_document_requests)
+        # should replace its specifications and stamp _guideline_grounded.
+        merged = self._run_merge({
+            "05": {"document_requests": [{"document_type": "Appraisal Report", "specifications": ["placeholder"]}]},
+        })
+        appraisal = next(dr for dr in merged if dr["document_type"].lower() == "appraisal report")
+        assert appraisal.get("_guideline_grounded") is True
+        # The LLM's placeholder spec should have been wholesale-replaced by
+        # the real guideline-sourced list, not just appended to.
+        assert "placeholder" not in appraisal["specifications"]
+        assert len(appraisal["specifications"]) > 0
 
 
 class TestConfidenceSurvivesNormalization:

@@ -1746,6 +1746,15 @@ def apply_guideline_canonicalization(
         cross_ref_map = guideline_cross_reference_map(ct, flags)
         if cross_ref_map:
             dr["_cross_reference_map"] = cross_ref_map
+        # Internal-only field (same non-persistence as _cross_reference_map
+        # above) marking that this request's specifications are vetted,
+        # guideline-sourced text rather than raw LLM-generated wording --
+        # consumed by tools.merger_tools.compute_document_confidence as a
+        # confidence signal independent of which module proposed the
+        # document: an LLM module can correctly judge that a document
+        # applies to this scenario even though the REQUIREMENT TEXT itself
+        # is then fully vetted/canonical, not improvised.
+        dr["_guideline_grounded"] = True
         touched += 1
     return touched, sorted(uncovered)
 

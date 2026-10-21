@@ -780,12 +780,24 @@ def merge_document_requests(
         all_requests.extend(requests)
 
     groups: dict[str, dict] = {}
+    # Tracks which distinct source_module values proposed each merge-key
+    # group -- an independent-corroboration confidence signal consumed by
+    # tools.merger_tools.compute_document_confidence (see
+    # _CONFIDENCE_CORROBORATION_BONUS): two separate modules reasoning over
+    # different scenario facts/guideline sections and both independently
+    # proposing the same document is stronger evidence it's genuinely
+    # needed than any single module's unilateral call.
+    corroborating_modules: dict[str, set[str]] = {}
     for dr in all_requests:
         key = _merge_key(dr)
+        corroborating_modules.setdefault(key, set()).add(dr.get("source_module") or "")
         if key in groups:
             groups[key] = _merge_two(groups[key], dr)
         else:
             groups[key] = dict(dr)
+
+    for key, dr in groups.items():
+        dr["_corroborating_modules"] = sorted(corroborating_modules.get(key, set()))
 
     merged = list(groups.values())
     llm_count = len(merged)
@@ -946,10 +958,32 @@ _CONFIDENCE_BASE_BY_SOURCE: dict[str, float] = {
 # Any other numeric step module ("02"-"07"): an LLM reasoned over guideline
 # text plus scenario-specific facts (income type, property, credit, title,
 # etc.) to decide this document applies -- genuine interpretive judgment
-# went into the requirement itself, not just its satisfaction check.
-_CONFIDENCE_BASE_DEFAULT = 0.75
+# went into the requirement itself. Split into two tiers rather than one
+# flat value, using a signal already computed upstream and otherwise
+# discarded: whether doc_rules.apply_guideline_canonicalization replaced
+# this request's `specifications` with vetted, guideline-sourced text
+# (dr["_guideline_grounded"], set there) rather than leaving the LLM's own
+# generated wording in place. Either way the LLM still had to decide this
+# document type applies to THIS scenario, but when the requirement TEXT
+# itself is separately vetted/canonical (not improvised), there's
+# meaningfully less room for the request to be substantively wrong, even
+# if the applicability call could still be mistaken.
+_CONFIDENCE_BASE_LLM_GROUNDED = 0.85
+_CONFIDENCE_BASE_LLM_UNGROUNDED = 0.65
 # Missing/unrecognized source_module -- conservative fallback.
 _CONFIDENCE_BASE_UNKNOWN = 0.60
+
+# Bonus when >=2 distinct modules independently proposed this same document
+# before merging (dr["_corroborating_modules"], set by
+# merge_document_requests) -- two separate reasoning passes over different
+# scenario facts/guideline sections landing on the same document
+# independently is stronger evidence it's genuinely needed than any single
+# module's unilateral call. Only meaningful for LLM-authored requests (a
+# "deterministic" or "01" request's base score already reflects low
+# interpretive risk regardless of how many modules also happened to ask for
+# it), so this is only applied in the LLM-tier branch below.
+_CONFIDENCE_CORROBORATION_BONUS = 0.05
+_CONFIDENCE_CORROBORATION_MIN_MODULES = 2
 
 # Maximum boost applied on top of the base score when every evaluated spec
 # was confirmed satisfied against a real submitted document this run (see
@@ -968,9 +1002,22 @@ _CONFIDENCE_DOCUMENT_MATCH_BONUS = 0.05
 def compute_document_confidence(dr: dict) -> float:
     """Deterministic confidence score (0.0-1.0) for a single document_request.
 
-    1. Start from a base score keyed by ``source_module`` (see
-       ``_CONFIDENCE_BASE_BY_SOURCE``/``_CONFIDENCE_BASE_DEFAULT``/
-       ``_CONFIDENCE_BASE_UNKNOWN``).
+    1. Start from a base score keyed by ``source_module``:
+       - ``"deterministic"`` / ``"01"``: fixed value from
+         ``_CONFIDENCE_BASE_BY_SOURCE`` (low interpretive risk regardless of
+         anything else).
+       - any other truthy ``source_module`` ("02"-"07", an LLM-authored
+         request): ``_CONFIDENCE_BASE_LLM_GROUNDED`` if
+         ``dr["_guideline_grounded"]`` is set (specifications were replaced
+         with vetted, guideline-sourced text -- see
+         ``doc_rules.apply_guideline_canonicalization``), else
+         ``_CONFIDENCE_BASE_LLM_UNGROUNDED``. Then, if
+         ``dr["_corroborating_modules"]`` (set by
+         ``merge_document_requests``) has >= 2 distinct entries, add
+         ``_CONFIDENCE_CORROBORATION_BONUS`` -- independent agreement across
+         modules is evidence the applicability call itself is more likely
+         correct.
+       - missing/falsy: ``_CONFIDENCE_BASE_UNKNOWN``.
     2. If at least one specification was actually confirmed satisfied
        against a real submitted document this run, boost the base score
        toward the ceiling by up to ``_CONFIDENCE_EVIDENCE_WEIGHT``,
@@ -980,17 +1027,34 @@ def compute_document_confidence(dr: dict) -> float:
        a document with zero satisfied specs is the normal, expected state
        for anything the borrower simply hasn't submitted yet, which says
        nothing about whether the requirement itself is correct -- it must
-       stay at its source-based base score, not be read as "uncertain".
+       stay at its base score, not be read as "uncertain".
     3. Add ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` if ``document_ids`` is
        non-empty (an uploaded file was actually matched to this request).
     4. Clamp to [0.05, 0.99] -- never exactly 0 or 1, so downstream
        consumers always read this as "high/low confidence" rather than a
        hard guarantee in either direction.
+
+    NOTE: ``_guideline_grounded`` and ``_corroborating_modules`` are
+    internal-only fields (never reach final output -- dropped by
+    tools.shared.normalize.normalize_document_structure's field allow-list
+    like every other underscore-prefixed key). Callers MUST run this
+    (via assign_confidence_scores) BEFORE normalize_document_structure, or
+    these signals will already be gone. See generate_final_output and
+    coborrower.build_party_document_requests for the correct call order.
     """
     source_module = dr.get("source_module") or ""
     base = _CONFIDENCE_BASE_BY_SOURCE.get(source_module)
     if base is None:
-        base = _CONFIDENCE_BASE_DEFAULT if source_module else _CONFIDENCE_BASE_UNKNOWN
+        if source_module:
+            base = (
+                _CONFIDENCE_BASE_LLM_GROUNDED
+                if dr.get("_guideline_grounded")
+                else _CONFIDENCE_BASE_LLM_UNGROUNDED
+            )
+            if len(dr.get("_corroborating_modules") or []) >= _CONFIDENCE_CORROBORATION_MIN_MODULES:
+                base += _CONFIDENCE_CORROBORATION_BONUS
+        else:
+            base = _CONFIDENCE_BASE_UNKNOWN
 
     specs = dr.get("specifications") or []
     satisfied = dr.get("satisfied_specifications") or []
@@ -3925,17 +3989,20 @@ def generate_final_output(
             mo.get("08", {}).get("merged_document_requests", [])
         )
 
+    # Deterministic per-document confidence score -- must run (a) after
+    # satisfaction checking/status assignment (both already done upstream in
+    # STEP_08's cross_check_satisfaction/rank_document_requests tools) so it
+    # can see the real satisfied_specifications split, AND (b) BEFORE
+    # normalize_document_structure below, since compute_document_confidence
+    # reads the internal-only _guideline_grounded/_corroborating_modules
+    # fields that normalize_document_structure's field allow-list strips.
+    # See assign_confidence_scores's docstring for the scoring rules.
+    assign_confidence_scores(document_requests)
+
     # Enforce consistent field schema on every document request
     document_requests = [normalize_document_structure(dr) for dr in document_requests]
 
     enrich_category_ids(document_requests, s.get("document_inventory", []))
-
-    # Deterministic per-document confidence score -- must run after
-    # satisfaction checking/status assignment (both already done upstream in
-    # STEP_08's cross_check_satisfaction/rank_document_requests tools) so it
-    # can see the real satisfied_specifications split. See
-    # assign_confidence_scores's docstring for the scoring rules.
-    assign_confidence_scores(document_requests)
 
     scenario_summary = s.get("scenario_summary", {})
 
