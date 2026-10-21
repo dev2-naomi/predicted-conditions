@@ -701,6 +701,17 @@ _CANONICAL_FIELDS: dict[str, Any] = {
     #   "needs_review". Empty when this document has no cross-reference
     #   specs this run.
     "cross_document_checks": [],
+    # Deterministic confidence score (0.0-1.0) in how confident the pipeline
+    # is that this requirement is genuinely applicable and its satisfied/
+    # needed status is correct -- NOT a prediction of whether the borrower
+    # will actually provide the document. Computed by
+    # tools.merger_tools.assign_confidence_scores, called from
+    # generate_final_output and coborrower.build_party_document_requests
+    # (the two call sites for this function, both of which must set it
+    # before this projection runs or it falls back to the conservative
+    # default below). See assign_confidence_scores's docstring for the
+    # scoring rules.
+    "confidence": 0.6,
 }
 
 # Fields to silently drop (LLM sometimes adds these non-standard keys)

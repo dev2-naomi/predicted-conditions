@@ -913,6 +913,116 @@ def assign_statuses(document_requests: list[dict], inventory: list[dict]) -> Non
             dr["status"] = "needed"
 
 
+# ---------------------------------------------------------------------------
+# Confidence scoring
+#
+# Deterministic (no extra LLM call) per-document confidence, 0.0-1.0.
+# "Confidence" here means: how confident the pipeline is that (a) this
+# document requirement genuinely applies to this loan and (b) its
+# satisfied/needed status assessment is correct -- it is NOT a prediction of
+# whether the borrower will actually produce the document. Chosen over an
+# LLM-self-reported score because (1) it needs zero new LLM calls/latency,
+# (2) it's fully explainable/debuggable from fields already on the dict,
+# and (3) it avoids the well-known tendency of LLM-reported confidence
+# values to cluster unreliably high (e.g. everything 0.85-0.95) absent
+# careful, hard-to-maintain calibration across the 7+ separate prompts that
+# can create a document_request.
+# ---------------------------------------------------------------------------
+
+# Base score by provenance: how much interpretive/LLM judgment went into
+# deciding this document applies at all, vs. a fixed, guideline-backed rule.
+_CONFIDENCE_BASE_BY_SOURCE: dict[str, float] = {
+    # doc_rules.py's canonical_doc_specs.json-driven rules engine, and
+    # required_documents_json checklist-floor items: a fixed rule/table
+    # decided this applies, not an LLM reading guideline text and judging
+    # relevance -- least interpretive risk.
+    "deterministic": 0.95,
+    # STEP_01 cross-cutting module: largely boilerplate compliance/ID/
+    # authorization documents that apply to nearly every loan regardless of
+    # scenario specifics -- low interpretive risk even though an LLM drafted
+    # the request.
+    "01": 0.90,
+}
+# Any other numeric step module ("02"-"07"): an LLM reasoned over guideline
+# text plus scenario-specific facts (income type, property, credit, title,
+# etc.) to decide this document applies -- genuine interpretive judgment
+# went into the requirement itself, not just its satisfaction check.
+_CONFIDENCE_BASE_DEFAULT = 0.75
+# Missing/unrecognized source_module -- conservative fallback.
+_CONFIDENCE_BASE_UNKNOWN = 0.60
+
+# Maximum boost applied on top of the base score when every evaluated spec
+# was confirmed satisfied against a real submitted document this run (see
+# compute_document_confidence) -- scaled down proportionally when only some
+# specs are satisfied, and not applied at all when none are (zero satisfied
+# specs is the normal "not yet submitted" state, not evidence of anything
+# wrong with the requirement).
+_CONFIDENCE_EVIDENCE_WEIGHT = 0.15
+# Flat bump when this request was actually matched to an uploaded document
+# this run (document_ids non-empty) -- direct evidence the requirement is
+# real and correctly identified, not a pure prediction of what might be
+# needed.
+_CONFIDENCE_DOCUMENT_MATCH_BONUS = 0.05
+
+
+def compute_document_confidence(dr: dict) -> float:
+    """Deterministic confidence score (0.0-1.0) for a single document_request.
+
+    1. Start from a base score keyed by ``source_module`` (see
+       ``_CONFIDENCE_BASE_BY_SOURCE``/``_CONFIDENCE_BASE_DEFAULT``/
+       ``_CONFIDENCE_BASE_UNKNOWN``).
+    2. If at least one specification was actually confirmed satisfied
+       against a real submitted document this run, boost the base score
+       toward the ceiling by up to ``_CONFIDENCE_EVIDENCE_WEIGHT``,
+       proportional to ``len(satisfied_specifications) / total_evaluated``
+       -- real confirming evidence makes us MORE sure this requirement is
+       correct. Deliberately one-directional (boost only, never a penalty):
+       a document with zero satisfied specs is the normal, expected state
+       for anything the borrower simply hasn't submitted yet, which says
+       nothing about whether the requirement itself is correct -- it must
+       stay at its source-based base score, not be read as "uncertain".
+    3. Add ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` if ``document_ids`` is
+       non-empty (an uploaded file was actually matched to this request).
+    4. Clamp to [0.05, 0.99] -- never exactly 0 or 1, so downstream
+       consumers always read this as "high/low confidence" rather than a
+       hard guarantee in either direction.
+    """
+    source_module = dr.get("source_module") or ""
+    base = _CONFIDENCE_BASE_BY_SOURCE.get(source_module)
+    if base is None:
+        base = _CONFIDENCE_BASE_DEFAULT if source_module else _CONFIDENCE_BASE_UNKNOWN
+
+    specs = dr.get("specifications") or []
+    satisfied = dr.get("satisfied_specifications") or []
+    score = base
+    if satisfied:
+        total_evaluated = len(specs) + len(satisfied)
+        satisfied_ratio = len(satisfied) / total_evaluated
+        score = base + satisfied_ratio * _CONFIDENCE_EVIDENCE_WEIGHT
+
+    if dr.get("document_ids"):
+        score += _CONFIDENCE_DOCUMENT_MATCH_BONUS
+
+    return round(min(0.99, max(0.05, score)), 2)
+
+
+def assign_confidence_scores(document_requests: list[dict]) -> None:
+    """Set ``confidence`` on every document request via
+    ``compute_document_confidence``. Mutates in place.
+
+    Call this AFTER satisfaction checking (``run_satisfaction_pass``) and
+    status assignment (``assign_statuses``) have both run against the
+    correct document set for the current scope -- generate_final_output
+    calls it for the whole-manifest output, and
+    coborrower.build_party_document_requests calls it again per party,
+    since satisfied_specifications (and therefore the score) legitimately
+    differs once each party is scored against only its own submitted
+    documents.
+    """
+    for dr in document_requests:
+        dr["confidence"] = compute_document_confidence(dr)
+
+
 @tool
 def rank_document_requests(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -3819,6 +3929,13 @@ def generate_final_output(
     document_requests = [normalize_document_structure(dr) for dr in document_requests]
 
     enrich_category_ids(document_requests, s.get("document_inventory", []))
+
+    # Deterministic per-document confidence score -- must run after
+    # satisfaction checking/status assignment (both already done upstream in
+    # STEP_08's cross_check_satisfaction/rank_document_requests tools) so it
+    # can see the real satisfied_specifications split. See
+    # assign_confidence_scores's docstring for the scoring rules.
+    assign_confidence_scores(document_requests)
 
     scenario_summary = s.get("scenario_summary", {})
 

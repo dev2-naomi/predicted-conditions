@@ -30,7 +30,12 @@ import re
 from difflib import SequenceMatcher
 from typing import Any
 
-from tools.merger_tools import assign_statuses, enrich_category_ids, run_satisfaction_pass
+from tools.merger_tools import (
+    assign_confidence_scores,
+    assign_statuses,
+    enrich_category_ids,
+    run_satisfaction_pass,
+)
 from tools.presentation_tools import _aus_restyle_spec
 from tools.shared.normalize import (
     apply_output_display_name,
@@ -170,6 +175,13 @@ def build_party_document_requests(
     # here is rescoped to only this party's own documents. Must run BEFORE
     # apply_output_display_name below (canonical, not display, names).
     enrich_category_ids(docs, document_inventory or [])
+
+    # Recompute confidence per-party: satisfied_specifications above was just
+    # re-evaluated against this party's own submitted documents only, so the
+    # score must be recomputed here rather than reused from the whole-
+    # manifest borrower_final_docs pass. See assign_confidence_scores's
+    # docstring.
+    assign_confidence_scores(docs)
 
     # Map borrower final display blocks by their (renamed) document_type so we
     # can reuse styling.
