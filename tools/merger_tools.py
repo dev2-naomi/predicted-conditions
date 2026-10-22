@@ -1015,6 +1015,40 @@ _CONFIDENCE_EVIDENCE_WEIGHT = 0.15
 # needed.
 _CONFIDENCE_DOCUMENT_MATCH_BONUS = 0.05
 
+# Adjustment from dr["cross_document_checks"] (set by cross_check_satisfaction
+# from tools.doc_rules.guideline_cross_reference_map's per-spec cross-
+# reference requirements -- e.g. Balance Sheet's "must be consistent with
+# the YTD Profit and Loss period" can only genuinely be confirmed by
+# comparing THIS document's data against another document type's data).
+# Unlike the plain satisfied_specifications evidence boost above (which is
+# deliberately boost-only because zero satisfied specs just means "not
+# submitted yet"), a cross-document check that actually ran against a real
+# sibling document and came back anything other than "consistent" IS
+# genuine negative evidence -- the sibling document exists and either
+# doesn't line up ("inconsistent") or couldn't be automatically confirmed
+# to line up ("needs_review"), unlike simply not having evidence yet. This
+# is the first penalty-capable signal in the formula for exactly that
+# reason: it's evidence-based, not absence-based.
+#
+# "missing_sibling_document" (the referenced document type was never even
+# submitted this run, so there was nothing to check against) gets NO
+# adjustment either way -- same absence-of-evidence reasoning as zero
+# satisfied_specifications.
+#
+# Weights are per-check-status ratios (status_count / total_checks on this
+# document), not flat per-document bonuses/penalties, so a document with
+# many cross-reference specs isn't swung to the max by a single check.
+_CONFIDENCE_CROSS_DOC_CONSISTENT_WEIGHT = 0.05
+_CONFIDENCE_CROSS_DOC_NEEDS_REVIEW_PENALTY = 0.10
+# "inconsistent" isn't produced by cross_check_satisfaction today (see its
+# docstring), but is a documented possible status (tools/shared/normalize.py
+# _CANONICAL_FIELDS' cross_document_checks comment) for future confirmed-
+# mismatch detection -- handled here defensively so this formula doesn't
+# need to change again once that lands. Weighted more heavily than
+# "needs_review" since it represents a CONFIRMED mismatch, not merely an
+# unconfirmed one.
+_CONFIDENCE_CROSS_DOC_INCONSISTENT_PENALTY = 0.20
+
 
 def _grounded_llm_base(dr: dict) -> float:
     """Graded base score for a guideline-grounded LLM-authored request
@@ -1048,6 +1082,34 @@ def _grounded_llm_base(dr: dict) -> float:
     return _CONFIDENCE_BASE_LLM_GROUNDED_MIN + quality * span
 
 
+def _cross_document_adjustment(dr: dict) -> float:
+    """Net confidence adjustment (can be negative) from this document's
+    ``cross_document_checks`` (see ``_CONFIDENCE_CROSS_DOC_*`` constants for
+    the reasoning). Returns 0.0 if there are no cross-document checks on
+    this document at all -- most documents never have any (only specs with
+    a ``cross_references`` flag in canonical_doc_specs.json get checked).
+
+    Each check's status contributes a ratio-weighted term
+    (status_count / total_checks), so a single flagged spec on a document
+    with many cross-reference specs doesn't swing the result to the max
+    bonus/penalty on its own.
+    """
+    checks = dr.get("cross_document_checks") or []
+    if not checks:
+        return 0.0
+
+    total = len(checks)
+    consistent = sum(1 for c in checks if c.get("status") == "consistent")
+    needs_review = sum(1 for c in checks if c.get("status") == "needs_review")
+    inconsistent = sum(1 for c in checks if c.get("status") == "inconsistent")
+
+    return (
+        (consistent / total) * _CONFIDENCE_CROSS_DOC_CONSISTENT_WEIGHT
+        - (needs_review / total) * _CONFIDENCE_CROSS_DOC_NEEDS_REVIEW_PENALTY
+        - (inconsistent / total) * _CONFIDENCE_CROSS_DOC_INCONSISTENT_PENALTY
+    )
+
+
 def compute_document_confidence(dr: dict) -> float:
     """Deterministic confidence score (0.0-1.0) for a single document_request.
 
@@ -1079,9 +1141,16 @@ def compute_document_confidence(dr: dict) -> float:
        for anything the borrower simply hasn't submitted yet, which says
        nothing about whether the requirement itself is correct -- it must
        stay at its base score, not be read as "uncertain".
-    3. Add ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` if ``document_ids`` is
+    3. Add/subtract ``_cross_document_adjustment(dr)`` based on
+       ``cross_document_checks`` (see its docstring and the
+       ``_CONFIDENCE_CROSS_DOC_*`` constants). THIS CAN BE NEGATIVE -- unlike
+       step 2, a cross-document check that actually ran against a real
+       sibling document and came back "needs_review" or "inconsistent" is
+       genuine negative evidence, not merely an absence of evidence, so
+       it's the one place this formula allows a penalty.
+    4. Add ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` if ``document_ids`` is
        non-empty (an uploaded file was actually matched to this request).
-    4. Clamp to [0.05, 0.99] -- never exactly 0 or 1, so downstream
+    5. Clamp to [0.05, 0.99] -- never exactly 0 or 1, so downstream
        consumers always read this as "high/low confidence" rather than a
        hard guarantee in either direction.
 
@@ -1093,6 +1162,9 @@ def compute_document_confidence(dr: dict) -> float:
     (via assign_confidence_scores) BEFORE normalize_document_structure, or
     these signals will already be gone. See generate_final_output and
     coborrower.build_party_document_requests for the correct call order.
+    ``cross_document_checks`` itself is NOT internal-only (it's a real
+    output field, in _CANONICAL_FIELDS), so step 3 above works regardless
+    of call order.
     """
     source_module = dr.get("source_module") or ""
     base = _CONFIDENCE_BASE_BY_SOURCE.get(source_module)
@@ -1115,6 +1187,8 @@ def compute_document_confidence(dr: dict) -> float:
         total_evaluated = len(specs) + len(satisfied)
         satisfied_ratio = len(satisfied) / total_evaluated
         score = base + satisfied_ratio * _CONFIDENCE_EVIDENCE_WEIGHT
+
+    score += _cross_document_adjustment(dr)
 
     if dr.get("document_ids"):
         score += _CONFIDENCE_DOCUMENT_MATCH_BONUS

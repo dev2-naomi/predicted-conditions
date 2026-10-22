@@ -18,13 +18,21 @@ from tools.merger_tools import (
     _CONFIDENCE_BASE_LLM_UNGROUNDED,
     _CONFIDENCE_BASE_UNKNOWN,
     _CONFIDENCE_CORROBORATION_BONUS,
+    _CONFIDENCE_CROSS_DOC_CONSISTENT_WEIGHT,
+    _CONFIDENCE_CROSS_DOC_INCONSISTENT_PENALTY,
+    _CONFIDENCE_CROSS_DOC_NEEDS_REVIEW_PENALTY,
     _CONFIDENCE_DOCUMENT_MATCH_BONUS,
     _GROUNDING_SPEC_COUNT_SATURATION,
+    _cross_document_adjustment,
     _grounded_llm_base,
     assign_confidence_scores,
     compute_document_confidence,
 )
 from tools.shared.normalize import normalize_document_structure
+
+
+def _check(status: str, spec: str = "spec") -> dict:
+    return {"specification": spec, "cross_references": ["sibling doc"], "status": status}
 
 
 def _dr(**overrides) -> dict:
@@ -237,6 +245,87 @@ class TestComputeDocumentConfidenceEvidenceAdjustment:
             )
         )
         assert _CONFIDENCE_BASE_LLM_UNGROUNDED < mixed < all_satisfied
+
+
+class TestCrossDocumentAdjustment:
+    """_cross_document_adjustment -- the first penalty-capable signal in the
+    formula, since a cross-document check that ran against a real sibling
+    document and came back anything other than "consistent" is genuine
+    negative evidence, not merely an absence of evidence."""
+
+    def test_no_checks_at_all_gives_zero_adjustment(self):
+        assert _cross_document_adjustment(_dr()) == 0.0
+
+    def test_empty_checks_list_gives_zero_adjustment(self):
+        assert _cross_document_adjustment(_dr(cross_document_checks=[])) == 0.0
+
+    def test_all_consistent_gives_full_positive_weight(self):
+        dr = _dr(cross_document_checks=[_check("consistent"), _check("consistent")])
+        assert _cross_document_adjustment(dr) == pytest.approx(_CONFIDENCE_CROSS_DOC_CONSISTENT_WEIGHT)
+
+    def test_all_needs_review_gives_full_negative_penalty(self):
+        dr = _dr(cross_document_checks=[_check("needs_review"), _check("needs_review")])
+        assert _cross_document_adjustment(dr) == pytest.approx(-_CONFIDENCE_CROSS_DOC_NEEDS_REVIEW_PENALTY)
+
+    def test_all_inconsistent_gives_full_negative_penalty_larger_than_needs_review(self):
+        dr = _dr(cross_document_checks=[_check("inconsistent")])
+        adjustment = _cross_document_adjustment(dr)
+        assert adjustment == pytest.approx(-_CONFIDENCE_CROSS_DOC_INCONSISTENT_PENALTY)
+        assert abs(adjustment) > _CONFIDENCE_CROSS_DOC_NEEDS_REVIEW_PENALTY
+
+    def test_missing_sibling_document_gives_zero_adjustment(self):
+        # Absence of evidence (sibling doc never submitted) -- same
+        # neutral treatment as zero satisfied_specifications, not a penalty.
+        dr = _dr(cross_document_checks=[_check("missing_sibling_document")])
+        assert _cross_document_adjustment(dr) == 0.0
+
+    def test_mixed_statuses_are_ratio_weighted_not_flat(self):
+        # 1 of 2 checks consistent -> half the full bonus, not the full bonus.
+        dr = _dr(cross_document_checks=[_check("consistent"), _check("missing_sibling_document")])
+        assert _cross_document_adjustment(dr) == pytest.approx(_CONFIDENCE_CROSS_DOC_CONSISTENT_WEIGHT / 2)
+
+    def test_one_flagged_spec_does_not_swing_full_penalty_among_many_neutral_checks(self):
+        # A document with several cross-reference specs, only one of which
+        # needs review (the rest unresolvable -- missing_sibling_document,
+        # which is neutral) shouldn't drop by the FULL penalty -- it's
+        # ratio-weighted across all of this document's cross-document checks.
+        dr = _dr(cross_document_checks=[
+            _check("missing_sibling_document", "a"), _check("missing_sibling_document", "b"),
+            _check("missing_sibling_document", "c"), _check("needs_review", "d"),
+        ])
+        adjustment = _cross_document_adjustment(dr)
+        assert -_CONFIDENCE_CROSS_DOC_NEEDS_REVIEW_PENALTY < adjustment < 0
+
+
+class TestComputeDocumentConfidenceCrossDocumentIntegration:
+    """compute_document_confidence actually applies the adjustment, on top
+    of (not instead of) the base/evidence/match-bonus stack."""
+
+    def test_needs_review_reduces_score_below_base(self):
+        clean = compute_document_confidence(_dr(source_module="deterministic"))
+        flagged = compute_document_confidence(
+            _dr(source_module="deterministic", cross_document_checks=[_check("needs_review")])
+        )
+        assert flagged < clean
+
+    def test_consistent_increases_score_above_base(self):
+        # Use a mid-range base so the boost is actually observable (not
+        # clipped by the 0.99 ceiling).
+        plain = compute_document_confidence(_dr(source_module="02"))
+        confirmed = compute_document_confidence(
+            _dr(source_module="02", cross_document_checks=[_check("consistent")])
+        )
+        assert confirmed > plain
+
+    def test_score_still_clamped_at_floor_with_heavy_penalties(self):
+        score = compute_document_confidence(
+            _dr(
+                source_module="",
+                specifications=["a", "b", "c"],
+                cross_document_checks=[_check("inconsistent"), _check("inconsistent")],
+            )
+        )
+        assert score >= 0.05
 
 
 class TestComputeDocumentConfidenceDocumentMatchBonus:
