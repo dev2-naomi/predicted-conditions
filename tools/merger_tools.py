@@ -1012,8 +1012,25 @@ _CONFIDENCE_EVIDENCE_WEIGHT = 0.15
 # Flat bump when this request was actually matched to an uploaded document
 # this run (document_ids non-empty) -- direct evidence the requirement is
 # real and correctly identified, not a pure prediction of what might be
-# needed.
+# needed. Still the ONLY signal used when exactly one document matched (see
+# _multi_document_match_adjustment) -- there's nothing to corroborate/
+# attribute against with just one document.
 _CONFIDENCE_DOCUMENT_MATCH_BONUS = 0.05
+# When MULTIPLE documents matched this same document_type (e.g. two Hazard
+# Insurance declarations) and run_satisfaction_pass's per-spec attribution
+# (_attribute_satisfied_specs) shows a satisfied spec was backed by more
+# than one of them, that's independent corroboration -- stronger evidence
+# than either document alone. Scales from 0 (every satisfied spec backed by
+# exactly 1 document -- same as the flat bonus, no corroboration) up to this
+# max (every satisfied spec backed by 2+ documents on average) on top of
+# the base _CONFIDENCE_DOCUMENT_MATCH_BONUS below.
+_CONFIDENCE_MULTI_DOC_CORROBORATION_BONUS = 0.05
+# Counterweight to the above: a matched document that never backs ANY
+# satisfied spec (per the same attribution) contributed nothing verifiable
+# -- a signal the alias/type match itself may be spurious, not something to
+# credit the same as a document that actually proved something. Scaled by
+# the fraction of matched documents that ended up unused.
+_CONFIDENCE_MULTI_DOC_UNUSED_PENALTY = 0.05
 
 # Adjustment from dr["cross_document_checks"] (set by cross_check_satisfaction
 # from tools.doc_rules.guideline_cross_reference_map's per-spec cross-
@@ -1110,6 +1127,61 @@ def _cross_document_adjustment(dr: dict) -> float:
     )
 
 
+def _multi_document_match_adjustment(dr: dict) -> float:
+    """Replaces the flat ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` with a graded
+    signal when MULTIPLE physical documents matched this document_type
+    (e.g. two Hazard Insurance declarations, two W-2s) -- built from the
+    per-spec document attribution run_satisfaction_pass's
+    ``_attribute_satisfied_specs`` stamps onto each
+    ``satisfied_specifications`` entry (``satisfied_by_document_ids``).
+
+    A flat "document_ids is non-empty" bonus can't distinguish a match
+    where every submitted document independently helped confirm the
+    requirement from one where half the "matched" documents were actually
+    irrelevant (a bad alias hit that happened to satisfy nothing). This
+    does, in two directions:
+
+    - Corroboration (bonus): specs confirmed by MORE than one of the
+      matched documents are stronger evidence than specs confirmed by only
+      one -- e.g. two Hazard Insurance docs A and B where A alone backs
+      spec "a", B alone backs spec "c"/"d", and BOTH back spec "b" together
+      corroborate "b" specifically. Scaled by how far the average number of
+      documents-per-satisfied-spec is above 1.0 (no corroboration at all).
+    - Utilization (penalty): a matched document that never backs ANY
+      satisfied spec contributed nothing verifiable to this request --
+      scaled by the fraction of matched documents left unused.
+
+    Falls back to the plain flat bonus when only one document matched
+    (nothing to corroborate/attribute against), or when multiple documents
+    matched but none of the satisfied specs carry usable attribution (e.g.
+    zero satisfied specs, or a run that predates this feature) -- same
+    "we know *a* match exists" signal as before, just not graded further.
+    """
+    doc_ids = dr.get("document_ids") or []
+    if len(doc_ids) <= 1:
+        return _CONFIDENCE_DOCUMENT_MATCH_BONUS if doc_ids else 0.0
+
+    satisfied = dr.get("satisfied_specifications") or []
+    attributed = [
+        s for s in satisfied
+        if isinstance(s.get("satisfied_by_document_ids"), list) and s["satisfied_by_document_ids"]
+    ]
+    if not attributed:
+        return _CONFIDENCE_DOCUMENT_MATCH_BONUS
+
+    avg_docs_per_spec = sum(len(s["satisfied_by_document_ids"]) for s in attributed) / len(attributed)
+    corroboration_ratio = max(min(avg_docs_per_spec - 1.0, 1.0), 0.0)
+    corroboration_component = corroboration_ratio * _CONFIDENCE_MULTI_DOC_CORROBORATION_BONUS
+
+    contributing_ids: set[str] = set()
+    for s in attributed:
+        contributing_ids.update(s["satisfied_by_document_ids"])
+    unused_count = sum(1 for d in doc_ids if d not in contributing_ids)
+    utilization_penalty = (unused_count / len(doc_ids)) * _CONFIDENCE_MULTI_DOC_UNUSED_PENALTY
+
+    return _CONFIDENCE_DOCUMENT_MATCH_BONUS + corroboration_component - utilization_penalty
+
+
 def compute_document_confidence(dr: dict) -> float:
     """Deterministic confidence score (0.0-1.0) for a single document_request.
 
@@ -1148,8 +1220,11 @@ def compute_document_confidence(dr: dict) -> float:
        sibling document and came back "needs_review" or "inconsistent" is
        genuine negative evidence, not merely an absence of evidence, so
        it's the one place this formula allows a penalty.
-    4. Add ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` if ``document_ids`` is
-       non-empty (an uploaded file was actually matched to this request).
+    4. Add ``_multi_document_match_adjustment(dr)`` (see its docstring) --
+       the flat ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` when 0 or 1 document
+       matched this request, or a graded corroboration/utilization signal
+       built from per-spec document attribution when multiple documents
+       matched.
     5. Clamp to [0.05, 0.99] -- never exactly 0 or 1, so downstream
        consumers always read this as "high/low confidence" rather than a
        hard guarantee in either direction.
@@ -1189,9 +1264,7 @@ def compute_document_confidence(dr: dict) -> float:
         score = base + satisfied_ratio * _CONFIDENCE_EVIDENCE_WEIGHT
 
     score += _cross_document_adjustment(dr)
-
-    if dr.get("document_ids"):
-        score += _CONFIDENCE_DOCUMENT_MATCH_BONUS
+    score += _multi_document_match_adjustment(dr)
 
     return round(min(0.99, max(0.05, score)), 2)
 
@@ -2056,8 +2129,16 @@ the extracted fields are sparse, empty, or clearly placeholder/garbled.
 ## Response Format
 Return a JSON array of objects for ONLY the satisfied specs:
 [
-  {{"specification": "<exact spec text>", "reason": "<brief reason why satisfied>"}}
+  {{"specification": "<exact spec text>", "reason": "<brief reason why satisfied>", "satisfied_by": [<0-based index/indices>]}}
 ]
+
+"satisfied_by" is ONLY meaningful when the Extracted Fields above is a JSON
+ARRAY (multiple separate documents) rather than a single object — list every
+0-based index (position in that array) of a document that contributes
+evidence for this specification. If a single document at index 2 fully
+confirms the spec on its own, use [2]. If it genuinely takes two documents
+together, use both, e.g. [0, 1]. If the Extracted Fields above is a single
+object (not an array), omit "satisfied_by" entirely (or leave it empty).
 
 If none are satisfied, return an empty array: []
 Return ONLY valid JSON, no other text.
@@ -2317,7 +2398,11 @@ def _reconcile_satisfied_specs(raw_items: list[dict], specs_text: list[str]) -> 
         if original in seen_originals:
             continue
         seen_originals.add(original)
-        reconciled.append({"specification": original, "reason": item.get("reason", "")})
+        reconciled.append({
+            "specification": original,
+            "reason": item.get("reason", ""),
+            "satisfied_by_indices": item.get("satisfied_by_indices", []),
+        })
     return reconciled
 
 
@@ -2358,11 +2443,18 @@ def _llm_check_specs(
             f"\nNote: {len(ef_summary)} separate submitted documents of this "
             "type are shown below as a JSON array — one object per physical "
             "document (e.g. different tax years, different pay periods, "
-            "different statement months). A specification that spans "
-            "multiple documents (e.g. \"most recent 2 years\", \"last 2 "
-            "months\") is satisfied if the array COLLECTIVELY covers it (e.g. "
-            "two distinct tax years present across the array), even though "
-            "no single document in the array covers it alone.\n"
+            "different statement months, or two separate policies/filings of "
+            "the same type). A specification that spans multiple documents "
+            "(e.g. \"most recent 2 years\", \"last 2 months\") is satisfied if "
+            "the array COLLECTIVELY covers it (e.g. two distinct tax years "
+            "present across the array), even though no single document in "
+            "the array covers it alone — in that case, \"satisfied_by\" must "
+            "list every index that contributed. For a spec confirmed by only "
+            "ONE of the documents in the array, \"satisfied_by\" must list "
+            "ONLY that one index, even when other documents in the array are "
+            "also present — do not list an index just because that document "
+            "exists; only list it if it genuinely provides evidence for THIS "
+            "specific specification.\n"
         )
     else:
         ef_summary = _summarize_fields(extracted_fields)
@@ -2463,6 +2555,13 @@ def _llm_check_specs(
         elif "```" in content:
             content = content.split("```")[1].split("```")[0]
 
+        # Only meaningful when multiple physical documents were shown as an
+        # array (see multi_doc_note above) -- bounds which "satisfied_by"
+        # indices the model returns are even possible to trust. A single-
+        # document call has nothing to attribute (there's only ever one
+        # candidate), so indices are ignored entirely in that case.
+        _n_docs = len(extracted_fields) if isinstance(extracted_fields, list) else 0
+
         result = json.loads(content.strip())
         if isinstance(result, list):
             valid = []
@@ -2479,9 +2578,30 @@ def _llm_check_specs(
                             doc_type, item.get("specification"), reason,
                         )
                         continue
+                    # Per-document attribution (which specific document(s) in
+                    # the array back this spec) -- see run_satisfaction_pass,
+                    # which resolves these positional indices to real
+                    # document_ids immediately after this call returns, and
+                    # compute_document_confidence, which uses that
+                    # attribution to score multi-document matches instead of
+                    # a flat "a match exists" bonus. Silently dropped (left
+                    # as []) when out of range or absent -- run_satisfaction_
+                    # pass falls back to attributing the WHOLE matched set
+                    # when no usable attribution comes back, same as before
+                    # this feature existed.
+                    raw_indices = item.get("satisfied_by")
+                    indices: list[int] = []
+                    if _n_docs and isinstance(raw_indices, list):
+                        for idx in raw_indices:
+                            if isinstance(idx, bool):
+                                continue
+                            if isinstance(idx, int) and 0 <= idx < _n_docs:
+                                if idx not in indices:
+                                    indices.append(idx)
                     valid.append({
                         "specification": item["specification"],
                         "reason": reason,
+                        "satisfied_by_indices": indices,
                     })
             return _reconcile_satisfied_specs(valid, specs_text)
     except Exception as e:
@@ -3586,6 +3706,65 @@ def _check_1003_specs(
     return satisfied
 
 
+def _attribute_satisfied_specs(
+    satisfied_specs: list[dict],
+    all_field_doc_ids: list[list[str]],
+    all_field_labels: list[str],
+    matched_ids: list[str],
+) -> None:
+    """Resolve each satisfied spec's document attribution in place.
+
+    _llm_check_specs (when given multiple documents as an array — see its
+    ``multi_doc_note``) returns a positional ``satisfied_by_indices`` list on
+    each satisfied item: which entries of the array it was actually shown
+    provided evidence for that specific spec. This resolves those positions
+    back to real document UUID(s)/label(s) via ``all_field_doc_ids``/
+    ``all_field_labels`` (built in lockstep in run_satisfaction_pass), and
+    stamps the result as ``satisfied_by_document_ids``/``satisfied_by_labels``
+    on each spec — e.g. for two Hazard Insurance documents A and B where A
+    alone backs spec "a", and both A and B back spec "b", spec "a" ends up
+    with ``satisfied_by_document_ids == [A's id]`` and spec "b" with
+    ``[A's id, B's id]``.
+
+    This is what compute_document_confidence's multi-document corroboration
+    signal is built from (see ``_multi_document_match_adjustment``) — specs
+    backed by MORE than one of the matched documents are stronger evidence
+    than specs backed by only one, and a matched document that never backs
+    ANY satisfied spec is a signal the match may be spurious.
+
+    Entries with no usable per-spec attribution — deterministic backstops
+    that append directly to ``satisfied_specs`` (tradeline/tri-merge/name-
+    cross-reference/passport/addenda), the 1003 check, the ownership-
+    companion force-satisfy block, or an LLM response that omitted/
+    mis-indexed ``satisfied_by`` — fall back to the WHOLE matched-document
+    set. That's the same "we know *a* match exists, just not which part of
+    it" information the old flat ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` relied
+    on exclusively; here it's just the fallback, not the only signal.
+    """
+    for spec in satisfied_specs:
+        if spec.get("satisfied_by_document_ids"):
+            # Already attributed (blanket-alias branch stamps this directly
+            # and never calls this function, but defensive regardless).
+            continue
+        indices = spec.pop("satisfied_by_indices", None) or []
+        doc_ids: list[str] = []
+        labels: list[str] = []
+        for idx in indices:
+            if 0 <= idx < len(all_field_doc_ids):
+                for did in all_field_doc_ids[idx]:
+                    if did not in doc_ids:
+                        doc_ids.append(did)
+                label = all_field_labels[idx] if idx < len(all_field_labels) else ""
+                if label and label not in labels:
+                    labels.append(label)
+        if not doc_ids:
+            doc_ids = list(matched_ids)
+        if doc_ids:
+            spec["satisfied_by_document_ids"] = doc_ids
+        if labels:
+            spec["satisfied_by_labels"] = labels
+
+
 def run_satisfaction_pass(
     document_requests: list[dict],
     submitted_docs: list[dict],
@@ -3678,6 +3857,13 @@ def run_satisfaction_pass(
                         f"Satisfied — equivalent document '{sdoc.get('name', '')}' "
                         f"is present in the manifest"
                     ),
+                    # Trivial attribution: a blanket alias means the single
+                    # equivalent document satisfies everything on its own —
+                    # see _attribute_satisfied_specs' docstring for why every
+                    # other branch needs real per-spec resolution but this
+                    # one doesn't.
+                    "satisfied_by_document_ids": list(matched_ids),
+                    "satisfied_by_labels": [sdoc.get("name", "")] if sdoc.get("name") else [],
                 }
                 for spec in _as_list(dr.get("specifications", []))
             ]
@@ -3698,13 +3884,24 @@ def run_satisfaction_pass(
         # "Acceptable forms: Driver's License, Passport, State ID, Military
         # ID" has no way to be confirmed even when the classification layer
         # already knows exactly which form was submitted.
+        # Physical document UUID(s) backing each entry of all_fields, in
+        # lockstep with all_fields/all_field_labels -- lets
+        # _attribute_satisfied_specs (below) resolve the positional
+        # "satisfied_by" indices _llm_check_specs returns back to real
+        # document_ids. Only the genuine same-type matches (appended in
+        # this loop) carry real ids; every companion appended further down
+        # (K1/ownership/bank-statement/cross-reference) gets [] here since
+        # those are supporting evidence from a DIFFERENT document_type, not
+        # one of the physical documents actually satisfying THIS request.
         all_fields: list[dict] = []
         all_field_labels: list[str] = []
+        all_field_doc_ids: list[list[str]] = []
         for m in matches:
             ef = m.get("extracted_fields")
             if ef:
                 all_fields.append(ef)
                 all_field_labels.append(m.get("name") or "")
+                all_field_doc_ids.append(_submitted_doc_ids(m))
         if not all_fields:
             dr["satisfied_specifications"] = []
             continue
@@ -3723,6 +3920,7 @@ def run_satisfaction_pass(
                     if companion not in all_fields:
                         all_fields.append(companion)
                         all_field_labels.append("Schedule K-1")
+                        all_field_doc_ids.append([])
 
         # Business bank statement requests commonly carry ownership specs
         # ("Must verify borrower has minimum 25% ownership of business",
@@ -3744,6 +3942,7 @@ def run_satisfaction_pass(
                 if companion_ef not in all_fields:
                     all_fields.append(companion_ef)
                     all_field_labels.append(companion_name)
+                    all_field_doc_ids.append([])
 
         # Defensive backstop for spec-to-document misclassification: a
         # bank-statement-worded spec (e.g. "Must provide 12 consecutive
@@ -3765,6 +3964,7 @@ def run_satisfaction_pass(
                 if companion_ef not in all_fields:
                     all_fields.append(companion_ef)
                     all_field_labels.append(companion_name)
+                    all_field_doc_ids.append([])
 
         # Generic cross-document consistency checks (see
         # tools.doc_rules.guideline_cross_reference_map) — e.g. Balance
@@ -3799,6 +3999,7 @@ def run_satisfaction_pass(
                     if companion_ef not in all_fields:
                         all_fields.append(companion_ef)
                         all_field_labels.append(companion_name)
+                        all_field_doc_ids.append([])
 
         extracted: dict | list[dict] = all_fields[0] if len(all_fields) == 1 else all_fields
 
@@ -3901,6 +4102,13 @@ def run_satisfaction_pass(
                             "show the account in the borrower's name/ownership."
                         ),
                     })
+
+        # Resolve per-spec document attribution (positional indices from
+        # _llm_check_specs -> real document_ids/labels) now that every
+        # deterministic backstop and the ownership force-satisfy block
+        # above have had their chance to append to satisfied_specs — see
+        # _attribute_satisfied_specs' docstring.
+        _attribute_satisfied_specs(satisfied_specs, all_field_doc_ids, all_field_labels, matched_ids)
 
         satisfied_spec_texts = {s["specification"] for s in satisfied_specs}
         remaining_specs = [
