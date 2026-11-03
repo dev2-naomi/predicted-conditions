@@ -1035,6 +1035,23 @@ def build_scenario_summary(
             b_present = meta.get(_ELIGIBILITY_FIELD_MAP[key_b]) not in (None, "", "unknown")
             if not a_present and not b_present:
                 missing_bare_minimum.extend([key_a, key_b])
+
+        # 2026-11-03: DTI/DSCR substitution -- a DSCR-qualified primary
+        # borrower (borrower_type == "DSCR", from loan_file_xml's "Incomes"
+        # array / legacy BorrowerType field) never carries a DTI; a DSCR
+        # tier value (metadata["dscr"], sourced from loan_file_xml's
+        # top-level "DSCR" field -- see xml_parser.py) satisfies this
+        # bare-minimum requirement in DTI's place instead. Without this,
+        # every eligibility_json-less DSCR loan would permanently fail
+        # this gate on a field (DTI) that DSCR borrowers structurally never
+        # have. Mirrors the advisory-only DTI/DSCR swap further down in
+        # this function (missing_core_variables / _REQUIRED_FIELDS).
+        if "DTI" in missing_bare_minimum:
+            if str(meta.get("borrower_type") or "").strip().lower() == "dscr":
+                missing_bare_minimum.remove("DTI")
+                if meta.get("dscr") in (None, "", "unknown"):
+                    missing_bare_minimum.append("DSCR")
+
         if missing_bare_minimum:
             critical_failure = {
                 "reason": "missing_bare_minimum_fields",

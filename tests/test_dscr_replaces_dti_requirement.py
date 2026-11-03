@@ -135,3 +135,41 @@ class TestNonDscrPrimaryBorrowerStillRequiresDti:
         missing = _missing_fields(update)
         assert "DTI" in missing
         assert "DSCR" not in missing
+
+
+# ---------------------------------------------------------------------------
+# Same DTI/DSCR substitution, but for the HARD "critical_failure" bare-
+# minimum-fields gate (build_scenario_summary, fires only when NO
+# eligibility_json is provided -- see tests/test_critical_failure_gate.py).
+# Without this substitution, every eligibility_json-less DSCR loan would
+# permanently fail this gate on DTI, a field DSCR borrowers structurally
+# never have -- confirmed live against the deployed aws-dev Lambda
+# (2026-11-03) before this fix was added.
+# ---------------------------------------------------------------------------
+
+class TestCriticalFailureGateDscrSubstitution:
+    def test_dscr_borrower_with_dscr_field_does_not_trigger_critical_failure(self):
+        flat = {**_BASE_FLAT_JSON, "Incomes": _DSCR_INCOMES, "DSCR": "DSCR No Ratio"}
+        update = _run_pipeline(flat)
+        assert update.get("critical_failure") is None
+
+    def test_dscr_borrower_without_dscr_field_fails_naming_dscr_not_dti(self):
+        flat = {**_BASE_FLAT_JSON, "Incomes": _DSCR_INCOMES}
+        update = _run_pipeline(flat)
+        cf = update.get("critical_failure")
+        assert cf is not None
+        assert "DSCR" in cf["missing_fields"]
+        assert "DTI" not in cf["missing_fields"]
+
+    def test_non_dscr_borrower_without_dti_still_fails_naming_dti(self):
+        flat = {**_BASE_FLAT_JSON, "Incomes": _NON_DSCR_INCOMES}
+        update = _run_pipeline(flat)
+        cf = update.get("critical_failure")
+        assert cf is not None
+        assert "DTI" in cf["missing_fields"]
+        assert "DSCR" not in cf["missing_fields"]
+
+    def test_non_dscr_borrower_with_dti_does_not_trigger_critical_failure(self):
+        flat = {**_BASE_FLAT_JSON, "Incomes": _NON_DSCR_INCOMES, "DTI": 41.2}
+        update = _run_pipeline(flat)
+        assert update.get("critical_failure") is None
