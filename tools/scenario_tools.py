@@ -1351,9 +1351,30 @@ def build_scenario_summary(
             "Loan Application (1003) / Loan Scenario Summary",
         ),
     ]
-    # DTI is required for non-DSCR loans only
-    is_dscr = any(t in ("DSCR", "dscr") for t in income_types)
-    if not is_dscr:
+    # DTI is required for non-DSCR loans only. The authoritative signal is
+    # the PRIMARY BORROWER's borrower_type (from loan_file_xml's "Incomes"
+    # array -- income_tier == "Primary" AND is_primary_borrower == True --
+    # or the legacy flat "BorrowerType" field / eligibility_json) being
+    # exactly "DSCR"; the income_types-derived check (income_doc label
+    # text / submitted-document inference) is kept only as a fallback for
+    # inputs that never populate borrower_type at all.
+    #
+    # 2026-11-03: for DSCR borrowers, DTI is replaced -- not just dropped --
+    # by a required DSCR tier value instead, sourced from loan_file_xml's
+    # top-level "DSCR" field (see xml_parser.py metadata["dscr"] /
+    # summary["dscr_label"]). Possible values: "DSCR No Ratio",
+    # "DSCR < 1%", "DSCR 1-1.14%", "DSCR > 1.15%".
+    primary_borrower_type = str(meta.get("borrower_type") or "").strip().lower()
+    is_dscr = primary_borrower_type == "dscr" or any(t in ("DSCR", "dscr") for t in income_types)
+    if is_dscr:
+        _REQUIRED_FIELDS.append((
+            "DSCR",
+            summary["dscr_label"],
+            "DSCR (debt service coverage ratio) tier replaces DTI for DSCR-qualified "
+            "borrowers; cannot validate program eligibility without it.",
+            "loan_file_xml 'DSCR' field / Eligibility Engine Output",
+        ))
+    else:
         _REQUIRED_FIELDS.append((
             "DTI",
             summary["numbers"]["DTI"],

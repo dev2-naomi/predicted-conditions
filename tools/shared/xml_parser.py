@@ -706,6 +706,10 @@ def _extract_residences(sections: Dict[str, Any]) -> List[Dict]:
 #    "Citizenship": "US Citizen", "State": "CA", "County": "Orange",
 #    "LoanType": "Conventional", "ReservesMonths": 0,
 #    "FirstTimeHomeBuyer": "No"}
+# For a DSCR-qualified primary borrower, "DTI" is replaced by a "DSCR" tier
+# field instead (one of "DSCR No Ratio", "DSCR < 1%", "DSCR 1-1.14%",
+# "DSCR > 1.15%") -- see the "Incomes" array note further below and
+# tools/scenario_tools.py's build_scenario_summary.
 # 2026-10-12 design decision: both shapes must be supported transparently --
 # xml_to_loan_profile()/parse_mismo_xml() detect which one they were given
 # and produce the same profile/parsed-dict shape either way, so nothing
@@ -715,12 +719,22 @@ def _extract_residences(sections: Dict[str, Any]) -> List[Dict]:
 
 # NOTE: kept in sync BY HAND with tools/scenario_tools.py's
 # _ELIGIBILITY_FIELD_MAP (duplicated here, not imported, to avoid a
-# circular import -- scenario_tools.py imports FROM this module).
+# circular import -- scenario_tools.py imports FROM this module), EXCEPT
+# for "DSCR" below, which is intentionally flat-JSON-only (not part of the
+# 16-field eligibility bare-minimum contract -- see "DSCR" note just below).
 _FLAT_JSON_FIELD_MAP: Dict[str, str] = {
     "FicoScore": "fico",
     "LTV": "ltv_pct",
     "CLTV": "cltv_pct",
     "DTI": "dti",
+    # 2026-11-03: DSCR borrowers (primary borrower's Incomes-array entry has
+    # borrower_type == "DSCR") don't carry a DTI -- a DSCR tier takes its
+    # place instead for program-eligibility purposes. Possible values:
+    # "DSCR No Ratio", "DSCR < 1%", "DSCR 1-1.14%", "DSCR > 1.15%". See
+    # tools/scenario_tools.py's build_scenario_summary required-fields logic
+    # (DTI required unless primary borrower_type == "DSCR", in which case
+    # this field is required instead).
+    "DSCR": "dscr",
     "LoanAmount": "loan_amount",
     "PropertyValue": "property_value",
     "PropertyType": "property_type",
@@ -757,6 +771,17 @@ _FLAT_JSON_MIN_MATCHING_KEYS = 3
 #        "income_doc": "Bank Statements: 12 Mo.",
 #        "bank_statements_kind": "Personal"},
 #   ]
+# A DSCR-qualified primary borrower's entry looks like:
+#   "Incomes": [
+#       {"income_tier": "Primary", "is_primary_borrower": true,
+#        "borrower_type": "DSCR", "income_doc": "DSCR Long Term Rent",
+#        "bank_statements_kind": null},
+#   ]
+# -- borrower_type == "DSCR" (not an income_doc-label substring match) is
+# what tools/scenario_tools.py's build_scenario_summary uses to swap the
+# DTI requirement out for a DSCR-tier requirement instead (sourced from the
+# top-level "DSCR" field above, NOT from this array).
+#
 # Only the PRIMARY BORROWER's entry -- income_tier == "Primary" AND
 # is_primary_borrower == True -- is required for/consumed by the
 # bare-minimum-fields gate (tools/scenario_tools.py's _ELIGIBILITY_FIELD_MAP
@@ -833,7 +858,13 @@ def _flat_loan_json_to_profile(data: Dict[str, Any]) -> Dict[str, Any]:
 
     metadata: Dict[str, Any] = {
         "dti": data.get("DTI"),
-        "dscr": None,
+        # DSCR tier label for a DSCR-qualified primary borrower (see
+        # "DSCR" field map note above and the "Incomes" array comment) --
+        # e.g. "DSCR No Ratio", "DSCR < 1%", "DSCR 1-1.14%", "DSCR > 1.15%".
+        # Only sourced from this flat loan_file_xml shape's top-level
+        # "DSCR" field today; real MISMO XML and the eligibility engine do
+        # not currently supply it.
+        "dscr": data.get("DSCR"),
         "fico": data.get("FicoScore"),
         "itin": None,
         "state": data.get("State"),
@@ -1170,6 +1201,10 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
 
     metadata: Dict[str, Any] = {
         "dti": parsed.get("dti"),
+        # No real MISMO XML tag is currently mapped for this -- DSCR tier
+        # is only sourced from the flat loan_file_xml shape's "DSCR" field
+        # (see _flat_loan_json_to_profile above) or an eligibility_json
+        # overlay, never from real XML text.
         "dscr": None,
         "fico": parsed.get("fico"),
         "itin": None,
