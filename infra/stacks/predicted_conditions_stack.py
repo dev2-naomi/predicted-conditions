@@ -49,6 +49,9 @@ SECRET_KEYS = [
     "OPENAI_API_KEY",
     "LANGCHAIN_API_KEY",
     "API_KEY",
+    # Added 2026-11-07 alongside PRIMARY_PROVIDER=openrouter support in
+    # agent.py / tools/merger_tools.py.
+    "OPENROUTER_API_KEY",
 ]
 
 # This repo's root is cluttered with large ad-hoc test/debug artifacts
@@ -288,6 +291,9 @@ class PredictedConditionsStack(Stack):
                 "OPENAI_REASONING_EFFORT": _deploy_env("OPENAI_REASONING_EFFORT", "medium"),
                 "PRIMARY_PROVIDER": _deploy_env("PRIMARY_PROVIDER", ""),
                 "OPENAI_PRIMARY_MODEL": _deploy_env("OPENAI_PRIMARY_MODEL", ""),
+                # Added 2026-11-07 alongside PRIMARY_PROVIDER=openrouter.
+                "OPENROUTER_MODEL": _deploy_env("OPENROUTER_MODEL", ""),
+                "OPENROUTER_REASONING_EFFORT": _deploy_env("OPENROUTER_REASONING_EFFORT", ""),
                 "LLM_MAX_RETRIES": _deploy_env("LLM_MAX_RETRIES", "8"),
                 "LLM_RETRY_COOLDOWN": _deploy_env("LLM_RETRY_COOLDOWN", "5"),
                 "LLM_RETRY_MAX_BACKOFF": _deploy_env("LLM_RETRY_MAX_BACKOFF", "60"),
@@ -353,6 +359,9 @@ class PredictedConditionsStack(Stack):
                 # deploy command.
                 "PRIMARY_PROVIDER": _deploy_env("PRIMARY_PROVIDER", ""),
                 "OPENAI_PRIMARY_MODEL": _deploy_env("OPENAI_PRIMARY_MODEL", ""),
+                # Added 2026-11-07 alongside PRIMARY_PROVIDER=openrouter.
+                "OPENROUTER_MODEL": _deploy_env("OPENROUTER_MODEL", ""),
+                "OPENROUTER_REASONING_EFFORT": _deploy_env("OPENROUTER_REASONING_EFFORT", ""),
                 "LLM_MAX_RETRIES": _deploy_env("LLM_MAX_RETRIES", "8"),
                 "LLM_RETRY_COOLDOWN": _deploy_env("LLM_RETRY_COOLDOWN", "5"),
                 "LLM_RETRY_MAX_BACKOFF": _deploy_env("LLM_RETRY_MAX_BACKOFF", "60"),

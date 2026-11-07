@@ -27,6 +27,10 @@ SECRET_KEYS = (
     "OPENAI_API_KEY",
     "LANGCHAIN_API_KEY",
     "API_KEY",
+    # Added 2026-11-07 alongside PRIMARY_PROVIDER=openrouter support in
+    # agent.py / tools/merger_tools.py. Keep in sync with
+    # infra/stacks/predicted_conditions_stack.py:SECRET_KEYS.
+    "OPENROUTER_API_KEY",
 )
 
 

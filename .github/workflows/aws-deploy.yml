@@ -98,6 +98,10 @@ jobs:
           # unaffected.
           PRIMARY_PROVIDER: ${{ vars.PRIMARY_PROVIDER || '' }}
           OPENAI_PRIMARY_MODEL: ${{ vars.OPENAI_PRIMARY_MODEL || '' }}
+          # Same pattern as OPENAI_PRIMARY_MODEL above, added 2026-11-07
+          # alongside PRIMARY_PROVIDER=openrouter support in agent.py.
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || '' }}
+          OPENROUTER_REASONING_EFFORT: ${{ vars.OPENROUTER_REASONING_EFFORT || '' }}
           LANGCHAIN_TRACING_V2: "true"
           # Stage-aware default (matches infra/stacks/predicted_conditions_stack.py's
           # _deploy_env fallback) so dev/prod traces land in separate LangSmith
@@ -116,6 +120,13 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+          # Added 2026-11-07 alongside PRIMARY_PROVIDER=openrouter support —
+          # without this, every deploy would silently wipe this key back out
+          # of Secrets Manager (same stale-override bug PRIMARY_PROVIDER/
+          # OPENAI_PRIMARY_MODEL hit above, just for a secret instead of a
+          # plain env var). Same repo-wide secret on both dev and prod — the
+          # OpenRouter key itself isn't stage-specific like API_KEY is.
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           # dev and prod are separate secrets with separate API_KEY values
           # (see docs/AWS_DEPLOYMENT.md) — main deploys must use the
           # dedicated API_KEY_PROD secret, not dev's API_KEY, or this step
@@ -129,6 +140,7 @@ jobs:
               'ANTHROPIC_API_KEY': os.environ.get('ANTHROPIC_API_KEY', ''),
               'OPENAI_API_KEY': os.environ.get('OPENAI_API_KEY', ''),
               'LANGCHAIN_API_KEY': os.environ.get('LANGCHAIN_API_KEY', ''),
+              'OPENROUTER_API_KEY': os.environ.get('OPENROUTER_API_KEY', ''),
               'API_KEY': os.environ.get('API_KEY', ''),
           }))" > /tmp/secret-payload.json
           aws secretsmanager put-secret-value \
