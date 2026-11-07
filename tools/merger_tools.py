@@ -2484,9 +2484,21 @@ def _llm_check_specs(
     # regression: conditions already met by submitted documents keep
     # showing up as still-needed. Discovered 2026-10-05 when Anthropic's key
     # was invalid during dev testing on an OpenAI-primary override.
+    #
+    # PRIMARY_PROVIDER=openrouter mirrors agent.py's _USE_OPENROUTER_PRIMARY
+    # (added 2026-11-07). Without this branch, an openrouter override hit
+    # the `else` (direct ChatAnthropic) branch below whenever
+    # ANTHROPIC_API_KEY happened to be *set but invalid* -- the
+    # `not os.environ.get("ANTHROPIC_API_KEY")` check only catches a
+    # missing/empty key, not an invalid one, so this call quietly 401'd for
+    # every single document request (swallowed by the except below) even
+    # though the main orchestrator was successfully running via OpenRouter.
     _primary_provider = os.environ.get("PRIMARY_PROVIDER", "").strip().lower()
-    _use_openai = _primary_provider == "openai" or (
-        not os.environ.get("ANTHROPIC_API_KEY") and _primary_provider != "anthropic"
+    _use_openrouter = _primary_provider == "openrouter"
+    _use_openai = not _use_openrouter and (
+        _primary_provider == "openai" or (
+            not os.environ.get("ANTHROPIC_API_KEY") and _primary_provider != "anthropic"
+        )
     )
 
     # Per-call budget for this satisfaction check. Unlike agent.py's main
@@ -2503,7 +2515,38 @@ def _llm_check_specs(
     _timeout_s = float(os.environ.get("SATISFACTION_CHECK_TIMEOUT_SECONDS", "60"))
 
     try:
-        if _use_openai:
+        if _use_openrouter:
+            from langchain_openai import ChatOpenAI
+
+            # No cheap Haiku-class model was available under the OpenRouter
+            # workspace guardrail active as of 2026-11-07 (only
+            # anthropic/claude-sonnet-5.5 was unblocked) -- reuse the main
+            # OPENROUTER_MODEL rather than hardcoding a model ID that may be
+            # blocked. Revisit once a cheaper tier is allowlisted.
+            model = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5")
+            or_kwargs: dict = {
+                "model": model,
+                "base_url": "https://openrouter.ai/api/v1",
+                "api_key": os.environ.get("OPENROUTER_API_KEY"),
+                "max_retries": 2,
+                "timeout": _timeout_s,
+            }
+            # Same mandatory-reasoning cost issue as agent.py's primary LLM
+            # (see its OPENROUTER_REASONING_EFFORT comment) -- this call runs
+            # once per document request (x2 for co-borrower), so an unset
+            # "high" default here is a major per-run cost multiplier. Unlike
+            # the main orchestrator, this task is a bounded rubric
+            # application (not open-ended multi-step tool orchestration), so
+            # it's lower-risk to run at "low" effort -- deliberately a
+            # SEPARATE env var from the main OPENROUTER_REASONING_EFFORT
+            # (mirrors the existing OPENAI_REASONING_EFFORT vs.
+            # SATISFACTION_CHECK_OPENAI_REASONING_EFFORT split above) so
+            # tuning one doesn't silently affect the other.
+            or_effort = os.environ.get("SATISFACTION_CHECK_OPENROUTER_REASONING_EFFORT", "low")
+            if or_effort:
+                or_kwargs["reasoning_effort"] = or_effort
+            llm = ChatOpenAI(**or_kwargs)
+        elif _use_openai:
             from langchain_openai import ChatOpenAI
 
             model = os.environ.get("SATISFACTION_CHECK_OPENAI_MODEL", "gpt-5-mini")

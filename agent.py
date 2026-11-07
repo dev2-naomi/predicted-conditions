@@ -116,6 +116,18 @@ class PredictiveConditionsState(TypedDict, total=False):
     # of back to the orchestrator, skipping STEP_01-08 entirely.
     critical_failure: Annotated[NotRequired[dict], _last_value]
 
+    # Stall-recovery counter (see should_continue()/nudge_node()) -- added
+    # 2026-11-07 alongside OpenRouter support. Lower reasoning-effort models
+    # occasionally stop calling tools mid-workflow (observed on
+    # claude-sonnet-5.5 via OpenRouter at "low"/"medium" effort -- the model
+    # does the real work correctly, e.g. storing document requests, but then
+    # skips the follow-up save_step_report call and emits a plain text
+    # reply instead). Rather than hard-failing on the very first stall
+    # (previously should_continue()'s only behavior), this counts stalls so
+    # should_continue() can route to a cheap one-message nudge first and
+    # only raise once the retry budget (_STALL_RETRY_LIMIT) is exhausted.
+    stall_retry_count: Annotated[NotRequired[int], _last_value]
+
 
 # ---------------------------------------------------------------------------
 # LLM
@@ -159,12 +171,63 @@ _LLM_TIMEOUT_SECONDS = float(os.environ.get("LLM_TIMEOUT_SECONDS", "90"))
 # existing Opus-flagship vs Sonnet-balanced split, vs. "gpt-5" flagship
 # which is the closer Opus analog and is already used as the Tier 2
 # cross-provider fallback default below).
+#
+# PRIMARY_PROVIDER=openrouter — added 2026-11-07 after the OPENAI_API_KEY
+# override above (from the 2026-10-05 Anthropic outage) was itself
+# silently revoked (401 on every call), with no good direct-OpenAI or
+# direct-Anthropic key available for dev at the time. OpenRouter is an
+# OpenAI-compatible proxy in front of many providers/keys, so routing
+# through it (same ChatOpenAI client, different base_url + key) gives a
+# third, independent way to reach a model without depending on either
+# direct provider key being valid. OPENROUTER_MODEL defaults to
+# "anthropic/claude-sonnet-5.5" (the model allowed by the OpenRouter
+# workspace's guardrail at the time this was added).
 _PRIMARY_PROVIDER = os.environ.get("PRIMARY_PROVIDER", "").strip().lower()
-_USE_OPENAI_PRIMARY = _PRIMARY_PROVIDER == "openai" or (
-    not os.environ.get("ANTHROPIC_API_KEY") and _PRIMARY_PROVIDER != "anthropic"
+_USE_OPENROUTER_PRIMARY = _PRIMARY_PROVIDER == "openrouter"
+_USE_OPENAI_PRIMARY = not _USE_OPENROUTER_PRIMARY and (
+    _PRIMARY_PROVIDER == "openai" or (
+        not os.environ.get("ANTHROPIC_API_KEY") and _PRIMARY_PROVIDER != "anthropic"
+    )
 )
 
-if _USE_OPENAI_PRIMARY:
+if _USE_OPENROUTER_PRIMARY:
+    from langchain_openai import ChatOpenAI
+
+    _OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5")
+    _or_primary_kwargs: dict = {
+        "model": _OPENROUTER_MODEL,
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key": os.environ.get("OPENROUTER_API_KEY"),
+        "max_retries": 0,
+        "timeout": _LLM_TIMEOUT_SECONDS,
+        "temperature": float(_LLM_TEMPERATURE),
+    }
+    # claude-sonnet-5.5 has MANDATORY reasoning on OpenRouter, defaulting to
+    # effort="high" if unset -- found 2026-11-07 after a full montes test
+    # run cost ~$1.40 (completion/reasoning tokens billed at $10/M). Tried
+    # dropping straight to "low" for cost, but that caused the orchestrator
+    # to stop calling tools mid-workflow on a SEPARATE test case (niccum,
+    # STEP_05) and hit the should_continue() hard-failure guard below --
+    # i.e. forced tool_choice can't compensate here (Claude rejects forced
+    # tool_choice outright for this model; see _PRIMARY_LLM_PROVIDER
+    # comment), so under-reasoning is a reliability risk, not just a
+    # quality one. The stall-recovery nudge mechanism (should_continue()/
+    # nudge_node()) now makes "low" safe/reliable in practice (verified via
+    # repeated local test runs on both niccum and montes -- each needed
+    # exactly 1 nudge retry and completed successfully, ~$0.5-0.9/run vs.
+    # ~$1.1-3.0/run at "high"), so "low" is the default here; the simpler
+    # satisfaction-check call in merger_tools.py uses its own "low" default
+    # independently.
+    _or_effort = os.environ.get("OPENROUTER_REASONING_EFFORT", "low")
+    if _or_effort:
+        _or_primary_kwargs["reasoning_effort"] = _or_effort
+    _llm = ChatOpenAI(**_or_primary_kwargs)
+    logging.getLogger(__name__).warning(
+        "PRIMARY MODEL OVERRIDE: running via OpenRouter model %s instead of "
+        "Anthropic %s (PRIMARY_PROVIDER=%r).",
+        _OPENROUTER_MODEL, _MODEL, _PRIMARY_PROVIDER,
+    )
+elif _USE_OPENAI_PRIMARY:
     from langchain_openai import ChatOpenAI
 
     _OPENAI_PRIMARY_MODEL = os.environ.get(
@@ -199,7 +262,20 @@ else:
 
     _llm = ChatAnthropic(**_llm_kwargs)
 
-_PRIMARY_LLM_PROVIDER = "openai" if _USE_OPENAI_PRIMARY else "anthropic"
+# OpenRouter uses the OpenAI-compatible ChatOpenAI client under the hood,
+# but it is NOT given the "openai" provider label here: _bind() below forces
+# tool_choice="required" for provider=="openai" (to keep the orchestrator
+# reliably calling a tool each turn), and that OpenAI-shaped forced-choice
+# value doesn't translate cleanly through OpenRouter when the underlying
+# model is Anthropic — Claude Sonnet 5.5 rejected it outright with "tool_choice:
+# type \"tool\" and \"any\" are not supported for this model" (discovered
+# 2026-11-07 testing anthropic/claude-sonnet-5.5 via OpenRouter). Giving it
+# its own "openrouter" label makes _bind() fall through to plain
+# bind_tools(step_tools) (auto tool choice) instead.
+_PRIMARY_LLM_PROVIDER = (
+    "openrouter" if _USE_OPENROUTER_PRIMARY
+    else ("openai" if _USE_OPENAI_PRIMARY else "anthropic")
+)
 
 # Fallback chain — tried in order when the primary model returns a transient
 # overload/rate-limit error. Each entry is (provider, llm). A cross-provider
@@ -210,11 +286,17 @@ _fallback_specs: list[tuple[str, Any]] = []
 
 # Tier 1 — Anthropic Sonnet (same provider; cheaper/faster than Opus).
 # Set ANTHROPIC_FALLBACK_MODEL="" to disable this tier. Also skipped
-# whenever the primary is already running on the OpenAI override above —
-# no point building a second client against the same (missing/invalid)
-# Anthropic key.
+# whenever the primary is already running on the OpenAI or OpenRouter
+# override above — no point building a second client against the same
+# (missing/invalid) Anthropic key when that's precisely why the override
+# is active.
 _FALLBACK_MODEL = os.environ.get("ANTHROPIC_FALLBACK_MODEL", "claude-sonnet-4-5")
-if _FALLBACK_MODEL and _FALLBACK_MODEL != _MODEL and not _USE_OPENAI_PRIMARY:
+if (
+    _FALLBACK_MODEL
+    and _FALLBACK_MODEL != _MODEL
+    and not _USE_OPENAI_PRIMARY
+    and not _USE_OPENROUTER_PRIMARY
+):
     _fallback_kwargs: dict = {
         "model": _FALLBACK_MODEL,
         "max_tokens": 16384,
@@ -747,7 +829,22 @@ def tool_node_factory(tools: list) -> ToolNode:
     return SequentialToolNode(tools)
 
 
-def should_continue(state: PredictiveConditionsState) -> Literal["tools", "party_split"]:
+# Max number of cheap reminder nudges should_continue() will issue (across
+# the WHOLE run, not per-stall) before giving up and raising for real. Kept
+# small and deliberately simple (a flat run-wide budget, not per-step) --
+# the observed stalls are rare, isolated lapses, not a pattern that needs
+# elaborate per-step tracking. Configurable for tuning without a code change.
+_STALL_RETRY_LIMIT = int(os.environ.get("STALL_RETRY_LIMIT", "2"))
+
+_NUDGE_MESSAGE = (
+    "You stopped without calling a tool, but the workflow is not finished "
+    "yet (no final_output.document_requests). Please continue: call "
+    "get_workflow_status if you're unsure what's next, then proceed with "
+    "the current step's tools."
+)
+
+
+def should_continue(state: PredictiveConditionsState) -> Literal["tools", "party_split", "nudge"]:
     """Route: if the last message has tool calls, execute them; otherwise run
     the per-party attribution post-pass before ending."""
     messages = state.get("messages", [])
@@ -769,16 +866,48 @@ def should_continue(state: PredictiveConditionsState) -> Literal["tools", "party
     # is correctly recorded as an error (retriable/investigable) instead of a
     # false "success" that callers have no way to distinguish from a real,
     # complete, empty-document-set result.
+    #
+    # 2026-11-07: before raising, give the model a cheap chance to recover.
+    # Observed stalls (on claude-sonnet-5.5 via OpenRouter at low/medium
+    # reasoning effort) look like one-off lapses -- e.g. it correctly stores
+    # a step's document requests via the right tool call, then simply skips
+    # the follow-up save_step_report call instead of being genuinely
+    # confused about the task. A single reminder message is enough to get
+    # it back on track in that case, at the cost of one extra cheap LLM call
+    # -- far cheaper than forcing a high reasoning-effort tier for the
+    # entire run just to avoid rare stalls. The nudge path below is only
+    # reached _STALL_RETRY_LIMIT times total per run before this still
+    # raises for real, so a model that's genuinely stuck (not just lapsed)
+    # still fails loudly rather than looping forever.
     final_output = state.get("final_output") or {}
     if not final_output.get("document_requests"):
+        if state.get("stall_retry_count", 0) < _STALL_RETRY_LIMIT:
+            return "nudge"
         current_step = state.get("current_step", "unknown")
         raise RuntimeError(
             "Orchestrator stopped calling tools before completing the workflow "
             f"(current_step={current_step!r}, final_output.document_requests "
-            "empty). Treating this as a failed run rather than a false "
-            "'success' with an incomplete result."
+            f"empty) after {_STALL_RETRY_LIMIT} nudge retr"
+            f"{'y' if _STALL_RETRY_LIMIT == 1 else 'ies'}. Treating this as a "
+            "failed run rather than a false 'success' with an incomplete result."
         )
     return "party_split"
+
+
+def nudge_node(state: PredictiveConditionsState) -> dict:
+    """Cheap stall-recovery step: append a reminder HumanMessage and bump the
+    retry counter, then loop back to the orchestrator. See should_continue()
+    for when/why this is reached."""
+    count = state.get("stall_retry_count", 0) + 1
+    logging.getLogger(__name__).warning(
+        "Orchestrator stalled without finishing the workflow (current_step=%r) "
+        "-- sending nudge retry %d/%d.",
+        state.get("current_step", "unknown"), count, _STALL_RETRY_LIMIT,
+    )
+    return {
+        "messages": [HumanMessage(content=_NUDGE_MESSAGE)],
+        "stall_retry_count": count,
+    }
 
 
 def party_split_node(state: PredictiveConditionsState) -> dict:
@@ -855,13 +984,15 @@ _builder.add_node("orchestrator", orchestrator_node)
 _builder.add_node("tools", _tool_node)
 _builder.add_node("party_split", party_split_node)
 _builder.add_node("fail_fast", fail_fast_node)
+_builder.add_node("nudge", nudge_node)
 
 _builder.set_entry_point("orchestrator")
 _builder.add_conditional_edges(
     "orchestrator",
     should_continue,
-    {"tools": "tools", "party_split": "party_split"},
+    {"tools": "tools", "party_split": "party_split", "nudge": "nudge"},
 )
+_builder.add_edge("nudge", "orchestrator")
 _builder.add_conditional_edges(
     "tools",
     route_after_tools,
