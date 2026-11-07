@@ -628,6 +628,75 @@ def _messages_for_openai(messages: list) -> list:
     return out
 
 
+_CACHE_CONTROL = {"type": "ephemeral"}
+
+
+def _with_cache_breakpoint(message: BaseMessage) -> BaseMessage:
+    """Return a copy of ``message`` with an Anthropic prompt-caching
+    breakpoint on its last content block (``cache_control: {"type":
+    "ephemeral"}``) -- verified 2026-11-07 against OpenRouter for
+    claude-sonnet-5.5: a repeat call with an identical cached prefix cut
+    that portion's cost ~17x (cache reads bill at $0.10/M vs $2/M normal
+    prompt tokens). Only meaningful when routed to a Claude model --
+    langchain_openai's _format_message_content passes unrecognized dict
+    keys through unchanged for ANY provider (verified by reading its
+    source), but only Claude actually honors cache_control; it's a
+    harmless no-op extra field everywhere else.
+    """
+    content = message.content
+    if isinstance(content, str):
+        if not content:
+            return message
+        new_content: list = [{"type": "text", "text": content, "cache_control": _CACHE_CONTROL}]
+    elif isinstance(content, list) and content:
+        new_content = list(content)
+        last = new_content[-1]
+        if isinstance(last, dict):
+            new_content[-1] = {**last, "cache_control": _CACHE_CONTROL}
+        else:
+            new_content[-1] = {"type": "text", "text": str(last), "cache_control": _CACHE_CONTROL}
+    else:
+        return message
+    return message.model_copy(update={"content": new_content})
+
+
+def _messages_for_openrouter_cached(messages: list) -> list:
+    """Add Anthropic prompt-caching breakpoints for the OpenRouter primary
+    path (claude-sonnet-5.5 via PRIMARY_PROVIDER=openrouter -- see its
+    construction above).
+
+    Two breakpoints (within Anthropic's budget of 4 per request):
+    1. The system message (index 0, if present) -- its content (current
+       step's plan + running completed-step summary) is stable across the
+       handful of orchestrator turns within a single step, so this is a
+       cache hit on every turn after the first one in that step.
+    2. The LAST message in the (growing, append-only within a step)
+       conversation history -- the standard Anthropic "incremental
+       caching" trick: each turn's call marks its own last message, so the
+       NEXT turn's call (whose history is this call's history + 1-2 newly
+       appended messages) gets a cache hit on everything through this
+       breakpoint, paying full price only for what's new since.
+
+    Each of agent.py's ~15-20 LLM calls per run currently resends the
+    entire growing conversation (system prompt + tool schemas + every
+    prior turn) at full price -- this cuts the prompt-token portion of
+    that cost substantially on cache hits, though it does NOT reduce the
+    mandatory-reasoning/completion-token cost, which is the other major
+    (and larger) cost driver for this model.
+    """
+    if not messages:
+        return messages
+    out = list(messages)
+    is_system_first = isinstance(out[0], SystemMessage)
+    if is_system_first:
+        out[0] = _with_cache_breakpoint(out[0])
+    if len(out) > 1:
+        out[-1] = _with_cache_breakpoint(out[-1])
+    elif not is_system_first:
+        out[0] = _with_cache_breakpoint(out[0])
+    return out
+
+
 def _invoke_with_hard_deadline(current: Any, msgs: list, timeout_s: float) -> AIMessage:
     """Invoke ``current.invoke(msgs)`` with a hard wall-clock deadline.
 
@@ -681,12 +750,22 @@ def _invoke_with_hard_deadline(current: Any, msgs: list, timeout_s: float) -> AI
     return payload
 
 
-def _invoke_with_retry(llm, messages: list, fallbacks=None) -> AIMessage:
+def _invoke_with_retry(llm, messages: list, fallbacks=None, primary_provider: str = "anthropic") -> AIMessage:
     """
     Invoke the LLM with retry logic. On transient server errors (429 rate
     limit, 500/502/503/529 overloaded, connection/timeout), retry up to
     LLM_MAX_RETRIES attempts (default 8) using exponential backoff with full
     jitter, capped at LLM_RETRY_MAX_BACKOFF seconds (default 60).
+
+    *primary_provider* labels the PRIMARY slot for the per-provider message
+    transforms below (_messages_for_openai / _messages_for_openrouter_cached)
+    -- defaulting to "anthropic" preserves prior behavior for the normal
+    case, but callers running under PRIMARY_PROVIDER=openai/openrouter MUST
+    pass their actual _PRIMARY_LLM_PROVIDER here. Discovered 2026-11-07 while
+    adding OpenRouter prompt caching: this was hardcoded to "anthropic"
+    unconditionally before, so neither that transform NOR the pre-existing
+    _messages_for_openai sanitization ever actually applied to the primary
+    call under an OpenAI/OpenRouter override -- only to fallback slots.
 
     *fallbacks* is an ordered list of (provider, llm) tuples. Each attempt tries
     the primary first and, on a transient error, immediately tries each fallback
@@ -698,7 +777,7 @@ def _invoke_with_retry(llm, messages: list, fallbacks=None) -> AIMessage:
     error on well-formed input). Fallback errors are always swallowed so a
     best-effort fallback (e.g. cross-provider format quirks) never kills a run.
     """
-    candidates: list[tuple[str, str, Any, bool]] = [("primary", "anthropic", llm, True)]
+    candidates: list[tuple[str, str, Any, bool]] = [("primary", primary_provider, llm, True)]
     for i, (provider, fb_llm) in enumerate(fallbacks or []):
         candidates.append((f"fallback[{i + 1}:{provider}]", provider, fb_llm, False))
 
@@ -706,7 +785,12 @@ def _invoke_with_retry(llm, messages: list, fallbacks=None) -> AIMessage:
     for attempt in range(1, _MAX_RETRIES + 1):
         for label, provider, current, is_primary in candidates:
             try:
-                msgs = _messages_for_openai(messages) if provider == "openai" else messages
+                if provider == "openai":
+                    msgs = _messages_for_openai(messages)
+                elif provider == "openrouter":
+                    msgs = _messages_for_openrouter_cached(messages)
+                else:
+                    msgs = messages
                 return _invoke_with_hard_deadline(current, msgs, _LLM_TIMEOUT_SECONDS)
             except Exception as e:  # noqa: BLE001 — classified below
                 last_exc = e
@@ -812,7 +896,8 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
         injected = non_system
 
     response: AIMessage = _invoke_with_retry(
-        llm_with_tools, injected, fallbacks=fallbacks_with_tools
+        llm_with_tools, injected, fallbacks=fallbacks_with_tools,
+        primary_provider=_PRIMARY_LLM_PROVIDER,
     )
     return {"messages": [response]}
 
@@ -875,7 +960,7 @@ def should_continue(state: PredictiveConditionsState) -> Literal["tools", "party
     # confused about the task. A single reminder message is enough to get
     # it back on track in that case, at the cost of one extra cheap LLM call
     # -- far cheaper than forcing a high reasoning-effort tier for the
-    # entire run just to avoid rare stalls. The nudge path below is only
+    # entire run just to avoid rare stalls. route_to_nudge() below is only
     # reached _STALL_RETRY_LIMIT times total per run before this still
     # raises for real, so a model that's genuinely stuck (not just lapsed)
     # still fails loudly rather than looping forever.
