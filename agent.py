@@ -369,7 +369,20 @@ _DEFAULT_INITIAL_PROMPT = (
     "For STEP_02 through STEP_07: first load the relevant guideline sections, then "
     "reason over the scenario_summary + guidelines to generate document requests.\n"
     "Output document_requests (not conditions). Each document request must include "
-    "specifications and reasons_needed."
+    "specifications and reasons_needed.\n\n"
+    "COST-EFFICIENCY RULES (follow these to minimize round-trips -- every extra "
+    "turn costs real money and time, with no quality benefit):\n"
+    "1. Do NOT call get_workflow_status at the start of a step or after save_step_report. "
+    "save_step_report's own response already tells you the next step, and the step "
+    "sequence above already tells you which tools to call for it -- you already have "
+    "everything get_workflow_status would return. Only call it if you are genuinely "
+    "unsure of your current state (e.g. right after a stall/nudge recovery).\n"
+    "2. For STEP_01 through STEP_07 ONLY: call save_step_report in the SAME turn as "
+    "that step's generate_*_document_requests tool call (batch them together into one "
+    "tool-calling turn) whenever the generate call's result is already known at that "
+    "point -- do not spend a separate turn just to call save_step_report alone. "
+    "(This does NOT apply to STEP_08 -- its four tools have strict data dependencies "
+    "and MUST stay one per turn, as stated in that step's own plan.)"
 )
 
 
