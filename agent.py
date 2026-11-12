@@ -340,7 +340,20 @@ if os.environ.get("OPENAI_API_KEY") and _OPENAI_FALLBACK_MODEL:
 _RETRY_COOLDOWN_SECONDS = float(os.environ.get("LLM_RETRY_COOLDOWN", "5"))
 _RETRY_MAX_BACKOFF = float(os.environ.get("LLM_RETRY_MAX_BACKOFF", "60"))
 _MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "8"))
-_RETRYABLE_STATUS = {429, 500, 502, 503, 529}
+_RETRYABLE_STATUS = {
+    402,  # Added 2026-11-11: OpenRouter returns 402 Payment Required when
+          # the workspace runs out of credits mid-run. Unlike a genuinely
+          # fatal config error (e.g. the 401-on-revoked-key case described
+          # near PRIMARY_PROVIDER above, which is intentionally left OUT of
+          # this set so a bad key fails loudly/immediately), running out of
+          # budget is an expected, recoverable-via-fallback condition now
+          # that the OpenAI Tier 2 fallback (_fallback_specs below) exists
+          # specifically to cover it -- treating 402 as retryable makes
+          # _invoke_with_retry's existing "primary fails transiently -> try
+          # fallback in the same round" path engage automatically instead of
+          # the run hard-failing.
+    429, 500, 502, 503, 529,
+}
 _logger = logging.getLogger(__name__)
 
 
@@ -576,6 +589,13 @@ _TRANSIENT_KEYWORDS = (
     "overload", "rate_limit", "ratelimit", "timeout", "connection",
     "serviceunavailable", "service_unavailable", "internalserver",
     "internal_server", "api_error", "apierror",
+    # Added 2026-11-11 alongside the OpenAI Tier-2 fallback becoming the
+    # OpenRouter credit-exhaustion safety net (see _RETRYABLE_STATUS below
+    # for the primary 402 signal) -- backup keyword match in case OpenRouter
+    # (or some other gateway) reports running out of balance in the error
+    # body/message instead of a clean 402 status code.
+    "insufficient_quota", "insufficient quota", "insufficient_credit",
+    "insufficient credit", "payment_required", "payment required",
 )
 
 
