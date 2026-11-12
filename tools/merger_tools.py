@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
 from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
@@ -1713,7 +1713,7 @@ def _is_all_null(val: Any) -> bool:
 # recent 90 days") — a null-stub inquiries entry has no dates in it, so on
 # its own it cannot confirm there were no inquiries IN THAT WINDOW
 # specifically (vs. the extractor simply failing to parse a real inquiry).
-# Instead, the satisfaction prompt (_SATISFACTION_PROMPT below) satisfies
+# Instead, the satisfaction prompt (_SATISFACTION_INSTRUCTIONS below) satisfies
 # inquiry specs off the credit report's `reportIssued` date — the same
 # evidence used for "must be dated within allowable recency window" — since
 # a recently-issued report's inquiry section reliably reflects the most
@@ -1784,8 +1784,53 @@ def _check_spec_satisfied(
 # LLM-based spec satisfaction check
 # ---------------------------------------------------------------------------
 
-_SATISFACTION_PROMPT = """\
-You are a mortgage document reviewer. A borrower has submitted a "{doc_type}" document.
+_CACHE_CONTROL = {"type": "ephemeral"}
+
+
+def _with_cache_breakpoint(message):
+    """Return a copy of *message* with an Anthropic prompt-caching breakpoint
+    on its last content block (``cache_control: {"type": "ephemeral"}``).
+
+    Added 2026-11-12, mirroring the identical helper already proven in
+    agent.py's main orchestrator (~43% cost reduction there -- see its
+    docstring for the full rationale/measurement). This is a SEPARATE copy
+    rather than an import from agent.py to avoid a circular import (agent.py
+    imports ALL_TOOLS, which pulls in this module). Applied to
+    _llm_check_specs below, whose static ~6,000-token instructional prompt
+    (_SATISFACTION_INSTRUCTIONS) was previously being resent at FULL PRICE
+    on every single call -- and this function runs once PER document_request
+    (20-30+ times in a typical run, x2 for the co-borrower pass), making it
+    the single largest untouched source of repeated-boilerplate cost in the
+    pipeline. Harmless no-op for the gpt-5-mini/OpenAI branch (unrecognized
+    dict key passed through unchanged, not honored) -- only the Claude
+    branches (direct Anthropic and OpenRouter->Claude) actually cache it.
+    """
+    content = message.content
+    if isinstance(content, str):
+        if not content:
+            return message
+        new_content: list = [{"type": "text", "text": content, "cache_control": _CACHE_CONTROL}]
+    elif isinstance(content, list) and content:
+        new_content = list(content)
+        last = new_content[-1]
+        if isinstance(last, dict):
+            new_content[-1] = {**last, "cache_control": _CACHE_CONTROL}
+        else:
+            new_content[-1] = {"type": "text", "text": str(last), "cache_control": _CACHE_CONTROL}
+    else:
+        return message
+    return message.model_copy(update={"content": new_content})
+
+
+# Static rubric/instructions for _llm_check_specs -- IDENTICAL on every call,
+# every run (no .format() placeholders at all). Split out from the per-call
+# variable content (doc type, extracted fields, reference block, specs) in
+# _SATISFACTION_VARIABLE_TEMPLATE below specifically so it can be sent as its
+# own SystemMessage with a cache_control breakpoint -- see
+# _with_cache_breakpoint's docstring above for why this matters.
+_SATISFACTION_INSTRUCTIONS = """\
+You are a mortgage document reviewer. A borrower has submitted a mortgage-related
+document (its type is given below, under "Document Type").
 Below are the extracted fields from that document, and a list of specifications that
 the document must satisfy.
 
@@ -2120,28 +2165,38 @@ to read. Mark such a spec satisfied in that case, with a reason like
 successfully read from the submitted image." Only leave it unsatisfied if
 the extracted fields are sparse, empty, or clearly placeholder/garbled.
 
-## Extracted Fields
-{extracted_fields_json}
-{reference_block}
-## Specifications to Check
-{specs_json}
-
 ## Response Format
 Return a JSON array of objects for ONLY the satisfied specs:
 [
   {{"specification": "<exact spec text>", "reason": "<brief reason why satisfied>", "satisfied_by": [<0-based index/indices>]}}
 ]
 
-"satisfied_by" is ONLY meaningful when the Extracted Fields above is a JSON
+"satisfied_by" is ONLY meaningful when the Extracted Fields below is a JSON
 ARRAY (multiple separate documents) rather than a single object — list every
 0-based index (position in that array) of a document that contributes
 evidence for this specification. If a single document at index 2 fully
 confirms the spec on its own, use [2]. If it genuinely takes two documents
-together, use both, e.g. [0, 1]. If the Extracted Fields above is a single
+together, use both, e.g. [0, 1]. If the Extracted Fields below is a single
 object (not an array), omit "satisfied_by" entirely (or leave it empty).
 
 If none are satisfied, return an empty array: []
 Return ONLY valid JSON, no other text.
+"""
+
+# Per-call variable content for _llm_check_specs (doc type, extracted fields,
+# reference block, specs) -- everything that actually changes between calls,
+# kept deliberately separate from _SATISFACTION_INSTRUCTIONS above so the
+# static rubric can be cached while only this small part is sent fresh/
+# uncached each time.
+_SATISFACTION_VARIABLE_TEMPLATE = """\
+## Document Type
+{doc_type}
+
+## Extracted Fields
+{extracted_fields_json}
+{reference_block}
+## Specifications to Check
+{specs_json}
 """
 
 
@@ -2465,12 +2520,21 @@ def _llm_check_specs(
             reference_json=json.dumps(reference_context, indent=2, default=str),
         )
 
-    prompt = _SATISFACTION_PROMPT.format(
+    variable_content = _SATISFACTION_VARIABLE_TEMPLATE.format(
         doc_type=doc_type,
         extracted_fields_json=multi_doc_note + json.dumps(ef_summary, indent=2, default=str),
         reference_block=reference_block,
         specs_json=json.dumps(specs_text, indent=2),
     )
+    # Static instructions as their own SystemMessage with a cache-control
+    # breakpoint (see _with_cache_breakpoint docstring) + the per-call
+    # variable content as a plain HumanMessage -- this is the only change
+    # from the old single-string prompt; the rubric text itself is
+    # untouched.
+    prompt = [
+        _with_cache_breakpoint(SystemMessage(content=_SATISFACTION_INSTRUCTIONS)),
+        HumanMessage(content=variable_content),
+    ]
 
     logger = logging.getLogger(__name__)
 
@@ -2552,7 +2616,7 @@ def _llm_check_specs(
             model = os.environ.get("SATISFACTION_CHECK_OPENAI_MODEL", "gpt-5-mini")
             oai_kwargs: dict = {"model": model, "max_retries": 2, "timeout": _timeout_s}
             # "minimal" (not "low") -- this check's job is applying an
-            # explicit, already-fully-written rubric (_SATISFACTION_PROMPT)
+            # explicit, already-fully-written rubric (_SATISFACTION_INSTRUCTIONS)
             # to extracted field data, not open-ended reasoning from scratch.
             # Lowered 2026-10-07 after finding this per-document call (run
             # once per document request, x2 for co-borrower) was a major
@@ -2911,7 +2975,7 @@ def _find_bank_statement_companion_fields(submitted_docs: list[dict]) -> list[tu
     rather than silently checking it against the wrong document's fields
     (a purchase contract's own buyer/seller/price data has nothing to say
     about bank statements) — see run_satisfaction_pass and the MISPLACED
-    BANK-STATEMENT SPECS guidance in _SATISFACTION_PROMPT.
+    BANK-STATEMENT SPECS guidance in _SATISFACTION_INSTRUCTIONS.
     """
     companions: list[tuple[dict, str]] = []
     for sdoc in submitted_docs:
@@ -2979,7 +3043,7 @@ def _spec_text_already_satisfied(text: str, satisfied_specs: list[dict]) -> bool
 # ---------------------------------------------------------------------------
 #
 # The LLM-based confirmed-clean/empty-data exception added to
-# _SATISFACTION_PROMPT for mortgageSummary/creditTradeLines is not applied
+# _SATISFACTION_INSTRUCTIONS for mortgageSummary/creditTradeLines is not applied
 # consistently — across reruns of the SAME document, and even across
 # borrower vs. co-borrower copies of the SAME request in the SAME run, the
 # LLM sometimes rewords these two spec families together into a single
@@ -3012,7 +3076,7 @@ _MORTGAGE_HISTORY_SPEC_KEYWORDS = ("mortgage history",)
 # backstop, since they genuinely require real (non-null) data to compare
 # against (e.g. matching named liability holders from the 1003 against the
 # credit report's own tradeline lender names), not an empty-data
-# confirmation. See CREDIT REFERENCES guidance in _SATISFACTION_PROMPT.
+# confirmation. See CREDIT REFERENCES guidance in _SATISFACTION_INSTRUCTIONS.
 _TRADELINE_BACKSTOP_EXCLUDE_KEYWORDS = ("credit reference", "declared", "liability holder")
 
 
@@ -3203,7 +3267,7 @@ _NAME_MATCH_SPEC_EXCLUDE_RE = re.compile(r"account\s*(holder|owner)", re.IGNOREC
 def _normalize_name_tokens(name: str) -> set[str]:
     """Lowercase, strip punctuation/suffixes, split into a token set for
     lenient subset comparison. Mirrors the NAME-MATCHING leniency already
-    described in _SATISFACTION_PROMPT (case/punctuation/suffix differences
+    described in _SATISFACTION_INSTRUCTIONS (case/punctuation/suffix differences
     never count as a mismatch) but as a deterministic token-set check
     instead of an LLM judgment call."""
     cleaned = re.sub(r"[^a-z0-9\s]", " ", name.lower())
@@ -3541,7 +3605,7 @@ def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict])
 #     NOT required to contain data. A section with an isSectionXX flag set
 #     true but every leaf value null is the exact same "flag/content
 #     mismatch" pattern as a credit report's null-stub adverse-item field
-#     (see the confirmed-clean/empty-data exception in _SATISFACTION_PROMPT)
+#     (see the confirmed-clean/empty-data exception in _SATISFACTION_INSTRUCTIONS)
 #     or a Purchase Contract's absent assignment clause — the extractor
 #     couldn't map real content to the field, and there's no reliable way to
 #     tell that apart from a genuine "does not apply" from the structured
@@ -3998,7 +4062,7 @@ def run_satisfaction_pass(
         # would either wrongly stay unsatisfied forever (evidence exists,
         # just never looked at) or get hallucinated as satisfied by the LLM
         # with no real basis. See _find_bank_statement_companion_fields and
-        # the MISPLACED BANK-STATEMENT SPECS guidance in _SATISFACTION_PROMPT.
+        # the MISPLACED BANK-STATEMENT SPECS guidance in _SATISFACTION_INSTRUCTIONS.
         if (
             _canonical_doc_type(doc_type) != "bank statement"
             and "bank statement" in spec_blob
@@ -4119,7 +4183,7 @@ def run_satisfaction_pass(
         )
         # Deterministic backstop for the "account must be shown in the
         # borrower's own name" spec family (see BUSINESS-OWNERSHIP / CPA
-        # LETTER guidance in _SATISFACTION_PROMPT above). The LLM applies
+        # LETTER guidance in _SATISFACTION_INSTRUCTIONS above). The LLM applies
         # this leniency inconsistently across near-duplicate phrasings and
         # across borrower vs. co-borrower copies of the SAME request (e.g.
         # satisfying "must show account holder name matching borrower or
