@@ -293,8 +293,15 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         "name": "Document Request Merger and Ranker",
         "description": "Merge document requests from modules 01-07; aggregate specifications and reasons; de-duplicate; rank; produce final Predictive Document Needs List.",
         "plan_file": "step_08_merger_ranker.md",
-        "tools": ["merge_document_requests", "rank_document_requests", "cross_check_satisfaction", "generate_final_output"],
+        "tools": ["run_document_merger_pipeline", "merge_document_requests", "rank_document_requests", "cross_check_satisfaction", "generate_final_output"],
         "substeps": [
+                {
+                        "id": "8.0",
+                        "name": "Merge, rank, cross-check, and finalize in one call",
+                        "tools": [
+                                "run_document_merger_pipeline"
+                        ]
+                },
                 {
                         "id": "8.1",
                         "name": "Merge and de-duplicate document requests",
@@ -336,8 +343,15 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         "name": "AUS-Like Presentation Styler",
         "description": "Restyle document request specifications and reasons into AUS/DU/LP-inspired findings language, adding a display block to each document request.",
         "plan_file": "step_09_presentation_styler.md",
-        "tools": ["style_document_requests"],
+        "tools": ["get_final_document_requests", "style_document_requests"],
         "substeps": [
+                {
+                        "id": "9.0",
+                        "name": "Read the finalized document_requests to style",
+                        "tools": [
+                                "get_final_document_requests"
+                        ]
+                },
                 {
                         "id": "9.1",
                         "name": "Style document requests with AUS-like display blocks",

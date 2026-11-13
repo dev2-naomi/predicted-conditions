@@ -1,12 +1,16 @@
 """
-presentation_tools.py — Tool for STEP_09: AUS-Like Presentation Styler.
+presentation_tools.py — Tools for STEP_09: AUS-Like Presentation Styler.
 
-One tool:
-  1. style_document_requests — merge LLM-generated display blocks into final_output
+Two tools:
+  1. get_final_document_requests — read-only: surfaces final_output.document_requests
+     (document_type/specifications/reasons_needed/satisfied_specifications) so the
+     model has something to restyle. Must be called before style_document_requests.
+  2. style_document_requests — merge LLM-generated display blocks into final_output
 """
 
 from __future__ import annotations
 
+import json
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -15,6 +19,20 @@ from langchain_core.tools import InjectedToolCallId, tool
 from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from typing_extensions import Annotated
+
+
+def _spec_text(spec: Any) -> str:
+    """Extract the text content from a spec (string or dict).
+
+    Duplicated from tools.merger_tools._spec_text (same reasoning as
+    agent.py/merger_tools.py's duplicated _with_cache_breakpoint: avoids a
+    cross-module import purely for a 5-line helper).
+    """
+    if isinstance(spec, str):
+        return spec
+    if isinstance(spec, dict):
+        return spec.get("text") or spec.get("specification") or spec.get("description") or str(spec)
+    return str(spec)
 
 
 _AUS_VERBS = {
@@ -63,6 +81,70 @@ def _best_match(name: str, candidates: list[str], threshold: float = 0.55) -> st
     if best_score >= threshold:
         return best_candidate
     return None
+
+
+@tool
+def get_final_document_requests(
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
+) -> Command:
+    """
+    Read-only: return the finalized document_requests produced by STEP_08
+    (final_output.document_requests) -- document_type, the still-outstanding
+    specifications, reasons_needed, and satisfied_specifications for each.
+
+    Call this FIRST in STEP_09, before style_document_requests. There is
+    otherwise no way to see this data: it lives only in internal graph
+    state, not in any prior tool's visible output, so style_document_requests
+    cannot be called with real content without reading this first (added
+    2026-11-13 after confirming every run previously reached STEP_09 with no
+    way to discover the real document_type strings/specs, causing the model
+    to call style_document_requests with an empty styled_displays list,
+    1-2 wasted recovery turns trying other tools first, and a permanently
+    unstyled 0/N output -- see the STEP_09 plan's step 1, "Read
+    final_output.document_requests from state", which assumed this was
+    already visible).
+
+    Does not modify final_output -- purely a read.
+    """
+    s = state or {}
+    document_requests = (s.get("final_output") or {}).get("document_requests") or []
+    if not document_requests:
+        return Command(update={"messages": [ToolMessage(
+            "No document_requests found in final_output -- STEP_08 may not "
+            "have completed yet (call get_workflow_status to check).",
+            tool_call_id=tool_call_id,
+        )]})
+
+    payload = []
+    for dr in document_requests:
+        if not isinstance(dr, dict):
+            continue
+        satisfied = []
+        for item in dr.get("satisfied_specifications") or []:
+            if isinstance(item, dict):
+                satisfied.append({
+                    "specification": item.get("specification", ""),
+                    "reason": item.get("reason", ""),
+                })
+            else:
+                satisfied.append({"specification": str(item), "reason": ""})
+        payload.append({
+            "document_type": dr.get("document_type", ""),
+            # Only the STILL-outstanding specs -- satisfied ones are listed
+            # separately below and must NOT be re-introduced into
+            # documentation_requirements (see the STEP_09 plan's rule #4).
+            "specifications": [_spec_text(sp) for sp in dr.get("specifications") or []],
+            "reasons_needed": [str(r) for r in dr.get("reasons_needed") or []],
+            "satisfied_specifications": satisfied,
+        })
+
+    content = (
+        f"{len(payload)} document_requests to style (exact document_type "
+        "strings below -- copy them verbatim into style_document_requests, "
+        "do not paraphrase):\n" + json.dumps(payload, indent=2)
+    )
+    return Command(update={"messages": [ToolMessage(content, tool_call_id=tool_call_id)]})
 
 
 @tool

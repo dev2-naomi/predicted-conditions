@@ -4512,3 +4512,116 @@ def generate_final_output(
         "current_step": "STEP_08",
         "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
     })
+
+
+# ---------------------------------------------------------------------------
+# STEP_08 pipeline consolidation
+# ---------------------------------------------------------------------------
+#
+# merge_document_requests -> rank_document_requests -> cross_check_satisfaction
+# -> generate_final_output form a strict data-dependency chain (each reads,
+# via InjectedState, the module_outputs["08"] key the previous one just
+# wrote) with ZERO LLM judgment in between -- the model's only job calling
+# each was to invoke it with empty arguments to advance the pipeline, 4
+# separate orchestrator turns (4x the mandatory reasoning/tool-call-
+# generation overhead) for what is, start to finish, a single deterministic
+# Python computation. They were kept as 4 separate LLM-issued tool calls
+# (see step_loader._gate_step_08_tools, which exposes only ONE at a time)
+# because LangGraph's ToolNode dispatches every tool call in a single
+# AIMessage CONCURRENTLY against one shared state snapshot -- if the model
+# ever batched two of these into the same turn, the later one would read
+# pre-update state (confirmed live: a batched merge+rank produced "Ranked
+# 0"). Gating to one-at-a-time closed that race but still pays for 4 full
+# turns every run.
+#
+# run_document_merger_pipeline below eliminates the race at its root
+# instead of just avoiding it: it calls all 4 underlying functions as
+# plain sequential Python calls within ONE tool invocation -- there is no
+# concurrent dispatch possible inside a single Python call, so the race
+# cannot occur here regardless of model behavior. _apply_command_update
+# replicates the exact reducer semantics PredictiveConditionsState uses in
+# agent.py for every key these 4 functions can write (module_outputs:
+# recursive dict merge via _merge_dicts_deep, duplicated from agent.py's
+# identical _merge_dicts for the same reason _with_cache_breakpoint is
+# duplicated elsewhere in this file -- avoiding a circular import, since
+# agent.py imports ALL_TOOLS which pulls in this module; final_output/
+# current_step: last-value-wins) so the combined tool's single Command.update
+# is structurally identical to what 4 separate graph turns would have
+# produced. Verified via a parity test that runs both paths on identical
+# input and asserts byte-identical final state (module_outputs["08"],
+# final_output) -- see tests/test_step08_pipeline_consolidation.py.
+#
+# The original 4 tools are left fully intact and individually callable
+# (agent_fast.py's experimental pipeline and existing tests call them
+# directly) -- this only adds a 5th, equivalent option; step_loader.py
+# decides which one the orchestrator actually sees.
+
+
+def _merge_dicts_deep(old: dict, new: dict) -> dict:
+    """Recursive dict merge -- duplicated from agent.py's _merge_dicts
+    (the real reducer PredictiveConditionsState uses for module_outputs)."""
+    merged = dict(old)
+    for k, v in new.items():
+        if k in merged and isinstance(merged[k], dict) and isinstance(v, dict):
+            merged[k] = _merge_dicts_deep(merged[k], v)
+        else:
+            merged[k] = v
+    return merged
+
+
+def _apply_command_update(state: dict, update: dict) -> dict:
+    """Apply one Command.update dict onto a plain state dict, using the same
+    reducer semantics the real graph uses for every key the STEP_08 chain
+    tools can write. Skips "messages" -- callers of this helper build one
+    combined ToolMessage separately rather than threading each tool's
+    individual message through the simulated intermediate state (none of
+    the 4 functions below ever read state["messages"], so this has no
+    effect on their behavior).
+    """
+    new_state = dict(state)
+    for k, v in update.items():
+        if k == "messages":
+            continue
+        if k == "module_outputs" and isinstance(v, dict) and isinstance(new_state.get("module_outputs"), dict):
+            new_state["module_outputs"] = _merge_dicts_deep(new_state["module_outputs"], v)
+        else:
+            new_state[k] = v
+    return new_state
+
+
+@tool
+def run_document_merger_pipeline(
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
+) -> Command:
+    """
+    Run the full STEP_08 pipeline in ONE call: merge_document_requests,
+    then rank_document_requests, then cross_check_satisfaction, then
+    generate_final_output, in that exact order. Equivalent to calling all
+    four individually and in sequence, but as a single tool call.
+
+    Call this once, with no arguments, to complete all of STEP_08's
+    document-merging/ranking/satisfaction-checking/finalization work in one
+    step, then call save_step_report.
+    """
+    s = dict(state or {})
+    chain = (
+        merge_document_requests, rank_document_requests,
+        cross_check_satisfaction, generate_final_output,
+    )
+    updates: list[dict] = []
+    for fn in chain:
+        result = fn.func(tool_call_id=tool_call_id, state=s)
+        update = result.update or {}
+        updates.append(update)
+        s = _apply_command_update(s, update)
+
+    combined_text = "\n".join(
+        m.content for upd in updates for m in upd.get("messages", []) if hasattr(m, "content")
+    )
+    final_update: dict = {}
+    for upd in updates:
+        final_update = _apply_command_update(final_update, upd)
+    final_update["messages"] = [ToolMessage(combined_text, tool_call_id=tool_call_id)]
+
+    return Command(update=final_update)

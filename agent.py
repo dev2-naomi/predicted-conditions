@@ -377,8 +377,9 @@ _DEFAULT_INITIAL_PROMPT = (
     "  STEP_05: load_guideline_sections (property), then generate_property_document_requests\n"
     "  STEP_06: load_guideline_sections (title), then generate_title_document_requests\n"
     "  STEP_07: load_guideline_sections (compliance), then generate_compliance_document_requests\n"
-    "  STEP_08: merge_document_requests, rank_document_requests, cross_check_satisfaction, generate_final_output\n"
-    "  STEP_09: style_document_requests (restyle all document requests into AUS-like display format)\n\n"
+    "  STEP_08: run_document_merger_pipeline (one call does merge + rank + cross-check + finalize)\n"
+    "  STEP_09: get_final_document_requests (to see what needs styling), then "
+    "style_document_requests (restyle all document requests into AUS-like display format)\n\n"
     "For STEP_02 through STEP_07: first load the relevant guideline sections, then "
     "reason over the scenario_summary + guidelines to generate document requests.\n"
     "Output document_requests (not conditions). Each document request must include "
@@ -394,8 +395,12 @@ _DEFAULT_INITIAL_PROMPT = (
     "that step's generate_*_document_requests tool call (batch them together into one "
     "tool-calling turn) whenever the generate call's result is already known at that "
     "point -- do not spend a separate turn just to call save_step_report alone. "
-    "(This does NOT apply to STEP_08 -- its four tools have strict data dependencies "
-    "and MUST stay one per turn, as stated in that step's own plan.)"
+    "(This does NOT apply to STEP_08 -- call run_document_merger_pipeline on "
+    "its own, THEN save_step_report on the NEXT turn. Batching them together "
+    "would make save_step_report read state from before run_document_merger_"
+    "pipeline's update was applied, since LangGraph dispatches every tool "
+    "call in a turn against the same pre-update snapshot -- it would see an "
+    "empty module_outputs['08'] and reject the save every time.)"
 )
 
 

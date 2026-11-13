@@ -37,8 +37,9 @@ from tools.merger_tools import (
     generate_final_output,
     merge_document_requests,
     rank_document_requests,
+    run_document_merger_pipeline,
 )
-from tools.presentation_tools import style_document_requests
+from tools.presentation_tools import get_final_document_requests, style_document_requests
 
 # General tools — always available regardless of step
 GENERAL_TOOLS = [
@@ -90,12 +91,14 @@ STEP_TOOLS = {
         generate_compliance_document_requests,
     ],
     "STEP_08": [
+        run_document_merger_pipeline,
         merge_document_requests,
         rank_document_requests,
         cross_check_satisfaction,
         generate_final_output,
     ],
     "STEP_09": [
+        get_final_document_requests,
         style_document_requests,
     ],
 }
