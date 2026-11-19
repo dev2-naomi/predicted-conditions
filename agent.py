@@ -194,10 +194,21 @@ if _USE_OPENROUTER_PRIMARY:
     from langchain_openai import ChatOpenAI
 
     _OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5")
+    # Explicit max_tokens cap (matches the Anthropic/OpenAI primary branches
+    # below). Without this, ChatOpenAI leaves max_tokens unset and OpenRouter
+    # defaults to the model's theoretical max output (65536 for
+    # claude-sonnet-5.5), which can exceed OpenRouter's per-request
+    # affordability ceiling and fail with a 402 "requires more credits, or
+    # fewer max_tokens" error REGARDLESS of actual remaining account/key
+    # balance -- confirmed 2026-11-19 via a live dev run that failed
+    # deterministically on every retry with the exact same 402 even though
+    # the key had $41 of $50 weekly budget remaining.
+    _OPENROUTER_MAX_TOKENS = int(os.environ.get("OPENROUTER_MAX_TOKENS", "16384"))
     _or_primary_kwargs: dict = {
         "model": _OPENROUTER_MODEL,
         "base_url": "https://openrouter.ai/api/v1",
         "api_key": os.environ.get("OPENROUTER_API_KEY"),
+        "max_tokens": _OPENROUTER_MAX_TOKENS,
         "max_retries": 0,
         "timeout": _LLM_TIMEOUT_SECONDS,
         "temperature": float(_LLM_TEMPERATURE),
