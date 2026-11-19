@@ -324,8 +324,19 @@ if (
 # Enabled only when OPENAI_API_KEY is set and langchain-openai imports.
 # Configure model via OPENAI_FALLBACK_MODEL (default gpt-5) and reasoning depth
 # via OPENAI_REASONING_EFFORT (default "medium"; set "" to disable reasoning).
+# Skipped under PRIMARY_PROVIDER=openrouter (same reasoning as the Anthropic
+# Tier 1 skip above): dev's OpenAI/Anthropic fallback keys have repeatedly
+# been stale/invalid while OpenRouter itself has been the one source of
+# truth being actively maintained, so a broken "safety net" was making
+# otherwise-transient OpenRouter errors (402 in-flight/rate-limit blips)
+# fatal instead of recoverable. Pure-OpenRouter now just relies on
+# _invoke_with_retry's own backoff/retry loop against the primary.
 _OPENAI_FALLBACK_MODEL = os.environ.get("OPENAI_FALLBACK_MODEL", "gpt-5")
-if os.environ.get("OPENAI_API_KEY") and _OPENAI_FALLBACK_MODEL:
+if (
+    os.environ.get("OPENAI_API_KEY")
+    and _OPENAI_FALLBACK_MODEL
+    and not _USE_OPENROUTER_PRIMARY
+):
     try:
         from langchain_openai import ChatOpenAI
 

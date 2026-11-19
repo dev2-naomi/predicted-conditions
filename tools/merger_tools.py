@@ -2620,6 +2620,15 @@ def _llm_check_specs(
                 "model": model,
                 "base_url": "https://openrouter.ai/api/v1",
                 "api_key": os.environ.get("OPENROUTER_API_KEY"),
+                # Explicit cap -- same bug class as agent.py's primary
+                # OpenRouter client (see OPENROUTER_MAX_TOKENS comment
+                # there): leaving max_tokens unset here defaults to the
+                # model's theoretical max (65536), which can trip
+                # OpenRouter's per-request affordability check with a 402
+                # once enough of the weekly budget is spent, even though
+                # this call's actual output (a small JSON list) never needs
+                # anywhere near that. Confirmed 2026-11-19.
+                "max_tokens": 4096,
                 "max_retries": 2,
                 "timeout": _timeout_s,
             }
