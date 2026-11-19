@@ -155,6 +155,12 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     },
     "verification of employment": {
         "voe", "verbal verification of employment",
+        # Task Tile's own category name for a production Verification of
+        # Employment report was "Verification of Income", not any of the
+        # names above — the document was correctly in the file but never
+        # matched (engine accuracy report, 17 Nov 2026, PC-07: "In file,
+        # not recognised" on loan 510).
+        "verification of income",
     },
     "verification of mortgage": {
         "vom", "mortgage verification",
@@ -276,6 +282,22 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     },
     "emd check": {
         "earnest money deposit check", "emd", "earnest money check",
+        # Task Tile's own category name for the production earnest-money
+        # evidence (account activity showing the deposit cleared) was
+        # "Transaction History", not any of the names above — the document
+        # was correctly in the file but never matched (engine accuracy
+        # report, 17 Nov 2026, PC-07: "In file, not recognised" on loan 510).
+        "transaction history",
+    },
+    # Task Tile's own category name for the production income-calculation
+    # worksheets on a bank-statement loan was "Income Calculations
+    # Worksheet" — this canonical type had NO alias entry at all, so the
+    # documents were correctly in the file but never matched (engine
+    # accuracy report, 17 Nov 2026, PC-07: "In file, not recognised" on
+    # loan 512).
+    "non qm bank statement analysis worksheet": {
+        "income calculations worksheet", "bank statement analysis worksheet",
+        "income calculation worksheet",
     },
     # Eligibility-engine's category name for the same signed cash-out /
     # business-purpose certification form covered by "Borrower Certification
@@ -1722,7 +1744,13 @@ _CONFIRMED_NONE_FIELDS = {
     "publicrecords", "public_records", "collectionaccounts", "collections",
     "derogatoryaccounts", "derogatorysummary", "charge_offs", "disputes",
     "disputed_accounts", "mortgagesummary", "mortgage_history", "housing_history",
-    "credittradelines", "trade_lines", "tradelines",
+    # "credittradelines"/"trade_lines"/"tradelines" intentionally removed —
+    # see _apply_tradeline_mortgage_backstop's docstring (same rationale
+    # applies here): every real credit report has at least some tradeline
+    # data, so an empty/null-stub tradelines field means extraction likely
+    # failed, not that the report is confirmed clean. Treating it as
+    # "confirmed none" was a false positive (engine accuracy report, 17 Nov
+    # 2026, PC-12).
 }
 
 
@@ -3103,13 +3131,25 @@ def _apply_tradeline_mortgage_backstop(
     all_fields: list[dict],
 ) -> None:
     """Force-satisfy any remaining Credit Report spec that is clearly about
-    itemized tradeline detail or mortgage history (not about verifying
-    specific named credit references) whenever creditTradeLines/
-    mortgageSummary is null-stub or empty on this document's own extracted
-    fields — regardless of which exact wording variant the LLM generated
-    this run, and regardless of whether it already satisfied an
+    mortgage history (not about verifying specific named credit references)
+    whenever mortgageSummary is null-stub or empty on this document's own
+    extracted fields — regardless of which exact wording variant the LLM
+    generated this run, and regardless of whether it already satisfied an
     equivalent-meaning spec for the other party. Mutates satisfied_specs in
     place.
+
+    NOTE: this used to ALSO force-satisfy tradeline-detail specs the same
+    way whenever creditTradeLines was null-stub/empty ("Confirmed clean —
+    the creditTradeLines field is present with empty data, indicating none
+    were found"). Removed per a real-loan accuracy audit (engine accuracy
+    report, 17 Nov 2026, PC-12): every borrower has at least some tradeline
+    data on a real credit report, so an empty/null-stub creditTradeLines
+    field is overwhelmingly more likely to be an extraction failure than a
+    genuinely empty report — auto-satisfying on it was a false positive,
+    not a confirmed-clean result. mortgageSummary is left as-is: a renter
+    or first-time buyer genuinely having zero mortgage tradelines is a
+    common, plausible real outcome, unlike a credit report with literally
+    no tradelines at all.
     """
     if _canonical_doc_type(doc_type) != "credit report":
         return
@@ -3121,18 +3161,19 @@ def _apply_tradeline_mortgage_backstop(
         lower = text.lower()
         if any(kw in lower for kw in _TRADELINE_BACKSTOP_EXCLUDE_KEYWORDS):
             continue
-        is_tradeline = any(kw in lower for kw in _TRADELINE_SPEC_KEYWORDS)
+        # Tradeline-detail specs (_TRADELINE_SPEC_KEYWORDS) are intentionally
+        # NOT handled by this backstop anymore — see the "NOTE" above.
         is_mortgage_history = any(kw in lower for kw in _MORTGAGE_HISTORY_SPEC_KEYWORDS)
-        if not (is_tradeline or is_mortgage_history):
+        if not is_mortgage_history:
             continue
-        field_names = ("creditTradeLines",) if is_tradeline else ("mortgageSummary",)
-        if not any(_field_is_null_stub_or_empty(f, *field_names) for f in all_fields):
+        if not any(_field_is_null_stub_or_empty(f, "mortgageSummary") for f in all_fields):
             continue
         satisfied_specs.append({
             "specification": text,
             "reason": (
-                f"Confirmed clean — the {field_names[0]} field is present with "
-                f"empty data, indicating none were found on this credit report."
+                "Confirmed clean — the mortgageSummary field is present with "
+                "empty data, indicating no mortgage history was found on this "
+                "credit report."
             ),
         })
         already.add(text)

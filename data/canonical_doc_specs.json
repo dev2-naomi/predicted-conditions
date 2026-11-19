@@ -684,16 +684,21 @@
         "condition": null
       },
       {
-        "text": "Name on the ID must match the name on the loan application, credit report, and title documents",
-        "condition": null,
-        "cross_references": [
-          "loan application (1003)",
-          "credit report",
-          "title commitment"
-        ]
-      }
-    ]
-  },
+      "text": "Name on the ID must match the name on the loan application, credit report, and title documents",
+      "condition": null,
+      "cross_references": [
+        "loan application (1003)",
+        "credit report",
+        "title commitment"
+      ]
+    },
+    {
+      "text": "Government ID must remain valid (not expired) through the anticipated closing date",
+      "condition": null,
+      "note": "Added per a real-loan accuracy audit (engine accuracy report, 17 Nov 2026, PC-10): a submitted Passport expiring 11/07/2026, right around the loan's own closing, was linked with zero requirements flagging the near-term expiration. loan_facts.closing_date_estimated (tools/merger_tools.py's reference-context block) is a PROJECTION, not an actual closing date, so this is graded needs-review rather than a hard pass/fail against it -- see _SATISFACTION_INSTRUCTIONS' closing_date_estimated caveat -- but that still surfaces the risk instead of leaving it invisible."
+    }
+  ]
+},
   "borrower certification as to business purpose": {
     "source_headings": [
       "BUSINESS PURPOSE FORMS",
@@ -2564,7 +2569,7 @@
       }
     ]
   },
-  "loannex product & pricing results": {
+  "prequal response form": {
     "source_headings": [],
     "items": [
       {

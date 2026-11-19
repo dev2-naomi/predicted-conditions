@@ -311,7 +311,16 @@ def _person_signature(metadata: dict) -> str:
             return f"{first.strip()} {last.strip()}"
         return None
 
-    for key in ("owner", "customer"):
+    # "owner"/"customer" first (most common for IDs/income docs); "name"/
+    # "fullName" added as additional single-string fallbacks — a Passport's
+    # extraction doesn't always populate "owner" the way a Driver's License
+    # does, which could otherwise leave two different borrowers' passports
+    # unsplit (both falling back to the generic "no identifiable person"
+    # bucket and colliding on the latest-indexed one) — confirmed as a real
+    # gap on a 2-borrower UAT test loan (engine accuracy report, 17 Nov
+    # 2026, PC-10). Purely additive: only adds a way to DETECT a name,
+    # never removes any existing match.
+    for key in ("owner", "customer", "name", "fullName"):
         val = metadata.get(key)
         if isinstance(val, dict):
             nm = _name_from(val)
@@ -447,6 +456,47 @@ def _merge_1003_borrower_lists(borrower_lists: list[list[dict]]) -> list[dict]:
                 order.append(key)
 
     return [best[k] for k in order]
+
+
+def _is_signed(metadata: dict) -> bool:
+    """True when this document's metadata shows evidence of being a signed
+    copy — a flat ``signed`` flag, or any borrower entry (``borrowers``/
+    ``new1003Borrowers``) carrying a non-empty ``dateSigned``.
+
+    Used by _doc_rank below to prefer a signed copy over an unsigned one
+    when several copies of the same form (1003, 4506-C, Borrowers
+    Authorization, ...) land in the same dedup bucket — previously dedup
+    picked whichever copy had the latest INDEXING timestamp with no regard
+    for signed status at all, which could (and on real UAT test loans,
+    did) keep an unsigned copy over a signed one in the same file (engine
+    accuracy report, 17 Nov 2026, PC-08).
+    """
+    if metadata.get("signed") is True:
+        return True
+    for key in ("borrowers", "new1003Borrowers"):
+        entries = metadata.get(key)
+        if isinstance(entries, list):
+            for b in entries:
+                if isinstance(b, dict) and b.get("dateSigned"):
+                    return True
+    return False
+
+
+def _doc_rank(metadata: dict, ts: int) -> tuple:
+    """Ordering key used to pick which copy wins within a dedup bucket:
+    prefer a signed copy over an unsigned one, then higher extraction
+    confidence, then the latest indexing timestamp as the final tiebreaker
+    (same as the sole criterion used before this existed). Compared via
+    plain tuple ordering, so a signed copy always beats an unsigned one
+    regardless of confidence/timestamp, matching PC-08's "prefer the
+    latest signed copy... among duplicates, prefer the higher-confidence
+    read" proposal.
+    """
+    try:
+        confidence = float(metadata.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    return (1 if _is_signed(metadata) else 0, confidence, ts)
 
 
 def _merge_1003_documents(entries: list[dict]) -> dict:
@@ -741,10 +791,11 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
         key = (category_id, group_name, specific_type, person_sig)
         doc_id = doc.get("id", "")
         ts = task_index.get(doc_id, 0)
+        rank = _doc_rank(metadata, ts)
 
         existing = groups.get(key)
-        if existing is None or ts > existing[1]:
-            groups[key] = (doc, ts)
+        if existing is None or rank > existing[1]:
+            groups[key] = (doc, rank)
 
     # Build output — one entry per unique (category_id, group_name, specific_type)
     # Collect paystubs separately so they can be merged into a 30-day window.

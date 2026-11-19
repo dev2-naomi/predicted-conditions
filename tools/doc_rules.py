@@ -45,6 +45,27 @@ def derive_flags(ss: dict) -> dict:
 
     assets = ss.get("asset_profile") or {}
 
+    # Resolved from the loan XML's own flood determination, when present
+    # (tools/shared/xml_parser.py -> scenario_tools.py's
+    # property.flood_insurance_required / property.special_flood_hazard).
+    # Prefers the explicit PropertyFloodInsuranceIndicator when the XML
+    # carries it; falls back to SpecialFloodHazardAreaIndicator as a proxy
+    # (an SFHA property requires flood insurance per the same canonical
+    # spec text); None when neither is present in the XML at all (unknown,
+    # not "no") — see _resolve_atomic's "flood_insurance_required" branch,
+    # which treats None the SAME as True (preserves the prior
+    # always-include-the-spec default) and only excludes flood-insurance-
+    # specific specs when this is POSITIVELY known to be False (engine
+    # accuracy report, 17 Nov 2026, PC-06).
+    prop_flood_required = prop.get("flood_insurance_required")
+    prop_special_flood_hazard = prop.get("special_flood_hazard")
+    if isinstance(prop_flood_required, bool):
+        flood_insurance_required = prop_flood_required
+    elif isinstance(prop_special_flood_hazard, bool):
+        flood_insurance_required = prop_special_flood_hazard
+    else:
+        flood_insurance_required = None
+
     is_noo = occ in (
         "noo", "investment", "non-owner occupied", "non owner occupied",
         "investor", "investment property",
@@ -180,6 +201,8 @@ def derive_flags(ss: dict) -> dict:
         "has_large_deposits": bool(assets.get("has_large_deposit_flags")),
         "has_gift": bool(assets.get("has_gift_indicators")),
         "has_loan_application": _has_loan_application(ss),
+        "has_asset_statement": _has_asset_statement(ss),
+        "flood_insurance_required": flood_insurance_required,
     }
 
 
@@ -212,6 +235,30 @@ def _has_loan_application(ss: dict) -> bool:
         name = str(sdoc.get("name") or "").strip().lower()
         dtype = str(sdoc.get("doc_type") or "").strip().lower()
         if any(tok in name or tok in dtype for tok in _LOAN_APPLICATION_TOKENS):
+            return True
+    return False
+
+
+# Tokens identifying an asset/bank/retirement account statement among
+# submitted documents — used to gate "Verification of Deposit" off as an
+# over-ask once a real statement already documents the same funds (see
+# PC-03's "accepted alternative" finding: VOD and bank/401K statements are
+# alternatives for showing liquid assets, not two separate requirements).
+_ASSET_STATEMENT_TOKENS = (
+    "bank statement", "bank_statement", "401k", "401(k)", "retirement",
+    "investment account statement", "brokerage statement", "other asset",
+    "asset statement",
+)
+
+
+def _has_asset_statement(ss: dict) -> bool:
+    """True when a bank/retirement/brokerage account statement was itself
+    submitted as a document in this manifest -- see _ASSET_STATEMENT_TOKENS
+    module comment for why this gates Verification of Deposit."""
+    for sdoc in ss.get("_submitted_docs") or []:
+        name = str(sdoc.get("name") or "").strip().lower()
+        dtype = str(sdoc.get("doc_type") or "").strip().lower()
+        if any(tok in name or tok in dtype for tok in _ASSET_STATEMENT_TOKENS):
             return True
     return False
 
@@ -771,6 +818,15 @@ def mandatory_docs() -> list[dict]:
              ["Most recent 2 months", "All pages included",
               "Account holder name and ending balances"],
              ["Asset verification required for funds to close and reserves"]),
+        # Verification of Deposit is an ALTERNATIVE to bank/retirement
+        # account statements, not an additional requirement on top of them
+        # — kept in the unconditional floor so it still fires when no asset
+        # statements exist yet, but suppressed by apply_negative_gates
+        # (via _VOD_DOCS/has_asset_statement below) once real statements
+        # are in the file. Confirmed as a universal over-ask otherwise:
+        # predicted on all 3 UAT test loans even though bank (and, on one
+        # loan, 401K) statements were already present on every single one
+        # (engine accuracy report, 17 Nov 2026, PC-03).
         _doc("Verification of Deposit", "Assets", "P2", "SOFT-STOP",
              ["Current and 2-month average balance", "Account holder name"],
              ["Verify sufficient liquid assets for down payment and reserves"]),
@@ -793,13 +849,21 @@ def mandatory_docs() -> list[dict]:
              ["Schedule A — ownership and property description",
               "Schedule B — exceptions and requirements", "All recorded liens and encumbrances"],
              ["Title examination required to ensure clear and marketable title"]),
-        _doc("Deed of Trust", "Title", "P1", "HARD-STOP",
-             ["Legal description matches title", "Borrower/grantor name matches application",
-              "Lien position identified"],
-             ["Security instrument required for the mortgage collateral"]),
-        _doc("Owner Occupancy Certification", "Compliance", "P1", "SOFT-STOP",
-             ["Borrower certifies intended occupancy", "Signed and dated by all borrowers"],
-             ["Occupancy certification required to confirm loan purpose"]),
+        # Deed of Trust and Owner Occupancy Certification REMOVED from the
+        # floor (previously unconditional, every loan) per a real-loan
+        # accuracy audit (engine accuracy report, 17 Nov 2026, PC-01/PC-04):
+        # both are closing-stage/closing-table documents (the security
+        # instrument is recorded AT closing; an occupancy
+        # affidavit/certification is typically executed alongside it) —
+        # they cannot exist in a pre-closing file by definition, and on 3
+        # real loans that had already reached Clear to Close, neither was
+        # ever in the file nor conditioned for by the underwriter (0 of 3
+        # for Deed of Trust, 0 of 3 for Owner Occupancy Certification).
+        # Predicting a document that can never be satisfied before closing
+        # is a pure over-ask, not a real missing-document signal. Revisit
+        # if/when the pipeline gains a loan-stage signal and these need to
+        # surface as closing-stage (not pre-closing document-collection)
+        # items instead of being dropped outright.
         _doc("Prequal Response Form", "Cross-Cutting", "P1", "HARD-STOP",
              ["LoanNex product and pricing results matching the loan program, rate, and price "
               "reflected in the loan file — or, if LoanNex results are unavailable, the "
@@ -859,10 +923,14 @@ def conditional_docs(flags: dict) -> list[dict]:
               "Purchase price, property address, closing date",
               "All addenda, amendments, and counter-offers"],
              ["Purchase transactions require a fully executed purchase contract"]))
-        docs.append(_doc("Grant Deed", "Title", "P1", "SOFT-STOP",
-             ["Current ownership/vesting confirmed", "Legal description matches title",
-              "Recording information"],
-             ["Evidence of ownership transfer required for purchase transactions"]))
+        # Grant Deed REMOVED (previously injected unconditionally on every
+        # purchase) — same closing-stage reasoning as Deed of Trust/Owner
+        # Occupancy Certification above (see mandatory_docs()'s comment):
+        # a Grant Deed records the ownership transfer AT closing, so it
+        # cannot exist in a pre-closing file. Confirmed over-asked on all 3
+        # UAT purchase test loans, 0 of 3 ever in the file or conditioned
+        # for by the underwriter (engine accuracy report, 17 Nov 2026,
+        # PC-01).
         # "Copy of EMD Check / Receipt" — data/submission_documents.md
         # marks this "as applicable for purchase" (i.e. purchase-only,
         # unlike Purchase Contract/Grant Deed which are universal for
@@ -943,6 +1011,14 @@ _DSCR_SUPPRESSED = {
     "1065", "tax return", "personal tax return", "business tax return",
     "state tax return", "employment contract", "cpa prepared p&l letter",
     "award letter", "1099",
+    # IRS 4506-C authorizes retrieval of tax transcripts — meaningless on a
+    # DSCR loan (no borrower income/tax returns are used to qualify at all).
+    # mandatory_docs() floors "IRS 4506-C Authorization" unconditionally, and
+    # this set was the only thing capable of removing it for DSCR scenarios
+    # — its absence here was a confirmed over-ask on a real DSCR UAT loan
+    # (engine accuracy report, 17 Nov 2026, PC-02): predicted on 511 with
+    # zero requirements (no document in the file, underwriter never asked).
+    "irs 4506-c authorization", "4506-c", "4506c",
 }
 
 # Bank-statement income loans qualify on deposits, not wage/full-doc income —
@@ -954,6 +1030,12 @@ _BANK_STATEMENT_SUPPRESSED = {
     "1120 corporate tax return", "1065", "tax return", "personal tax return",
     "business tax return", "state tax return", "employment contract",
     "award letter", "1099",
+    # Same reasoning as _DSCR_SUPPRESSED above — a 12-month-bank-statement
+    # borrower isn't qualifying on tax-transcript-verifiable income either.
+    # Confirmed over-ask on a real bank-statement UAT loan (engine accuracy
+    # report, 17 Nov 2026, PC-02): predicted on 512 with 3 documents linked
+    # and zero requirements listed.
+    "irs 4506-c authorization", "4506-c", "4506c",
 }
 
 _PURCHASE_SUPPRESSED = {
@@ -1001,6 +1083,11 @@ _GIFT_DOCS = {
 # borrower has an existing mortgage (owns other property, or is refinancing).
 _VOM_DOCS = {"verification of mortgage", "vom", "mortgage payment history"}
 
+# Verification of Deposit is an accepted ALTERNATIVE to a real bank/
+# retirement/brokerage account statement, not an additional requirement on
+# top of it — see _has_asset_statement's module comment (PC-03).
+_VOD_DOCS = {"verification of deposit", "vod", "deposit verification"}
+
 
 def apply_negative_gates(docs: list[dict], flags: dict) -> tuple[list[dict], list[str]]:
     """Remove documents that shouldn't exist for this scenario.
@@ -1033,6 +1120,8 @@ def apply_negative_gates(docs: list[dict], flags: dict) -> tuple[list[dict], lis
             drop = True
         elif (dt in _VOM_DOCS and not flags["has_reo"]
               and not flags["is_refinance"]):
+            drop = True
+        elif dt in _VOD_DOCS and flags["has_asset_statement"]:
             drop = True
 
         if drop:
@@ -1550,8 +1639,26 @@ def _resolve_atomic(key: str, raw_value: str) -> Any:
     if key == "property_units":
         if "5-8" in raw_value or "5_8" in val:
             return lambda flags: flags["is_5_8_unit"]
-        if "1-4" in raw_value or "2-4" in raw_value:
+        # "2-4" (multi-unit: duplex/triplex/fourplex) is a DISTINCT bucket
+        # from "1-4" (any 1-to-4-unit residential property, i.e. everything
+        # that isn't 5-8 units) — both values appear in
+        # data/canonical_doc_specs.json (e.g. Appraisal Report's "Small
+        # Residential Income Property form" spec is "property_units=2-4").
+        # Previously both resolved identically to `not is_5_8_unit`, which
+        # incorrectly matched a 1-unit SFR against the 2-4-unit-only
+        # requirement — confirmed as an over-ask on all 3 UAT test loans
+        # (engine accuracy report, 17 Nov 2026, PC-06: the 2-4-unit
+        # appraisal-form requirement stayed open on every single-family
+        # loan, since it can never be satisfied by an SFR appraisal).
+        # Checked BEFORE "1-4" since "2-4" is the more specific match.
+        if "2-4" in raw_value or "2_4" in val:
+            return lambda flags: flags["is_multi_unit"]
+        if "1-4" in raw_value or "1_4" in val:
             return lambda flags: not flags["is_5_8_unit"]
+        # Exact single-unit match (e.g. "property_units=1") — distinct from
+        # "1-4" above, which also includes 2-4-unit properties.
+        if val.strip() == "1":
+            return lambda flags: not flags["is_multi_unit"] and not flags["is_5_8_unit"]
         return None
 
     if key == "property_type":
@@ -1567,7 +1674,18 @@ def _resolve_atomic(key: str, raw_value: str) -> Any:
     # satisfaction pass will naturally no-op on any genuinely inapplicable
     # item.
     if key in ("flood_insurance_required",):
-        return lambda flags: True
+        # Previously hardcoded to always-True regardless of the loan's
+        # actual flood determination — on all 3 real UAT test loans, this
+        # left ~10 flood-insurance-specific requirements open on the Flood
+        # Hazard Determination condition even when the certificate itself
+        # showed the property was NOT in a flood zone (engine accuracy
+        # report, 17 Nov 2026, PC-06). Now resolves from derive_flags'
+        # "flood_insurance_required" (sourced from the loan XML's own
+        # flood determination when present) — still defaults to True
+        # (include the spec) when that's unresolved/unknown (None), only
+        # excluding when POSITIVELY known False, so a loan file with no
+        # flood section at all keeps today's conservative behavior.
+        return lambda flags: flags.get("flood_insurance_required") is not False
     if key == "tradeline_requirement":
         if "standard" in val:
             return lambda flags: True

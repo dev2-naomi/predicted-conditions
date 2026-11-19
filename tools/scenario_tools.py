@@ -1216,6 +1216,16 @@ def build_scenario_summary(
             "property_type": property_type,
             "year_built": supplemental.get("year_built"),
             "rural_property": meta.get("rural_property", False),
+            # Sourced from the loan XML's own FLOOD_DETERMINATION_DETAIL /
+            # PROPERTY_DETAIL fields (tools/shared/xml_parser.py) when
+            # present — used by doc_rules.py's derive_flags to resolve the
+            # "flood_insurance_required" canonical-spec condition against
+            # this loan's actual flood determination instead of a hardcoded
+            # always-true default (engine accuracy report, 17 Nov 2026,
+            # PC-06). None when the XML has no flood determination section
+            # at all (unknown, not "no").
+            "special_flood_hazard": meta.get("special_flood_hazard"),
+            "flood_insurance_required": meta.get("flood_insurance_required"),
         },
         "numbers": {
             "loan_amount": loan_amount,

@@ -284,6 +284,23 @@ _FIELD_MAP: Dict[str, List[tuple]] = {
     "attachment_type": [
         ("PROPERTY_DETAIL", "AttachmentType"),
     ],
+    # Confirmed against a real MISMO FNM export sample (data/input/xml/
+    # FannieExport-02122025 3.xml): SpecialFloodHazardAreaIndicator lives
+    # under PROPERTY > FLOOD_DETERMINATION > FLOOD_DETERMINATION_DETAIL,
+    # while PropertyFloodInsuranceIndicator lives directly under
+    # PROPERTY > PROPERTY_DETAIL (a sibling of AttachmentType/PUDIndicator
+    # etc. above, NOT nested under FLOOD_DETERMINATION_DETAIL). Added so
+    # doc_rules.py's "flood_insurance_required" canonical-spec condition
+    # (data/canonical_doc_specs.json) can resolve against the loan's own
+    # actual flood determination instead of being hardcoded to always-true
+    # — see tools/doc_rules.py's derive_flags for how this is consumed
+    # (engine accuracy report, 17 Nov 2026, PC-06).
+    "special_flood_hazard": [
+        ("FLOOD_DETERMINATION_DETAIL", "SpecialFloodHazardAreaIndicator"),
+    ],
+    "flood_insurance_required": [
+        ("PROPERTY_DETAIL", "PropertyFloodInsuranceIndicator"),
+    ],
     "appraised_value": [
         ("PROPERTY_VALUATION_DETAIL", "PropertyValuationAmount"),
         ("PROPERTY_DETAIL", "PropertyEstimatedValueAmount"),
@@ -1035,6 +1052,9 @@ def parse_mismo_xml(xml_content: str) -> Dict[str, Any]:
     borrower_count_raw = _resolve_float(sections, "borrower_count_raw")
     closing_date = _resolve_str(sections, "closing_date", default=None)
 
+    special_flood_hazard = _resolve_bool(sections, "special_flood_hazard")
+    flood_insurance_required = _resolve_bool(sections, "flood_insurance_required")
+
     pud = _resolve_bool(sections, "pud_indicator")
     in_project = _resolve_bool(sections, "in_project_indicator")
     mixed_use = _resolve_bool(sections, "mixed_use_indicator")
@@ -1104,6 +1124,8 @@ def parse_mismo_xml(xml_content: str) -> Dict[str, Any]:
         "year_built": year_built,
         "appraised_value": appraised_value,
         "purchase_price": purchase_price,
+        "special_flood_hazard": special_flood_hazard,
+        "flood_insurance_required": flood_insurance_required,
         "lien_priority": lien_priority,
         "fico": fico,
         "ltv": ltv,
@@ -1257,6 +1279,8 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
         # Distinct, non-collapsed values — see property_value note above.
         "appraised_value": parsed.get("appraised_value"),
         "purchase_price": parsed.get("purchase_price"),
+        "special_flood_hazard": parsed.get("special_flood_hazard"),
+        "flood_insurance_required": parsed.get("flood_insurance_required"),
         "rural_property": None,
         "months_reserves": None,
         "property_address": parsed.get("property_address"),
