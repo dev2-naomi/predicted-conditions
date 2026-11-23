@@ -28,6 +28,9 @@ load_dotenv(REPO_DIR / ".env")
 from tools.doc_rules import (
     derive_flags, guideline_canonical_specs, apply_guideline_canonicalization,
 )
+from tools.merger_tools import (
+    run_satisfaction_pass, _apply_tradeline_not_verified_wording,
+)
 
 
 def _base_ss(**overrides):
@@ -167,3 +170,118 @@ class TestEveryConditionHasAtLeastOneRequirement:
         assert touched == 1
         assert docs[0]["specifications"], "specifications must never be empty"
         assert "must be present in the file" in docs[0]["specifications"][0]
+
+
+class TestSingleUnitNo24UnitFormRequirement:
+    """Acceptance criterion: "Single-unit appraisal -> 2-4 unit form
+    requirement not open." (PC-06's property_units=2-4 vs. 1-4 distinction
+    -- pre-existing fix, confirmed here directly against this ticket's own
+    AC wording rather than only via code review.)"""
+
+    def test_single_unit_property_has_no_multi_unit_form_requirement(self):
+        ss = _base_ss(property={"property_type": "Single Family"})
+        flags = derive_flags(ss)
+        assert flags["is_multi_unit"] is False
+        specs = guideline_canonical_specs("appraisal report", flags)
+        assert not any(
+            "2-4" in s or "small residential income property" in s.lower()
+            for s in specs
+        )
+
+    def test_four_unit_property_does_get_the_multi_unit_form_requirement(self):
+        ss = _base_ss(property={"property_type": "4 Unit"})
+        flags = derive_flags(ss)
+        assert flags["is_multi_unit"] is True
+        specs = guideline_canonical_specs("appraisal report", flags)
+        assert any(
+            "small residential income property" in s.lower() for s in specs
+        )
+
+
+class TestNoteNotCheckedBeforeClosing:
+    """Acceptance criterion: "Before closing with appraisal -> no check
+    against the Note shows missing." The Note/security instrument is only
+    executed at closing, so a cross-document check against it can never
+    resolve "missing_sibling_document" (a verdict that reads to a broker
+    as a real gap in THIS file) on any pre-closing loan -- confirmed
+    end-to-end via derive_flags -> apply_guideline_canonicalization ->
+    run_satisfaction_pass, the same chain real document_requests go
+    through."""
+
+    def test_appraisal_note_cross_checks_do_not_show_missing_sibling_document(self):
+        ss = _base_ss(_submitted_docs=[
+            {"name": "Appraisal Report", "doc_type": "other",
+             "extracted_fields": {"propertyUnits": 1}},
+        ])
+        flags = derive_flags(ss)
+        dr = {
+            "document_type": "Appraisal Report", "document_category": "Property",
+            "priority": "P2", "severity": "SOFT-STOP",
+            "specifications": [], "reasons_needed": [],
+        }
+        docs = [dr]
+        apply_guideline_canonicalization(docs, ss)
+        cross_ref_map = dr.get("_cross_reference_map") or {}
+        assert any("mortgage note" in refs or "promissory note" in refs
+                    for refs in (tuple(v) for v in cross_ref_map.values())), (
+            "sanity check: the Note cross-reference specs must actually be "
+            "present on Appraisal Report for this test to mean anything"
+        )
+
+        run_satisfaction_pass(docs, ss["_submitted_docs"], ss)
+
+        checks = dr.get("cross_document_checks") or []
+        note_checks = [
+            c for c in checks
+            if any(r in ("mortgage note", "promissory note") for r in c.get("cross_references", []))
+        ]
+        assert note_checks, "expected at least one Note-referencing cross-document check"
+        for c in note_checks:
+            assert c["status"] != "missing_sibling_document"
+            assert c["status"] == "not_yet_available_pre_closing"
+            assert "closing" in c["note"].lower()
+
+
+class TestTradelineNotVerifiedWording:
+    """Acceptance criterion: "Credit report with empty tradelines ->
+    tradeline requirements 'not verified'." PC-12 already stopped
+    auto-satisfying these on an empty creditTradeLines field (that was a
+    false positive); this confirms the open spec's own text now says
+    "Not verified" explicitly rather than staying as generic wording that
+    doesn't distinguish "couldn't check" from "doesn't exist"."""
+
+    def test_empty_tradelines_rewrites_open_spec_text_to_not_verified(self):
+        specs = [
+            "Tradeline must show account type, balance, and payment "
+            "history for the past 24 months.",
+            "Credit report must show scores from all three bureaus.",
+        ]
+        satisfied: list[dict] = []
+        fields = [{"creditTradeLines": [], "mortgageSummary": {"foo": "bar"}}]
+        _apply_tradeline_not_verified_wording("credit report", specs, satisfied, fields)
+
+        assert specs[0].lower().startswith("not verified")
+        assert "tradeline" in specs[0].lower()
+        # A spec that isn't about tradeline-detail evidence at all (the
+        # 3-bureau score spec) must be left completely untouched.
+        assert specs[1] == "Credit report must show scores from all three bureaus."
+        # This is explicitly NOT the same claim as "satisfied" -- PC-12's
+        # whole point was that empty tradelines must not be auto-passed.
+        assert satisfied == []
+
+    def test_non_empty_tradelines_leaves_wording_untouched(self):
+        specs = [
+            "Tradeline must show account type, balance, and payment "
+            "history for the past 24 months.",
+        ]
+        satisfied: list[dict] = []
+        fields = [{"creditTradeLines": [{"accountType": "Mortgage"}]}]
+        _apply_tradeline_not_verified_wording("credit report", specs, satisfied, fields)
+        assert not specs[0].lower().startswith("not verified")
+
+    def test_non_credit_report_doc_type_unaffected(self):
+        specs = ["Tradeline detail must be shown."]
+        satisfied: list[dict] = []
+        fields = [{"creditTradeLines": []}]
+        _apply_tradeline_not_verified_wording("w2", specs, satisfied, fields)
+        assert specs[0] == "Tradeline detail must be shown."

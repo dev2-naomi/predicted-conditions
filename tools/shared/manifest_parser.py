@@ -575,6 +575,21 @@ def _merge_1003_documents(entries: list[dict]) -> dict:
     return merged_doc
 
 
+# Ticket 4276 ("Link the Right Copy of Each Document") acceptance criterion:
+# "Paystubs with a gap in 30 days -> 30-day requirement open." A merged
+# period can SPAN >= target_days (earliest-to-latest) while still having a
+# real hole in the middle where no paystub exists at all (e.g. a stub for
+# Jan 1-15 and another for Feb 10-24 span 55 days end-to-end but miss
+# Jan 16 - Feb 9 entirely) -- _merge_paystubs' pre-4276 behavior only
+# checked the overall span, not contiguity between consecutive periods, so
+# a gap like that was invisible. Any silence longer than this threshold
+# between one selected period's end and the next one's start counts as a
+# genuine missing-coverage gap, not just normal pay-period boundary noise
+# (paydays landing a few days after the prior period's end date are common
+# and not a real gap).
+_PAYSTUB_GAP_THRESHOLD_DAYS = 3
+
+
 def _merge_paystubs(
     paystub_entries: list[dict],
     target_days: int = 30,
@@ -598,6 +613,16 @@ def _merge_paystubs(
         * hours_total        — sum of hoursWorked across the window
         * pay_periods        — list of individual period summaries (for
                                traceability)
+        * coverage_gaps      — list of {gap_start, gap_end, gap_days} for
+                               any real hole between consecutive selected
+                               periods (ticket 4276) -- empty when the
+                               window is genuinely contiguous. See
+                               _SATISFACTION_INSTRUCTIONS' PERIOD-COVERAGE
+                               guidance (tools/merger_tools.py) for how
+                               this is used to keep the 30-day requirement
+                               open and name the missing dates instead of
+                               being fooled by a span that merely LOOKS
+                               wide enough.
         * all other fields   — taken from the most recent stub
     - Entries that have no parseable dates are returned unchanged.
 
@@ -680,6 +705,19 @@ def _merge_paystubs(
     latest_to = selected[-1][1]
     span_days = (latest_to - earliest_from).days + 1
 
+    # Ticket 4276: detect real coverage gaps between consecutive selected
+    # periods (not just whether the overall span is wide enough) -- see
+    # _PAYSTUB_GAP_THRESHOLD_DAYS and the docstring above.
+    coverage_gaps: list[dict] = []
+    for (_, prev_to, _), (next_from, _, _) in zip(selected, selected[1:]):
+        gap_days = (next_from - prev_to).days - 1
+        if gap_days > _PAYSTUB_GAP_THRESHOLD_DAYS:
+            coverage_gaps.append({
+                "gap_start": (prev_to + timedelta(days=1)).isoformat(),
+                "gap_end": (next_from - timedelta(days=1)).isoformat(),
+                "gap_days": gap_days,
+            })
+
     # Build merged extracted_fields on top of the most-recent stub's fields
     merged_fields = dict(most_recent_fields)
     merged_fields.update({
@@ -690,6 +728,8 @@ def _merge_paystubs(
         "hours_total": hours_total,
         "YTD": ytd if ytd else most_recent_fields.get("YTD"),
         "pay_periods": pay_periods,
+        "coverage_gaps": coverage_gaps,
+        "has_coverage_gap": bool(coverage_gaps),
     })
 
     merged_entry = dict(most_recent_entry)
@@ -699,11 +739,21 @@ def _merge_paystubs(
     merged_ids = [e.get("document_id") for _, _, e in selected if e.get("document_id")]
     if merged_ids:
         merged_entry["document_ids"] = merged_ids
-    merged_entry["name"] = (
-        f"Paystub ({earliest_from.isoformat()} – {latest_to.isoformat()}, "
-        f"{len(selected)} period{'s' if len(selected) != 1 else ''}, "
-        f"{span_days} days)"
-    )
+    if coverage_gaps:
+        gap_desc = "; ".join(
+            f"missing {g['gap_start']} to {g['gap_end']}" for g in coverage_gaps
+        )
+        merged_entry["name"] = (
+            f"Paystub ({earliest_from.isoformat()} – {latest_to.isoformat()}, "
+            f"{len(selected)} period{'s' if len(selected) != 1 else ''}, "
+            f"{span_days} days — COVERAGE GAP: {gap_desc})"
+        )
+    else:
+        merged_entry["name"] = (
+            f"Paystub ({earliest_from.isoformat()} – {latest_to.isoformat()}, "
+            f"{len(selected)} period{'s' if len(selected) != 1 else ''}, "
+            f"{span_days} days)"
+        )
 
     # Return the single merged entry plus any undated stubs
     return [merged_entry] + undated

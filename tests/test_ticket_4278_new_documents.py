@@ -18,6 +18,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_DIR))
 
@@ -25,6 +27,7 @@ from dotenv import load_dotenv
 load_dotenv(REPO_DIR / ".env")
 
 from tools.doc_rules import derive_flags, conditional_docs, _resolve_condition
+from tools.merger_tools import _find_all_submitted_docs
 
 
 def _base_ss(**overrides):
@@ -157,3 +160,46 @@ class TestAppraisalDifferentLender:
     def test_no_lender_data_at_all_defaults_to_no_extra_docs(self):
         flags = derive_flags(_base_ss())
         assert flags["appraisal_different_lender"] is False
+
+
+class TestAC8_AlreadyInFileLinksToNewCondition:
+    """Acceptance criterion: "Any of these documents already in file ->
+    linked to its new condition." Direct proof at the real matching layer
+    (_find_all_submitted_docs, the same lookup run_satisfaction_pass uses)
+    for all 9 new document types' Task Tile category-name aliases, each
+    with a submitted doc using a plausible real-world category name (not
+    the exact canonical name) -- the harder, more realistic case."""
+
+    @staticmethod
+    def _submitted(category_name: str) -> dict:
+        return {
+            "doc_id": "1", "name": category_name, "doc_type": "other",
+            "document_id": "22222222-2222-2222-2222-222222222222",
+            "extracted_fields": {}, "flags": [],
+        }
+
+    @pytest.mark.parametrize("canonical,real_world_category_name", [
+        ("Title Company Wiring Instructions", "Wire Instructions"),
+        ("Title Company E&O Insurance", "Errors and Omissions Insurance"),
+        ("Closing Protection Letter", "CPL"),
+        ("Property Tax Certificate", "Tax Certificate"),
+        ("Appraisal Delivery Confirmation", "Proof of Appraisal Delivery"),
+        ("W-2 or 1099 Tax Transcripts", "IRS Tax Transcripts"),
+        ("Articles of Organization", "Certificate of Formation"),
+        ("Appraisal Transfer Letter", "Transfer Letter"),
+        ("AIR Certification", "AIR Cert"),
+    ])
+    def test_each_new_doc_type_links_via_its_real_world_alias(
+        self, canonical, real_world_category_name,
+    ):
+        docs = [self._submitted(real_world_category_name)]
+        matches = _find_all_submitted_docs(canonical, docs)
+        assert len(matches) == 1
+        assert matches[0]["name"] == real_world_category_name
+
+    def test_exact_canonical_name_also_still_matches(self):
+        """Not just the alias -- the exact canonical Task Tile category
+        name (if that's what the manifest actually used) must link too."""
+        docs = [self._submitted("Closing Protection Letter")]
+        matches = _find_all_submitted_docs("Closing Protection Letter", docs)
+        assert len(matches) == 1

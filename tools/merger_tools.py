@@ -1918,6 +1918,23 @@ is present — even partially. Be reasonably lenient: if the document type match
 relevant fields exist (even with limited data), the requirement to OBTAIN/PROVIDE
 the document itself is satisfied.
 
+Apply this leniency DELIBERATELY, not just by default, on Appraisal Report, Flood
+Hazard Determination, and Title Commitment specifically (ticket 4277): these three
+document types have repeatedly ended up with almost every one of their specs left
+unsatisfied even when a real, data-rich copy of the document was submitted and
+linked — do not let the sheer number or legalistic phrasing of their specs push you
+toward leaving them unsatisfied by default. Before marking any of their specs
+unsatisfied, actively look across ALL of the extracted fields you were given (not
+just an exact-name field match) for data that plainly answers it — e.g. an address
+field anywhere in the extraction can satisfy a "property address must be shown"
+spec, a value/amount field can satisfy a "must state the appraised value"/"must
+state the loan amount" spec, a names/parties field can satisfy a "must name the
+insured/borrower" spec, a dates field can satisfy an "effective/issue date" spec —
+even if the field's own key name doesn't literally match the spec's wording. Only
+leave a spec on one of these three document types unsatisfied when you genuinely
+cannot find ANY field, under any reasonable reading of the extraction, that speaks
+to it.
+
 However, do NOT mark a spec as satisfied if:
 - The relevant extracted field is completely MISSING/absent from the extracted fields
 - There is genuinely no evidence in the fields for that requirement
@@ -2190,6 +2207,34 @@ companion is present among the extracted fields, leave the spec unsatisfied
 — there is no evidence path without it, and do not use the host document's
 own fields (e.g. purchase price, closing date) as a substitute, since they
 have no bearing on a bank-statement requirement.
+
+PERIOD-COVERAGE specs (ticket 4276) — specs that require a CONTINUOUS span of
+time to be covered by multiple documents of the same type (e.g. "Most recent
+30 days of paystubs must be provided", "12 consecutive months of bank
+statements must be provided"):
+- A merged Paystub entry's extracted fields may carry `pay_periods` (a list
+  of each contributing stub's own {from, to} dates) and `coverage_gaps` (a
+  list of {gap_start, gap_end, gap_days} entries already computed
+  deterministically from those same dates — see
+  tools.shared.manifest_parser._merge_paystubs). If `coverage_gaps` is
+  present and non-empty, the 30-day/period-coverage spec is NOT satisfied
+  regardless of the merged entry's overall from/to span — a span that LOOKS
+  like it covers 30+ days can still have a real gap in the middle where no
+  paystub exists. Leave the spec unsatisfied and, in your overall reasoning
+  for this document, name the specific missing date range (e.g. "missing
+  coverage from 2026-01-16 to 2026-02-09") rather than a generic "incomplete"
+  note — do not invent a different spec for this; the existing spec simply
+  stays in the unsatisfied/open set.
+- For bank-statement period specs ("12 consecutive months", "most recent N
+  months"), check each separate submitted Bank Statement's own statement
+  period date against every other one you were given. If the months they
+  cover, sorted chronologically, have a calendar-month gap between any two
+  consecutive statements (i.e. a month with no statement covering it at
+  all), the spec is NOT satisfied — name the specific missing month(s) (e.g.
+  "missing March 2026 — statements cover Jan, Feb, Apr, May 2026") rather
+  than simply counting how many statements were provided. Only mark the
+  spec satisfied when the full required number of CONSECUTIVE, non-
+  overlapping months is actually represented.
 
 PREQUAL RESPONSE FORM (LoanNex Product & Pricing Results) specs — e.g. "LoanNex product and pricing
 results matching the loan program, rate, and price reflected in the loan
@@ -3238,6 +3283,59 @@ def _apply_tradeline_mortgage_backstop(
         already.add(text)
 
 
+def _apply_tradeline_not_verified_wording(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    all_fields: list[dict],
+) -> None:
+    """Ticket 4277 acceptance criterion: "Credit report with empty
+    tradelines -> tradeline requirements 'not verified'." PC-12 already
+    stopped auto-SATISFYING tradeline-detail specs on a null-stub/empty
+    creditTradeLines field (that was a false positive — see
+    _apply_tradeline_mortgage_backstop's docstring above), so these specs
+    correctly stay in the open `specifications` list rather than falsely
+    passing. This rewrites their displayed text IN PLACE (same list object
+    as dr["specifications"] — see run_satisfaction_pass' call site) to
+    explicitly say "Not verified" instead of generic requirement wording,
+    so a broker reading the open list can tell "the data needed to check
+    this wasn't extracted" from "this document/evidence is missing
+    entirely" at a glance, per the ticket's own distinction. Deliberately
+    does NOT move these into satisfied_specs — "not verified" is not the
+    same claim as "confirmed satisfied".
+    """
+    if _canonical_doc_type(doc_type) != "credit report":
+        return
+    if not any(_field_is_null_stub_or_empty(f, "creditTradeLines") for f in all_fields):
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+    for i, spec in enumerate(specifications):
+        text = _spec_text(spec)
+        if text in already or text.lower().startswith("not verified"):
+            continue
+        lower = text.lower()
+        if any(kw in lower for kw in _TRADELINE_BACKSTOP_EXCLUDE_KEYWORDS):
+            continue
+        if not any(kw in lower for kw in _TRADELINE_SPEC_KEYWORDS):
+            continue
+        new_text = (
+            f"Not verified: {text} (the credit report's tradeline data field "
+            "was empty/unavailable, so this could not be checked against "
+            "actual tradeline detail)"
+        )
+        if isinstance(spec, dict):
+            updated = dict(spec)
+            if "text" in updated:
+                updated["text"] = new_text
+            elif "specification" in updated:
+                updated["specification"] = new_text
+            else:
+                updated["description"] = new_text
+            specifications[i] = updated
+        else:
+            specifications[i] = new_text
+
+
 # ---------------------------------------------------------------------------
 # Deterministic backstop for the tri-merge / 3-bureau spec
 # ---------------------------------------------------------------------------
@@ -3982,6 +4080,22 @@ def _attribute_satisfied_specs(
 _PROPERTY_SCOPED_TYPES = {
     "hazard insurance", "flood hazard determination", "rental agreement",
 }
+
+# Ticket 4277 ("Keep Each Condition's Requirements to What Applies"):
+# cross-reference target names (see data/canonical_doc_specs.json's
+# "cross_references" entries, e.g. Appraisal Report's "dated within 365
+# days of the Note date" spec) that only exist once the loan has actually
+# closed -- same closing-stage reasoning as doc_rules.py's
+# _CLOSING_STAGE_SUPPRESSED set. A cross-document check against one of
+# these can never resolve on a pre-closing file, on ANY loan, so it must
+# not be reported as a "missing_sibling_document" gap (which reads to a
+# broker as something wrong with THIS file) -- see the
+# "not_yet_available_pre_closing" status in run_satisfaction_pass' cross-
+# document-checks loop below.
+_CLOSING_ONLY_CROSS_REF_TYPES = {
+    "mortgage note", "promissory note", "note", "deed of trust",
+    "security instrument", "grant deed",
+}
 # Candidate metadata/extracted-field keys that might carry a submitted
 # document's own property address -- checked in order. Broad on purpose;
 # no local fixture has a multi-property Hazard/Flood/Lease manifest to
@@ -4324,6 +4438,14 @@ def run_satisfaction_pass(
         _apply_tradeline_mortgage_backstop(
             doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
         )
+        # Ticket 4277: explicit "not verified" wording for tradeline-detail
+        # specs left open by the backstop above — see
+        # _apply_tradeline_not_verified_wording's docstring. Must run AFTER
+        # the backstop above so `already` correctly excludes anything that
+        # backstop (or the LLM) genuinely satisfied.
+        _apply_tradeline_not_verified_wording(
+            doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
         # Deterministic backstop for the tri-merge/3-bureau spec — see
         # _apply_tri_merge_backstop for why this can't be left to the LLM
         # alone (the _SPEC_FIELD_MAP mapping that looked like it covered
@@ -4431,13 +4553,34 @@ def run_satisfaction_pass(
                 found_refs = [r for r in refs if r in cross_ref_found_types]
                 missing_refs = [r for r in refs if r not in cross_ref_found_types]
                 if not found_refs:
-                    status = "missing_sibling_document"
-                    note = (
-                        f"Requires cross-checking against "
-                        f"{' or '.join(r.title() for r in refs)}, but no "
-                        "such document was found in this run's submitted "
-                        "document set — cannot verify."
-                    )
+                    # Ticket 4277 acceptance criterion: "Before closing with
+                    # appraisal -> no check against the Note shows missing."
+                    # The Note/security instrument is only EXECUTED at
+                    # closing (same closing-stage reasoning as doc_rules.py's
+                    # _CLOSING_STAGE_SUPPRESSED set for Deed of Trust/Grant
+                    # Deed/Owner Occupancy Certification) — a cross-check
+                    # against it genuinely cannot resolve before closing on
+                    # ANY file, so "missing_sibling_document" (which reads as
+                    # a real gap to a broker) is the wrong verdict. Use a
+                    # distinct, explicitly non-alarming status instead.
+                    if refs and all(r in _CLOSING_ONLY_CROSS_REF_TYPES for r in refs):
+                        status = "not_yet_available_pre_closing"
+                        note = (
+                            f"Cross-checks against "
+                            f"{' or '.join(r.title() for r in refs)} — this "
+                            "document is only executed at closing and does "
+                            "not exist yet on a file at this stage; this "
+                            "check will become available once the loan "
+                            "closes."
+                        )
+                    else:
+                        status = "missing_sibling_document"
+                        note = (
+                            f"Requires cross-checking against "
+                            f"{' or '.join(r.title() for r in refs)}, but no "
+                            "such document was found in this run's submitted "
+                            "document set — cannot verify."
+                        )
                 elif spec_text in satisfied_spec_texts:
                     status = "consistent"
                     note = f"Verified consistent against {', '.join(r.title() for r in found_refs)}."
