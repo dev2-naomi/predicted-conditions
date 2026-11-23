@@ -76,6 +76,17 @@ all three document types regardless of which layer produced them. Covered by
 `tests/test_closing_stage_doc_suppression.py` (5 tests: plain purchase, DSCR
 investment purchase, refinance, case-insensitivity, unrelated docs survive).
 
+**Re-verified live, post-deploy (2026-11-23):** pushed the fix to `dev`, redeployed
+(`PredictedConditionsStack-Dev`, run succeeded), then re-ran the exact same
+`compiled_inputs/nyarko` case against the freshly-deployed Lambda a third time
+(thread `dc0cd230-a4c7-4d02-87ed-3b8d6eed8f2f`, run `99837772-0ef7-4175-bb49-4b39379d24bd`,
+success in 142s). Result: **25 → 22 document requests** — "Deed of Trust" and "Owner
+Occupancy Certification" are both gone, and nothing else that should still be there
+(Title Invoice, Payoff Statement, Current Lease Agreement, etc. — the still-open
+items below) was accidentally dropped. "Investment Account Statement" also didn't
+recur on this run, but that's ordinary LLM run-to-run variance, not caused by this
+gate (which only pattern-matches the three closing-stage type names).
+
 **Still open:** Title Invoice. The report flags it as predicted on all 3 loans with
 only 1 of 3 being a genuine match; the live run also predicts it unconditionally
 (`needed`, 0 `document_ids`) on nyarko. No fix was attempted for this one — it isn't
