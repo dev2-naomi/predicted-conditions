@@ -403,9 +403,29 @@ class TestPerPartyCategoryIdsEnrichment:
 
     def test_document_type_with_no_masterlist_match_at_all_stays_empty_on_both(self):
         """Document types with genuinely no masterlist entry under any
-        known alias (e.g. "Asset Depletion Worksheet" -- a separate,
-        pre-existing gap, not something this fix changes) correctly stay
-        empty on both party copies rather than silently inventing an id."""
+        known alias correctly stay empty on both party copies rather than
+        silently inventing an id."""
+        canonical = [
+            {
+                "document_type": "Totally Fictional Document Type Xyz",
+                "document_category": "Income",
+                "document_ids": [],
+                "specifications": [],
+                "satisfied_specifications": [],
+            }
+        ]
+        out = build_party_document_requests(
+            canonical, [], [], "Jane Doe", "borrower", {}, [],
+        )
+        assert out[0]["category_ids"] == []
+
+    def test_asset_depletion_worksheet_resolves_via_asset_worksheet_alias(self):
+        """"Asset Depletion Worksheet" has no masterlist row of its own, but
+        ticket 4275 (Task Tile category mapping) added "Asset Worksheet" --
+        Task Tile's own category name for this document (masterlist
+        doctype_id 1824) -- as an alias. The fallback-by-alias lookup in
+        _merge_category_ids (merger_tools.py) should now resolve it instead
+        of leaving category_ids empty."""
         canonical = [
             {
                 "document_type": "Asset Depletion Worksheet",
@@ -418,4 +438,4 @@ class TestPerPartyCategoryIdsEnrichment:
         out = build_party_document_requests(
             canonical, [], [], "Jane Doe", "borrower", {}, [],
         )
-        assert out[0]["category_ids"] == []
+        assert out[0]["category_ids"] == ["1824"]

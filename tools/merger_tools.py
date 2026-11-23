@@ -140,6 +140,13 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     },
     "irs 4506-c authorization": {
         "4506-c", "4506c", "irs form 4506-c", "tax transcript authorization",
+        # Task Tile's own category name for the production 4506-C copy the
+        # underwriter actually used was "4506-C IVES" (the IVES-participant
+        # variant of the same IRS form), not any of the names above — the
+        # document was correctly in the file but never matched (engine
+        # accuracy report, ticket 4275, PC-07 follow-up: "In file, not
+        # recognised" on loan 513).
+        "4506-c ives",
     },
     "purchase contract": {
         "sales contract", "purchase agreement", "contract of sale",
@@ -223,6 +230,12 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     "asset depletion worksheet": {
         "asset utilization worksheet", "asset depletion calculation",
         "asset utilization calculation",
+        # Task Tile's own category name for the production asset-depletion
+        # worksheet was plain "Asset Worksheet", not any of the names
+        # above — the document was correctly in the file but never matched
+        # (engine accuracy report, ticket 4275, PC-07 follow-up: "In file,
+        # not recognised" on loan 513).
+        "asset worksheet",
     },
     "investment account statement": {
         "brokerage statement", "investment statement", "brokerage account statement",

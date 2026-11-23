@@ -26,8 +26,10 @@ and what's still open.**
    test (`tests/test_closing_stage_doc_suppression.py`, 5/5 passing) — see PC-01/PC-04
    below.
 
-Full suite: **198 passed, 48 skipped** (skips are pre-existing, gated on local-only
-real-loan fixtures not committed to git; 0 failures).
+Full suite: **207 passed, 48 skipped** (skips are pre-existing, gated on local-only
+real-loan fixtures not committed to git; 0 failures) as of the 23 Nov 2026 ticket
+4275 follow-up (+9 tests: `tests/test_task_tile_category_mapping.py`'s 8, plus 1
+new test in `tests/test_manifest_party_resolution.py`).
 
 ## Status summary
 
@@ -39,7 +41,7 @@ real-loan fixtures not committed to git; 0 failures).
 | PC-04 | Owner Occupancy Certification predicted on every loan | **Fixed** (folded into PC-01's gate) |
 | PC-05 | Linked doc, nothing marked met (Appraisal, Flood, Title Commitment, UCDP SSR) | **Not addressed** |
 | PC-06 | Conditional/alternative/unrelated requirements stay open | **Partially fixed** — flood wiring + 2-4-unit bug done; per-peril Hazard lines, EMD either-or, cross-doc requirement bleed still open |
-| PC-07 | Task Tile category names not mapped | **Fixed** |
+| PC-07 | Task Tile category names not mapped | **Fixed and unit-tested** (5/5 category gaps closed per ticket 4275's acceptance criteria) |
 | PC-08 | No rule for choosing between duplicate copies | **Fixed** |
 | PC-09 | Period-coverage requirements checked against one document | **Likely fixed for Bank Statement** (live-confirmed, 5 docs linked); not independently reverified for paystubs this run |
 | PC-10 | One ID per borrower + expiry check | **Fixed** |
@@ -150,11 +152,39 @@ example). None of these were touched by the 19 Nov commit.
 
 ### PC-07 — Task Tile category name mapping
 
-**Fixed.** `_DOCTYPE_ALIASES` in `tools/merger_tools.py` gained "Verification of
-Income" → Verification of Employment, "Transaction History" → EMD Check, and a new
-"Non QM Bank Statement Analysis Worksheet" entry aliasing "Income Calculations
-Worksheet". Not independently re-exercised this run (nyarko's manifest doesn't use
-these exact category names), verified by code review only.
+**Fixed, now test-verified.** `_DOCTYPE_ALIASES` in `tools/merger_tools.py` gained
+"Verification of Income" → Verification of Employment, "Transaction History" →
+EMD Check, and a new "Non QM Bank Statement Analysis Worksheet" entry aliasing
+"Income Calculations Worksheet".
+
+**23 Nov 2026 follow-up (ticket 4275):** reviewing this ticket's 6 explicit
+acceptance criteria line-by-line against the code found 2 more category names
+the first pass missed, both now fixed:
+
+- "4506-C IVES" → IRS 4506-C Authorization (loan 513 — the underwriter's actual
+  4506-C copy was filed under this category and was never recognized)
+- "Asset Worksheet" → Asset Depletion Worksheet (loan 513)
+
+All 6 of ticket 4275's acceptance criteria are now covered by a dedicated,
+passing unit test suite: `tests/test_task_tile_category_mapping.py` (8/8
+passing), which tests the exact `_find_all_submitted_docs()` lookup used by
+the real satisfaction pass — not just code review. Confirmed the two new
+aliases were genuine gaps before the fix (0 matches under the pre-fix alias
+sets, re-verified by temporarily reverting the change and re-running).
+One pre-existing test in `tests/test_manifest_party_resolution.py` had to be
+updated because it used "Asset Depletion Worksheet" as its canonical example
+of "a document type with zero masterlist representation" — that's no longer
+true now that "Asset Worksheet" (masterlist doctype_id 1824) is a recognized
+alias, which is itself a second, free side-effect fix: Asset Depletion
+Worksheet requests now also get a real `category_ids` value instead of
+staying empty.
+
+Full category → condition mapping table (ticket 4275's "send the full list"
+ask): see [`docs/task-tile-category-mapping.md`](./task-tile-category-mapping.md).
+
+Not yet independently re-exercised against a *live* cloud run (no committed
+fixture uses these exact category names) — verified via unit test against the
+real matching function, not an end-to-end run.
 
 ### PC-08 — duplicate-copy selection rule
 
