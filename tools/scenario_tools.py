@@ -1203,6 +1203,12 @@ def build_scenario_summary(
 
     summary: dict[str, Any] = {
         "program": program,
+        # Caller-supplied "current" program assignment from the input
+        # payload (see the current_program override block below, which
+        # overwrites both this and "program" above when current_program is
+        # provided). None when the caller didn't send it (or sent only
+        # whitespace).
+        "current_program": (s.get("current_program") or "").strip() or None,
         "product_variant": loan_program.get("type", "unknown"),
         "purpose": purpose,
         "occupancy": meta.get("occupancy") or "unknown",
@@ -1526,6 +1532,28 @@ def build_scenario_summary(
                 if field_path == "program":
                     summary["program"] = str(elig_val)
 
+    # --- current_program (new top-level input field) ---------------------
+    # The caller can optionally pass `current_program` — a plain string
+    # naming the loan's CURRENT, already-assigned program (e.g. from the
+    # LOS/origination system). When present, this is the single most
+    # authoritative program source available: it outranks both the
+    # XML-inferred program AND the eligibility engine's eligible_programs
+    # list (handled just above) — those are both derived/inferred, whereas
+    # current_program is an explicit, already-decided assignment. Optional:
+    # absent/blank is a no-op, falling through entirely to the existing
+    # eligibility/XML-derived `program` resolution above.
+    current_program = s.get("current_program")
+    if isinstance(current_program, str) and current_program.strip():
+        current_program = current_program.strip()
+        if summary["program"] not in (current_program, None, "", "unknown"):
+            override_warnings.append(
+                f"OVERRIDE: Program resolved to '{summary['program']}' from eligibility/XML data, "
+                f"but current_program='{current_program}' was explicitly provided in the input "
+                "payload -- using current_program (highest-priority authoritative source)."
+            )
+        summary["program"] = current_program
+        summary["current_program"] = current_program
+
     lock_msg = (
         f"\n\n*** SCENARIO LOCK (AUTHORITATIVE — DO NOT DEVIATE) ***\n"
         f"  Program: {summary['program']}\n"
@@ -1537,6 +1565,7 @@ def build_scenario_summary(
         f"  Property Type: {summary['property']['property_type']} in {summary['property']['state']}\n"
         f"  Loan Amount: {summary['numbers']['loan_amount']}\n"
         f"{'  Source: XML/Manifest, with Eligibility Engine filling any gaps (XML takes priority if both are present)' if elig_app else '  Source: XML/Manifest (no eligibility engine data available)'}\n"
+        f"{'  Program Source Override: current_program input field (highest priority, overrides eligibility/XML program resolution above)' if summary.get('current_program') else ''}\n"
         f"*** ALL SUBSEQUENT STEPS MUST USE THESE VALUES ***"
     )
     if override_warnings:

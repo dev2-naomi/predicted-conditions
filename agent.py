@@ -82,6 +82,14 @@ class PredictiveConditionsState(TypedDict, total=False):
     loan_file_xml: str                # MISMO XML — primary input
     manifest_json: str                # Raw manifest JSON (document inventory from extraction)
     eligibility_json: str             # Raw eligibility engine output JSON
+    current_program: str              # Optional plain string naming the loan's CURRENT,
+                                       # already-assigned program (e.g. from the LOS). When
+                                       # present, this is the single highest-priority source
+                                       # for scenario_summary.program -- it overrides both
+                                       # the XML-inferred program and the eligibility
+                                       # engine's eligible_programs list (see
+                                       # tools.scenario_tools.build_scenario_summary).
+                                       # Absent/blank is a graceful no-op.
     required_documents_json: str      # Submission Requirements checklist (program_name,
                                        # program_results_key, documents[]) — the loan's
                                        # minimum_required_documents item, same one the
