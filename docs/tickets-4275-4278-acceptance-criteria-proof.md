@@ -105,6 +105,47 @@ Also confirmed live: `compiled_inputs/niccum` (Retail, negative control) correct
   batch's changes) before reaching the agent at all. Flagged separately as a
   follow-up; see `docs/pc-accuracy-uat-status.md`.
 
+### Second deploy (this batch's fixes: `79dea33`, deployed, `deploy` job green in 4m18s)
+
+Neither `aubrey` nor `niccum` exercises the paystub-gap, empty-tradeline-credit-report,
+or multi-signed-1003 code paths added this turn, so two more fixtures with richer raw
+document sets were run against the freshly deployed Lambda specifically to exercise
+them on real (not synthetic-test) data:
+
+- **`compiled_inputs/nyarko`** (34 raw documents, incl. 12 raw URLA 1003 copies and
+  an Appraisal Report) — success.
+  - **4277 AC6 live-confirmed on real data**: the deployed run's own output showed
+    `Cross-document checks: 2 total, by status: {'not_yet_available_pre_closing': 2}`
+    — both of the Appraisal Report's Note-dated cross-checks ("appraisal must be
+    dated within 365 days of the Note date", "recertification of value... if the
+    report exceeds 120 days of the Note Date") came back with the new status and the
+    expected note text ("...this document is only executed at closing and does not
+    exist yet on a file at this stage..."), not the old, misleading
+    `missing_sibling_document`.
+  - **4276 AC1 dedup confirmed correct on real data, not a bug**: inspecting
+    `parse_manifest_from_string` against this fixture's raw manifest directly showed
+    12 raw URLA-1003 entries collapsing to 11 — the one genuine duplicate pair (two
+    entries sharing `group_name="2"`, one `signed=False` and one `signed=None`)
+    correctly collapsed to a single survivor, while the other 10 entries (each a
+    distinct TaskTile `group_name` — i.e. genuinely different physical documents by
+    the manifest's own grouping, not re-extractions of one file) correctly stayed
+    separate. Confirms the dedup bucket key (`category_id`, `group_name`,
+    `specific_type`) behaves as intended on messy real-world data, not just the
+    clean synthetic fixtures in the unit tests.
+- **`compiled_inputs/weingarten`** (28 raw documents, incl. an Appraisal Report and a
+  Title Commitment) — success, general health smoke-test. This fixture's Appraisal
+  Report happened not to carry a Note-dated cross-check spec in its resolved spec set
+  (loan-specific condition gating), so it didn't additionally exercise AC6, but it
+  confirms the new `_SATISFACTION_INSTRUCTIONS` additions and `_CLOSING_ONLY_CROSS_REF_TYPES`
+  constant don't break/crash a larger, more varied document set.
+- Neither fixture contains a Credit Report with empty `creditTradeLines`, nor paystubs
+  with a genuine gap between periods, nor more than one government ID per borrower —
+  so 4277 AC7 (tradeline "not verified" wording) and 4276 AC4/AC6/AC9 (paystub gap,
+  borrower-ID split) remain confirmed via unit test only, not yet via a live deployed
+  run on real extraction data. No fixture with those shapes exists among the locally
+  available `compiled_inputs/*` test files; one would need to be sourced or
+  hand-built from a redacted real file to close this specific residual gap.
+
 ## What's still genuinely open after this batch
 
 1. **4277 AC9 / PC-05** — satisfaction-grading completeness for Appraisal Report,
