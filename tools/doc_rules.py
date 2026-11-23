@@ -1088,6 +1088,28 @@ _VOM_DOCS = {"verification of mortgage", "vom", "mortgage payment history"}
 # top of it — see _has_asset_statement's module comment (PC-03).
 _VOD_DOCS = {"verification of deposit", "vod", "deposit verification"}
 
+# Closing-stage documents that CANNOT exist in a pre-closing file by
+# definition — the security instrument records AT closing, a grant deed
+# records the ownership transfer AT closing, and an owner-occupancy
+# certification/affidavit is typically executed alongside them at the
+# closing table. mandatory_docs()/conditional_docs() stopped FLOORING
+# these unconditionally per the 17 Nov 2026 engine accuracy report
+# (PC-01/PC-04), but that alone turned out to be insufficient: a live
+# post-fix run (2026-11-23, compiled_inputs/nyarko, a DSCR purchase
+# fixture) still predicted BOTH "Deed of Trust" and "Owner Occupancy
+# Certification" with status "needed" and zero document_ids -- the
+# per-module LLM steps (01-07) independently re-propose them from their
+# own guideline reasoning regardless of the floor removal. Gating them
+# here, unconditionally, removes them no matter which layer (floor OR
+# LLM) produced them -- the only deterministic way to guarantee they
+# never surface pre-closing. Revisit if/when the pipeline gains a
+# loan-stage signal and these need to surface as closing-stage (not
+# pre-closing document-collection) items instead of being dropped
+# outright.
+_CLOSING_STAGE_SUPPRESSED = {
+    "deed of trust", "grant deed", "owner occupancy certification",
+}
+
 
 def apply_negative_gates(docs: list[dict], flags: dict) -> tuple[list[dict], list[str]]:
     """Remove documents that shouldn't exist for this scenario.
@@ -1122,6 +1144,8 @@ def apply_negative_gates(docs: list[dict], flags: dict) -> tuple[list[dict], lis
               and not flags["is_refinance"]):
             drop = True
         elif dt in _VOD_DOCS and flags["has_asset_statement"]:
+            drop = True
+        elif dt in _CLOSING_STAGE_SUPPRESSED:
             drop = True
 
         if drop:
