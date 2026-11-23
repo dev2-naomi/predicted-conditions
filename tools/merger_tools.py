@@ -321,6 +321,43 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     "borrower certification as to business purpose": {
         "borrower certifications and disclosure",
     },
+    # Ticket 4278 ("Add the Documents Almost Every Loan Needs") — these 7
+    # document types are brand new to the engine, so no real Task Tile
+    # category name has been confirmed against production data yet
+    # (unlike PC-07/ticket 4275's aliases, which were all confirmed via
+    # real UAT loan manifests). Common-sense industry-standard synonyms
+    # only, so "already in file -> linked" (ticket 4278's final acceptance
+    # criterion) works for the most likely real-world labels.
+    "title company wiring instructions": {
+        "wiring instructions", "wire instructions", "wire transfer instructions",
+    },
+    "title company e&o insurance": {
+        "e&o insurance", "errors and omissions insurance", "eo insurance",
+        "title company e&o",
+    },
+    "closing protection letter": {
+        "cpl", "insured closing letter", "icl",
+    },
+    "property tax certificate": {
+        "tax certificate", "property tax cert", "tax cert", "tax certification",
+    },
+    "appraisal delivery confirmation": {
+        "appraisal delivery", "proof of appraisal delivery",
+        "appraisal receipt confirmation", "evidence of appraisal delivery",
+    },
+    "w-2 or 1099 tax transcripts": {
+        "tax transcripts", "irs tax transcripts", "w2 transcripts",
+        "1099 transcripts", "w-2 transcripts",
+    },
+    "articles of organization": {
+        "certificate of organization", "certificate of formation",
+    },
+    "appraisal transfer letter": {
+        "transfer letter", "appraisal transfer",
+    },
+    "air certification": {
+        "air cert", "appraiser independence certification",
+    },
 }
 
 
@@ -3935,6 +3972,83 @@ def _attribute_satisfied_specs(
             spec["satisfied_by_labels"] = labels
 
 
+# Ticket 4276 ("Link the Right Copy of Each Document"): canonical types
+# where a submitted document legitimately carries a DIFFERENT property's
+# address (an other-properties folder on a multi-REO borrower) that must
+# not be linked to the SUBJECT property's own condition -- Hazard
+# Insurance linked to an expired policy from another property, or a Lease
+# for another property linked to Current Lease Agreement, were both
+# confirmed on loan 513.
+_PROPERTY_SCOPED_TYPES = {
+    "hazard insurance", "flood hazard determination", "rental agreement",
+}
+# Candidate metadata/extracted-field keys that might carry a submitted
+# document's own property address -- checked in order. Broad on purpose;
+# no local fixture has a multi-property Hazard/Flood/Lease manifest to
+# confirm the exact real-world key against.
+_DOC_PROPERTY_ADDRESS_KEYS = (
+    "propertyAddress", "property_address", "insuredPropertyAddress",
+    "statementAddress", "address",
+)
+
+
+def _address_key(addr: object) -> str:
+    """Loose normalization for comparing two property addresses that may
+    be formatted differently (unit numbers, abbreviations, casing) --
+    keeps only the leading street-number + first street-name token, which
+    is stable enough to tell two genuinely different properties apart
+    without false-negative-ing on formatting noise. Returns "" for
+    anything unusable (never used to positively match, only to compare
+    two non-empty keys)."""
+    if isinstance(addr, dict):
+        addr = " ".join(str(v) for v in addr.values() if isinstance(v, (str, int)))
+    s = str(addr or "").strip().lower()
+    if not s:
+        return ""
+    tokens = [t for t in "".join(c if c.isalnum() or c.isspace() else " " for c in s).split()]
+    return " ".join(tokens[:3])
+
+
+def _is_subject_property_doc(sdoc: dict, subject_address: str) -> bool:
+    """True unless this submitted doc clearly carries a DIFFERENT
+    property's address than the subject property -- defaults to True
+    (include) whenever either side's address is missing/unparseable,
+    since under-filtering (missing a real address mismatch) is far safer
+    than over-filtering (dropping a legitimate subject-property document
+    just because this doc type doesn't happen to carry an address field).
+    """
+    subject_key = _address_key(subject_address)
+    if not subject_key:
+        return True
+    fields = sdoc.get("extracted_fields") or {}
+    for key in _DOC_PROPERTY_ADDRESS_KEYS:
+        doc_key = _address_key(fields.get(key))
+        if doc_key:
+            return doc_key == subject_key
+    return True
+
+
+def _filter_to_subject_property(
+    matches: list[dict], doc_type_canonical: str, scenario_summary: dict,
+) -> list[dict]:
+    """Drop submitted docs for a different property than the subject
+    property, for the canonical doc_types in _PROPERTY_SCOPED_TYPES only.
+    See that set's docstring (ticket 4276)."""
+    if doc_type_canonical.strip().lower() not in _PROPERTY_SCOPED_TYPES:
+        return matches
+    subject_address = (scenario_summary.get("property") or {}).get("address") or ""
+    # Deliberately NOT falling back to the unfiltered set when this zeros
+    # out every match -- that's the entire point of the ticket (513's
+    # Hazard Insurance case: a policy for a different property existed,
+    # the subject property's own policies did not, and the condition
+    # should correctly show "not in file" rather than linking the wrong
+    # property's document just because it was the only candidate).
+    # _is_subject_property_doc itself already defaults to True (include)
+    # whenever either address is missing/unparseable, which is the real
+    # safety net against over-filtering on bad data.
+    return [m for m in matches if _is_subject_property_doc(m, subject_address)]
+
+
 def run_satisfaction_pass(
     document_requests: list[dict],
     submitted_docs: list[dict],
@@ -3960,6 +4074,8 @@ def run_satisfaction_pass(
     for dr in document_requests:
         doc_type = dr.get("document_type") or ""
         primary_matches, fallback_matches = _split_primary_fallback_docs(doc_type, submitted_docs)
+        primary_matches = _filter_to_subject_property(primary_matches, doc_type, scenario_summary)
+        fallback_matches = _filter_to_subject_property(fallback_matches, doc_type, scenario_summary)
         matches = primary_matches or fallback_matches
         # True when the ONLY thing standing in for this document_type is an
         # addendum/amendment/counter-offer (no genuine primary document was

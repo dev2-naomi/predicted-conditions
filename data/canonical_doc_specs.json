@@ -277,35 +277,7 @@
         "condition": null
       },
       {
-        "text": "Hazard insurance must include coverage for fire or lightning.",
-        "condition": null
-      },
-      {
-        "text": "Hazard insurance must include coverage for explosion.",
-        "condition": null
-      },
-      {
-        "text": "Hazard insurance must include coverage for windstorm (including named storms).",
-        "condition": null
-      },
-      {
-        "text": "Hazard insurance must include coverage for hail.",
-        "condition": null
-      },
-      {
-        "text": "Hazard insurance must include coverage for smoke.",
-        "condition": null
-      },
-      {
-        "text": "Hazard insurance must include coverage for aircraft.",
-        "condition": null
-      },
-      {
-        "text": "Hazard insurance must include coverage for vehicles.",
-        "condition": null
-      },
-      {
-        "text": "Hazard insurance must include coverage for riot or civil commotion.",
+        "text": "Hazard insurance must provide standard extended coverage, including fire, lightning, explosion, windstorm (including named storms), hail, smoke, aircraft, vehicles, and riot or civil commotion",
         "condition": null
       },
       {
@@ -419,6 +391,11 @@
       {
         "text": "Processor's certification must be signed and dated by the processor.",
         "condition": "processor_certification_used=true"
+      },
+      {
+        "text": "Hazard insurance policy must not be expired -- effective dates must cover the anticipated closing date",
+        "condition": null,
+        "note": "Added for ticket 4276 (\"Link the Right Copy of Each Document\"): same pattern as \"government id\"'s expiration spec (PC-10) -- a policy that's already expired must be flagged, not silently linked as if it satisfied the requirement."
       }
     ]
   },
@@ -538,6 +515,11 @@
         "cross_references": [
           "hazard insurance"
         ]
+      },
+      {
+        "text": "Flood insurance policy (when required) must not be expired -- effective dates must cover the anticipated closing date",
+        "condition": "flood_insurance_required=true",
+        "note": "Added for ticket 4276 (\"Link the Right Copy of Each Document\"): same pattern as \"government id\"'s expiration spec (PC-10) -- a policy that's already expired must be flagged, not silently linked as if it satisfied the requirement."
       }
     ]
   },
@@ -684,21 +666,21 @@
         "condition": null
       },
       {
-      "text": "Name on the ID must match the name on the loan application, credit report, and title documents",
-      "condition": null,
-      "cross_references": [
-        "loan application (1003)",
-        "credit report",
-        "title commitment"
-      ]
-    },
-    {
-      "text": "Government ID must remain valid (not expired) through the anticipated closing date",
-      "condition": null,
-      "note": "Added per a real-loan accuracy audit (engine accuracy report, 17 Nov 2026, PC-10): a submitted Passport expiring 11/07/2026, right around the loan's own closing, was linked with zero requirements flagging the near-term expiration. loan_facts.closing_date_estimated (tools/merger_tools.py's reference-context block) is a PROJECTION, not an actual closing date, so this is graded needs-review rather than a hard pass/fail against it -- see _SATISFACTION_INSTRUCTIONS' closing_date_estimated caveat -- but that still surfaces the risk instead of leaving it invisible."
-    }
-  ]
-},
+        "text": "Name on the ID must match the name on the loan application, credit report, and title documents",
+        "condition": null,
+        "cross_references": [
+          "loan application (1003)",
+          "credit report",
+          "title commitment"
+        ]
+      },
+      {
+        "text": "Government ID must remain valid (not expired) through the anticipated closing date",
+        "condition": null,
+        "note": "Added per a real-loan accuracy audit (engine accuracy report, 17 Nov 2026, PC-10): a submitted Passport expiring 11/07/2026, right around the loan's own closing, was linked with zero requirements flagging the near-term expiration. loan_facts.closing_date_estimated (tools/merger_tools.py's reference-context block) is a PROJECTION, not an actual closing date, so this is graded needs-review rather than a hard pass/fail against it -- see _SATISFACTION_INSTRUCTIONS' closing_date_estimated caveat -- but that still surfaces the risk instead of leaving it invisible."
+      }
+    ]
+  },
   "borrower certification as to business purpose": {
     "source_headings": [
       "BUSINESS PURPOSE FORMS",
@@ -1357,43 +1339,7 @@
     ],
     "items": [
       {
-        "text": "Most recent 30 days of paystubs must be provided",
-        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
         "text": "1 or 2 years of W-2s must be provided",
-        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
-        "text": "Electronic verification of employment must be provided, OR W-2 transcripts must be provided when electronic verification of employment is not provided",
-        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
-        "text": "Fully executed and signed IRS Form 4506C must be provided",
-        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
-        "text": "Pay stubs must be typed or computer generated",
-        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
-        "text": "Pay stubs must provide the borrower's full name",
-        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
-        "text": "Pay stubs must provide the borrower's address",
-        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
-        "text": "Pay stubs must provide the employer name",
-        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
-        "text": "Pay stubs must provide year-to-date earnings",
-        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
-        "text": "Pay stubs must provide rate of pay",
         "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
       },
       {
@@ -1419,18 +1365,6 @@
       {
         "text": "W-2s must provide rate of pay",
         "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
-        "text": "If pay stubs reflect garnishments (child support, IRS, etc.) or any loan deductions, additional information will be required to determine if a monthly payment should be included in the debt-to-income ratio calculation",
-        "condition": "program=Full Documentation (non-ITIN, non-Foreign National)"
-      },
-      {
-        "text": "Fully written verification of employment must be provided",
-        "condition": "borrower_type=ITIN"
-      },
-      {
-        "text": "Signed IRS 4506C must be provided",
-        "condition": "borrower_type=ITIN"
       },
       {
         "text": "1 or 2 years Tax Transcripts must be provided",
@@ -2398,7 +2332,7 @@
       },
       {
         "text": "If the check has not yet cleared, a copy of the check may be obtained along with a processor's certification verifying the date it cleared, the dollar amount, and the individual who provided the information",
-        "condition": null
+        "condition": "has_emd_evidence=false"
       },
       {
         "text": "If funds were given more than 12 months ago per the sales contract, an escrow letter will suffice for sourcing",

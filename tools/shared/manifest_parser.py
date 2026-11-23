@@ -482,21 +482,57 @@ def _is_signed(metadata: dict) -> bool:
     return False
 
 
+
+# Candidate metadata keys carrying a document's own content date (as
+# opposed to `ts`, which is Task Tile's upload/indexing order) -- checked
+# in order, first parseable value wins. Covers the doc types ticket 4276
+# calls out by name (payoff statement, bank statement) plus common
+# variants for others; kept broad since no local fixture happens to carry
+# every one of these doc types to confirm every exact key against.
+_DOC_RANK_DATE_KEYS = (
+    "statementPeriodTo", "periodEndDate", "statementDate", "payoffDate",
+    "quoteDate", "goodThroughDate", "effectiveDate", "issueDate",
+    "documentDate", "date",
+)
+
+
+def _doc_content_date(metadata: dict) -> date | None:
+    """Best-effort extraction of a submitted document's OWN content date
+    (statement period end, payoff quote date, policy effective date,
+    etc.) from its metadata -- see _DOC_RANK_DATE_KEYS."""
+    for key in _DOC_RANK_DATE_KEYS:
+        d = _parse_date(metadata.get(key))
+        if d is not None:
+            return d
+    return None
+
+
 def _doc_rank(metadata: dict, ts: int) -> tuple:
     """Ordering key used to pick which copy wins within a dedup bucket:
-    prefer a signed copy over an unsigned one, then higher extraction
-    confidence, then the latest indexing timestamp as the final tiebreaker
-    (same as the sole criterion used before this existed). Compared via
-    plain tuple ordering, so a signed copy always beats an unsigned one
-    regardless of confidence/timestamp, matching PC-08's "prefer the
-    latest signed copy... among duplicates, prefer the higher-confidence
-    read" proposal.
+    prefer a signed copy over an unsigned one; among same-signed-status
+    copies, prefer the NEWER one by the document's own content date (not
+    Task Tile's upload order) when a parseable date exists on the
+    metadata; use extraction confidence as the tiebreaker when dates are
+    equal or unavailable; and fall back to the indexing timestamp as the
+    final tiebreaker.
+
+    Ticket 4276 ("Link the Right Copy of Each Document") states this
+    ordering explicitly: "Duplicates: use the newer copy; same date →
+    higher Task Tile confidence." Dates missing entirely on both sides
+    (common for scanned/less-structured doc types) falls straight through
+    to the confidence+timestamp comparison PC-08 already covered -- this
+    is a strict refinement, not a replacement, of that fix: a missing
+    content date on both candidates compares as date-equal (via the
+    `date.min` floor below), so confidence still decides exactly as
+    before. Compared via plain tuple ordering, so signed always beats
+    unsigned regardless of date/confidence/timestamp.
     """
     try:
         confidence = float(metadata.get("confidence") or 0.0)
     except (TypeError, ValueError):
         confidence = 0.0
-    return (1 if _is_signed(metadata) else 0, confidence, ts)
+    content_date = _doc_content_date(metadata) or date.min
+    return (1 if _is_signed(metadata) else 0, content_date, confidence, ts)
 
 
 def _merge_1003_documents(entries: list[dict]) -> dict:

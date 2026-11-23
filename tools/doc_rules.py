@@ -66,6 +66,20 @@ def derive_flags(ss: dict) -> dict:
     else:
         flood_insurance_required = None
 
+    # Ticket 4277 (PC-06 follow-up): the loan XML frequently carries NO
+    # flood determination at all (flood_insurance_required stays None
+    # above), but the actual submitted Flood Hazard Determination
+    # document's own extracted data DOES say whether the property is in a
+    # flood zone -- that's the real-world source of truth the underwriter
+    # used, and the one case the 17 Nov UAT report's loans actually hit
+    # (all 4 showed 18 open flood-insurance specs despite a flood cert
+    # being on file). Only overrides when the XML side left this
+    # unresolved (None) -- an explicit XML signal still wins.
+    if flood_insurance_required is None:
+        doc_flood_required = _flood_required_from_submitted_doc(ss)
+        if doc_flood_required is not None:
+            flood_insurance_required = doc_flood_required
+
     is_noo = occ in (
         "noo", "investment", "non-owner occupied", "non owner occupied",
         "investor", "investment property",
@@ -160,6 +174,22 @@ def derive_flags(ss: dict) -> dict:
     else:
         is_llc = str(llc_flag_raw or "").strip().lower() in ("true", "yes", "1")
 
+    # Ticket 4278: "Any Wholesale loan" gates title-company docs, the
+    # closing protection letter, and the property tax certificate.
+    # scenario_tools.py already resolves the loan XML/eligibility
+    # "Channel" field onto scenario_summary["channel"] (confirmed via
+    # tools/shared/xml_parser.py's CATEGORY_ID_TO_DOC_TYPE-style map and
+    # data/canonical_doc_specs.json's own dormant "channel=Wholesale"/
+    # "channel=retail_or_wholesale" conditions -- those conditions were
+    # silently unresolvable before this flag existed, since
+    # _resolve_atomic had no "channel" case at all; see the new case
+    # added there alongside this flag) -- just never had a derive_flags
+    # entry to actually surface it.
+    channel_raw = str(ss.get("channel") or "").strip().lower()
+    is_wholesale = "wholesale" in channel_raw
+    is_retail = channel_raw == "retail"
+    is_correspondent = "correspondent" in channel_raw
+
     # "any" (not "all") variant of the full_doc bucket check — needed so W2/
     # Paystub/VOE guideline canonicalization still applies on a mixed-income
     # multi-borrower loan (e.g. one wage-earning co-borrower + one
@@ -203,6 +233,31 @@ def derive_flags(ss: dict) -> dict:
         "has_loan_application": _has_loan_application(ss),
         "has_asset_statement": _has_asset_statement(ss),
         "flood_insurance_required": flood_insurance_required,
+        "is_wholesale": is_wholesale,
+        "is_retail": is_retail,
+        "is_correspondent": is_correspondent,
+        # Ticket 4278: "W-2 or 1099 tax transcripts: when wage income is
+        # used to qualify" / "DSCR loan, no wage income -> no tax
+        # transcripts". Reuses the same income_doc_type bucket the rest of
+        # this function already resolves -- full_doc and 1099 are the two
+        # documentation types that mean a borrower's income is backstopped
+        # by an actual W-2/1099, as opposed to DSCR (no income used at
+        # all), bank-statement, P&L, or asset-utilization qualification.
+        "has_wage_or_1099_income": income_doc_type in ("full_doc", "1099"),
+        # Ticket 4277 (EMD Check "either-or"): True once a document that
+        # would stand in as EMD-clearing evidence (bank statement /
+        # transaction-history-style activity, or the EMD Check doc itself)
+        # is on file -- see _has_emd_evidence's docstring.
+        "has_emd_evidence": _has_emd_evidence(ss),
+        # Ticket 4278: "Appraisal transfer letter and AIR certification:
+        # when the appraisal was ordered for a different lender." Best-
+        # effort: compares the submitted Appraisal Report's own extracted
+        # lender name (when present) against this loan's own lender name
+        # (scenario_summary["lender"]/eligibility "ClientName", when
+        # present). Both sides frequently absent in local fixtures, so
+        # this defaults to False (don't over-ask) rather than None/unknown
+        # -- see _appraisal_ordered_for_different_lender's docstring.
+        "appraisal_different_lender": _appraisal_ordered_for_different_lender(ss),
     }
 
 
@@ -259,6 +314,100 @@ def _has_asset_statement(ss: dict) -> bool:
         name = str(sdoc.get("name") or "").strip().lower()
         dtype = str(sdoc.get("doc_type") or "").strip().lower()
         if any(tok in name or tok in dtype for tok in _ASSET_STATEMENT_TOKENS):
+            return True
+    return False
+
+
+# Tokens identifying a submitted Flood Hazard Determination document among
+# submitted docs (ticket 4277 / PC-06 follow-up).
+_FLOOD_DOC_TOKENS = ("flood", "flood hazard determination", "flood certification",
+                      "flood determination")
+
+# Candidate extracted-field keys an indexer might use to carry a flood
+# cert's own "is this property in a flood zone" verdict -- checked in
+# order, first non-None value wins. Kept broad (several plausible real-
+# world key names) since no local fixture happens to include a Flood
+# Hazard Determination document to confirm the exact key against.
+_FLOOD_ZONE_BOOL_KEYS = (
+    "specialFloodHazardArea", "isInFloodZone", "inFloodZone",
+    "floodInsuranceRequired", "flood_insurance_required",
+)
+_FLOOD_ZONE_STRING_KEY = "floodZone"
+# FEMA zone letters that themselves denote a Special Flood Hazard Area --
+# zones starting with A or V require flood insurance; "X"/"B"/"C"/"D" do
+# not (see data/canonical_doc_specs.json's own
+# "flood_zone=A or flood_zone=V" condition).
+_SFHA_ZONE_PREFIXES = ("a", "v")
+
+
+def _flood_required_from_submitted_doc(ss: dict) -> bool | None:
+    """Return True/False when a submitted Flood Hazard Determination
+    document's own extracted data says whether the property is in a
+    flood zone, or None when no such document (or no usable field) is
+    present. See derive_flags' flood_insurance_required override comment
+    for why this exists -- the loan XML routinely has no flood
+    determination at all, but the flood cert document itself does."""
+    for sdoc in ss.get("_submitted_docs") or []:
+        name = str(sdoc.get("name") or "").strip().lower()
+        dtype = str(sdoc.get("doc_type") or "").strip().lower()
+        if not any(tok in name or tok in dtype for tok in _FLOOD_DOC_TOKENS):
+            continue
+        fields = sdoc.get("extracted_fields") or {}
+        for key in _FLOOD_ZONE_BOOL_KEYS:
+            val = fields.get(key)
+            if isinstance(val, bool):
+                return val
+        zone = fields.get(_FLOOD_ZONE_STRING_KEY)
+        if isinstance(zone, str) and zone.strip():
+            return zone.strip().lower().startswith(_SFHA_ZONE_PREFIXES)
+    return None
+
+
+def _has_emd_evidence(ss: dict) -> bool:
+    """True when a document matching EMD Check's own alias set (see
+    tools/merger_tools.py's _DOCTYPE_ALIASES "emd check" entry --
+    "transaction history", "emd", "earnest money...") is on file. Ticket
+    4277's EMD Check "either-or": once this is True, the "check has not
+    yet cleared" branch of the requirement should drop out (the funds
+    evidence on file is affirmative proof of clearing, not a pending
+    check), leaving only the "cleared" branch open for real grading.
+    Mirrors _has_asset_statement's pattern; kept here rather than
+    importing from merger_tools.py to avoid the same circular-import
+    issue _has_loan_application's docstring already explains."""
+    tokens = ("emd", "earnest money", "transaction history")
+    for sdoc in ss.get("_submitted_docs") or []:
+        name = str(sdoc.get("name") or "").strip().lower()
+        dtype = str(sdoc.get("doc_type") or "").strip().lower()
+        if any(tok in name or tok in dtype for tok in tokens):
+            return True
+    return False
+
+
+def _appraisal_ordered_for_different_lender(ss: dict) -> bool:
+    """Best-effort check for ticket 4278's "appraisal was ordered for a
+    different lender" trigger (Appraisal Transfer Letter + AIR
+    Certification). Compares the submitted Appraisal Report's own
+    extracted lender/client name against this loan's own lender name.
+    Defaults to False (don't add the two extra documents) whenever either
+    side of the comparison is missing -- no local fixture carries both
+    values populated to confirm the real field names against, so erring
+    toward under-asking here is safer than guessing an over-ask."""
+    own_lender = str(
+        ss.get("lender") or ss.get("client_name")
+        or (ss.get("_eligibility_data") or {}).get("client_name") or ""
+    ).strip().lower()
+    if not own_lender:
+        return False
+    for sdoc in ss.get("_submitted_docs") or []:
+        name = str(sdoc.get("name") or "").strip().lower()
+        dtype = str(sdoc.get("doc_type") or "").strip().lower()
+        if "appraisal" not in name and "appraisal" not in dtype:
+            continue
+        fields = sdoc.get("extracted_fields") or {}
+        doc_lender = str(
+            fields.get("lenderName") or fields.get("lender") or fields.get("clientName") or ""
+        ).strip().lower()
+        if doc_lender and doc_lender not in own_lender and own_lender not in doc_lender:
             return True
     return False
 
@@ -997,6 +1146,82 @@ def conditional_docs(flags: dict) -> list[dict]:
               "Delinquent-dues percentage"],
              ["Condominium project review required for condo property types"]))
 
+    # --- Ticket 4278: documents almost every loan needs ------------------
+    # These were asked for on nearly every one of the 4 UAT test loans
+    # (90000108510-513) but had no deterministic source at all -- entirely
+    # dependent on the per-module LLM happening to generate them, which it
+    # consistently did not (0 of 66 predicted-vs-153-underwriter-asked
+    # documents came from this bucket). None of these claim to close the
+    # full engine/underwriter gap -- see the ticket's own framing ("this
+    # isn't about matching the underwriter's whole list") -- just the
+    # subset that's unconditional-enough on its trigger to floor safely.
+
+    if flags["is_wholesale"]:
+        docs.append(_doc("Title Company Wiring Instructions", "Title", "P2", "SOFT-STOP",
+             ["Wiring instructions on title company letterhead",
+              "Bank name, routing number, and account number for funds transfer"],
+             ["Wholesale transactions require the title company's own wiring instructions "
+              "on file before funds are disbursed"]))
+        docs.append(_doc("Title Company E&O Insurance", "Title", "P2", "SOFT-STOP",
+             ["Current, unexpired Errors & Omissions insurance certificate",
+              "Title company name matches the title company handling this transaction"],
+             ["Wholesale transactions require evidence the title company carries active "
+              "E&O coverage"]))
+        docs.append(_doc("Closing Protection Letter", "Title", "P1", "HARD-STOP",
+             ["Issued by the title insurance underwriter",
+              "Names the lender as the party protected",
+              "Covers the closing agent handling this transaction"],
+             ["Wholesale transactions require a Closing Protection Letter protecting the "
+              "lender against closing-agent errors or fraud"]))
+        docs.append(_doc("Property Tax Certificate", "Title", "P2", "SOFT-STOP",
+             ["Current tax amount and assessed value", "Shows taxes are current (no delinquency)",
+              "Property address matches the subject property"],
+             ["Wholesale transactions require a property tax certificate confirming the "
+              "subject property's current tax status"]))
+
+    docs.append(_doc("Appraisal Delivery Confirmation", "Property", "P2", "SOFT-STOP",
+         ["Evidence the appraisal report was delivered to the borrower",
+          "Delivery date on or before closing"],
+         ["Every loan with an appraisal requires proof of the borrower's own copy of the "
+          "appraisal being delivered (TILA/ECOA appraisal-delivery rule)"]))
+
+    if flags["has_wage_or_1099_income"]:
+        docs.append(_doc("W-2 or 1099 Tax Transcripts", "Income", "P1", "HARD-STOP",
+             ["IRS tax transcripts for the qualifying tax year(s)",
+              "Transcript income matches the W-2/1099 used to qualify"],
+             ["Wage/1099-qualified income must be cross-checked against the borrower's own "
+              "IRS tax transcripts"]))
+
+    if flags["is_llc"]:
+        # Operating Or Partnership Agreement is already handled separately
+        # (eligibility-category-driven, see _eligibility_category_doc_map's
+        # "operating or partnership agreement"/"llc member list" entries)
+        # -- these two round out the rest of data/canonical_doc_specs.json's
+        # already-existing "articles of organization"/"federal tax id
+        # number" entries, which had specs but no deterministic request
+        # generation gated on is_llc at all before this.
+        docs.append(_doc("Articles of Organization", "Compliance", "P1", "HARD-STOP",
+             ["Filed with the Secretary of State", "Entity name matches the loan application",
+              "Identifies the entity's members/managers"],
+             ["Program eligibility requires the entity's Articles of Organization for "
+              "LLC-vested loans"]))
+        docs.append(_doc("Federal Tax Id Number", "Compliance", "P2", "SOFT-STOP",
+             ["IRS-issued EIN document (CP 575, EIN confirmation, or SS-4)",
+              "Entity name matches the loan application and vesting documents"],
+             ["Multi-member LLCs require an EIN on file per NQMF guidelines"]))
+
+    if flags.get("appraisal_different_lender"):
+        docs.append(_doc("Appraisal Transfer Letter", "Property", "P1", "HARD-STOP",
+             ["Transfers the appraisal from the original lender to this lender",
+              "Signed by the original appraisal management company or appraiser"],
+             ["Appraisal was ordered by a different lender -- a transfer letter is required "
+              "before it can be relied upon for this loan"]))
+        docs.append(_doc("AIR Certification", "Property", "P1", "HARD-STOP",
+             ["Certifies Appraiser Independence Requirements were followed",
+              "Covers the original ordering lender's engagement of the appraiser"],
+             ["Appraisal Independence Requirements certification is required whenever an "
+              "appraisal ordered by a different lender is being reused"]))
+
     return docs
 
 
@@ -1626,6 +1851,25 @@ def _resolve_atomic(key: str, raw_value: str) -> Any:
             return lambda flags: flags.get("is_llc", False)
         return None
 
+    # Ticket 4278: data/canonical_doc_specs.json already carries several
+    # "channel=Wholesale"/"channel=retail_or_wholesale"/"channel=correspondent"
+    # conditions (compliance-agreement/business-rider specs) that were
+    # silently unresolvable (no "channel" case existed here at all before
+    # this) -- every one of them was being excluded regardless of the
+    # loan's actual channel. Wiring this up is a free side-effect fix on
+    # top of enabling the new wholesale-gated document floor (see
+    # derive_flags' is_wholesale comment).
+    if key == "channel":
+        if "retail_or_wholesale" in val:
+            return lambda flags: flags.get("is_retail", False) or flags.get("is_wholesale", False)
+        if "wholesale" in val:
+            return lambda flags: flags.get("is_wholesale", False)
+        if "retail" in val:
+            return lambda flags: flags.get("is_retail", False)
+        if "correspondent" in val:
+            return lambda flags: flags.get("is_correspondent", False)
+        return None
+
     if key in ("occupancy", "occupancy_status"):
         if "primary" in val:
             return lambda flags: flags["is_owner_occupied"]
@@ -1723,6 +1967,16 @@ def _resolve_atomic(key: str, raw_value: str) -> Any:
     # loan application" spec has nothing to check against without it).
     if key in ("loan_application_submitted", "reference_document"):
         return lambda flags: flags.get("has_loan_application", False)
+
+    # Ticket 4277 EMD Check "either-or": "has_emd_evidence=false" gates the
+    # "check has not yet cleared" spec OFF once a document showing the
+    # deposit actually cleared is on file -- see derive_flags'
+    # has_emd_evidence comment. "=true"/"=false" both handled (only
+    # "=false" is used in data/canonical_doc_specs.json today, but support
+    # both for completeness/symmetry with every other boolean flag here).
+    if key == "has_emd_evidence":
+        wants_true = val in ("true", "1", "yes")
+        return (lambda flags: flags.get("has_emd_evidence", False) is wants_true)
 
     return None
 
@@ -1919,6 +2173,22 @@ def apply_guideline_canonicalization(
             if ct:
                 uncovered.add(ct)
             continue
+        if not specs:
+            # Ticket 4277: "Every predicted condition has at least one
+            # requirement" -- a scenario can legitimately resolve EVERY
+            # conditioned item in a doc_type's canonical entry to False
+            # (e.g. Flood Hazard Determination on a non-flood-zone
+            # property once every flood_insurance_required=true item is
+            # excluded), which previously left `specifications` as an
+            # empty list -- a condition with nothing to check, which
+            # reads as broken/empty rather than "this document is simply
+            # on file and nothing further needs verifying." A single
+            # generic fallback item keeps that distinction visible instead
+            # of silently emitting zero requirements.
+            specs = [
+                f"{(dr.get('document_type') or 'Document').strip()} must be present in the file "
+                "and consistent with the loan application"
+            ]
         dr["specifications"] = specs
         # Internal-only field (never reaches final output — see
         # tools/shared/normalize.py's _CANONICAL_FIELDS projection, which
