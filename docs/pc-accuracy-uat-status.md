@@ -283,3 +283,103 @@ orchestration/trigger layer (outside this repo, or in `api/`).
    default.
 7. **PC-15** — add a visible failed/blocked run event + auto-start-on-Task-Tile-
    completion, in the orchestration layer.
+
+## 23 Nov 2026 addendum — tickets 4276/4277/4278
+
+Three follow-up tickets (4276 "Link the Right Copy of Each Document", 4277 "Keep
+Each Condition's Requirements to What Applies", 4278 "Add the Documents Almost
+Every Loan Needs") were implemented together and pushed to `dev` in commit
+`7475ea3`. This closes most of **PC-06**'s remaining items and adds new coverage
+beyond the original 15-issue report.
+
+**Ticket 4276 (duplicate-copy selection + property scoping):**
+- `_doc_rank()` (`tools/shared/manifest_parser.py`) now orders candidates by
+  content-date before confidence ("use the newer copy; same date → higher
+  confidence"), refining PC-08's signed/confidence/timestamp rule rather than
+  replacing it.
+- New `_filter_to_subject_property()` (`tools/merger_tools.py`) excludes
+  Hazard Insurance / Flood Hazard Determination / Rental Agreement documents
+  that carry a different property's address than the subject property.
+- New expiration-check specs for Hazard Insurance and Flood Hazard
+  Determination, mirroring PC-10's Government ID expiration pattern.
+- Tests: `tests/test_ticket_4276_duplicate_copy_selection.py` (11/11 passing).
+
+**Ticket 4277 (requirement scoping — closes most of PC-06):**
+- `channel` condition resolver wired up (`is_wholesale`/`is_retail`/
+  `is_correspondent` flags) — also retroactively fixes several dormant
+  `channel=Wholesale`/`channel=retail_or_wholesale` conditions already sitting
+  in `data/canonical_doc_specs.json` with no resolver before this.
+- `flood_insurance_required` now also sourced from a submitted Flood Hazard
+  Determination document's own extracted zone data when the loan XML itself
+  carries no signal.
+- Hazard Insurance's 8 per-peril coverage lines consolidated into one standard-
+  coverage requirement (PC-06's "25-27 open specs" complaint).
+- Paystub/4506-C/VOE items that were bleeding into the W-2 canonical spec
+  removed (PC-06's W-2/paystub/4506-C cross-bleed example).
+- EMD Check's either-or: `has_emd_evidence` flag suppresses the "check has not
+  yet cleared" branch once clearing evidence is on file (PC-06's EMD either-or
+  wording issue).
+- Generic fallback requirement (`apply_guideline_canonicalization()`) when a
+  scenario resolves every conditioned item in a doc_type to False, so a
+  condition is never left with zero requirements — a defense-in-depth measure
+  in the same spirit as **PC-13**'s recommendation, though scoped to this one
+  function rather than a global filter in `generate_final_output()`.
+- Tests: `tests/test_ticket_4277_requirement_scoping.py` (12/12 passing).
+
+**Ticket 4278 (new baseline documents):**
+- 7 new deterministic document types: Title Company Wiring Instructions,
+  Title Company E&O Insurance, Closing Protection Letter, Property Tax
+  Certificate (all gated on `is_wholesale`); Appraisal Delivery Confirmation
+  (every loan); W-2 or 1099 Tax Transcripts (`has_wage_or_1099_income`);
+  Articles of Organization + Federal Tax Id Number (`is_llc` — specs already
+  existed in `canonical_doc_specs.json`, just had no request-generation);
+  Appraisal Transfer Letter + AIR Certification (`appraisal_different_lender`).
+- New `_DOCTYPE_ALIASES` entries and `data/document_party_scope.json` entries
+  for all 9 new types (unconfirmed against real Task Tile category names —
+  see inline code comments — unlike PC-07/4275's aliases, which were all
+  confirmed against real UAT manifests).
+- Tests: `tests/test_ticket_4278_new_documents.py` (11/11 passing).
+
+**Full regression:** 241 passed, 48 skipped, 0 failures (up from 207 passed
+before this batch — +34 new tests across the three ticket-specific files).
+
+**Live e2e verification (post-deploy, dev):**
+- `compiled_inputs/aubrey` (Wholesale channel, LLC=False) — thread
+  `b3f4cb15-d886-4d52-9700-b94cc159a716`, success in 158s. Confirmed live:
+  Closing Protection Letter, Title Company Wiring Instructions, Title Company
+  E&O Insurance, Property Tax Certificate, and Appraisal Delivery Confirmation
+  all generated; Hazard Insurance's specs show the single consolidated
+  coverage line + new expiration check, not the old 8 per-peril lines.
+- `compiled_inputs/niccum` (Retail channel — negative control) — thread
+  `8490afa9-b8b6-49b6-8d0f-27b683471fe9`, success in 154s. Confirmed live:
+  none of the 4 wholesale-gated document types appear; Appraisal Delivery
+  Confirmation still appears (universal trigger); EMD Check's "not yet
+  cleared" branch stays open as expected (no EMD-evidence document on file).
+- `compiled_inputs/montes` (Wholesale, has "EMD Docs" — would have been the
+  best live test of the EMD-evidence suppression) **failed before reaching
+  the agent at all**: `500 - "An error occurred (ValidationException) when
+  calling the PutItem operation: Item size has exceeded the maximum allowed
+  size"`. Root cause confirmed via CloudWatch/direct API call: `api/
+  thread_store.py`'s `create_run()` stores the full raw-input payload
+  (`loan_file_xml` + `manifest_json` + `eligibility_json`) as one DynamoDB
+  item, and montes' combined ~455KB exceeds DynamoDB's 400KB item-size cap.
+  **This is a pre-existing infra limitation, not a regression** — none of
+  this batch's diffs touch `api/`, and aubrey's ~365KB combined payload (just
+  under the cap) succeeded cleanly on the same deploy. Flagging as a
+  follow-up: large manifests/eligibility payloads will always 500 at run
+  creation regardless of any document-generation logic, until `thread_store.py`
+  either compresses/truncates the stored `run_body.input` or moves large
+  raw-input fields to S3 with a pointer in DynamoDB instead of storing them
+  inline.
+
+**Deferred / not addressed (same ticket text, explicitly out of scope for this
+batch):** period-set "names the missing month" naming enhancement (4276); the
+Note's pre-closing cross-document check (4277); explicit "not verified"
+wording for empty-tradeline credit report specs (4277 — the underlying
+false-positive bug was already fixed by PC-12); UCDP SSR cross-run consistency
+(4277 — judged an LLM-grading-variance characteristic, not a fixable
+deterministic-code bug). Property-address matching, flood-zone field names,
+and appraisal-lender-mismatch detection are implemented as best-effort against
+plausible field names (see inline code comments in `tools/merger_tools.py` and
+`tools/doc_rules.py`) since no local fixture carries real data to confirm the
+exact extracted-field keys against.
