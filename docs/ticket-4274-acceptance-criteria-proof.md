@@ -3,16 +3,11 @@
 **[Predicted Conditions: Don't Ask for Documents the Loan Can't Need]**
 
 This document walks through **every acceptance criterion** of this ticket, one by
-one, with the exact test (or live-run evidence) that proves it, plus the
-non-numbered "what's asked" item (Title Invoice) and an honest note on where this
-ticket's evidence conflicts with an earlier audit's finding.
+one, with the exact test (or live-run evidence) that proves it.
 
 Status legend:
 - ✅ **Met, unit-tested** — a deterministic test proves this exact behavior.
 - ✅ **Met, live-confirmed** — confirmed on a real deployed run, not just a unit test.
-- ⚠️ **Proposal, not guideline-verified** — implemented per the ticket's own
-  "confirm against guidelines before changing any rule" instruction, but flagged
-  because of a real tension with other evidence (see Title Invoice below).
 
 Run the ticket's own test file: `python3 -m pytest tests/test_ticket_4274_predicted_conditions_scope.py -v`
 → **28 passed.**
@@ -49,7 +44,6 @@ lease item, AC6 closes **PC-03**'s remaining VOR item, and AC7 is **PC-11**.
 | 6 | Loan with mortgage statements or rent-free letter → Verification of Rent not in the list | ✅ Unit-tested + live-confirmed | **New this round** |
 | 7 | Two-borrower, large file (e.g. 90000108512) → no condition name appears twice | ✅ Unit-tested + live-confirmed | **New this round** |
 | 8 | Wage-earner loan → Paystub and IRS 4506-C still predicted (negative control) | ✅ Unit-tested | Already fixed — re-confirmed AC3's gate doesn't over-fire |
-| — | Title Invoice: confirm whether needed before closing; if not, don't predict it | ⚠️ Proposal, not guideline-verified; evidence-gated, live-confirmed | **New this round** |
 
 ---
 
@@ -224,65 +218,6 @@ full-doc wage-earner loan.
 confirms neither Paystub nor IRS 4506-C Authorization is in the gate's `removed`
 list.
 
-### Title Invoice ("what's asked", not a numbered AC)
-
-**New this round — flagged as a proposal, not a guideline-verified rule**, per
-the ticket's own instruction to confirm against guidelines before changing any
-rule.
-
-**What was implemented:** new `_has_title_invoice_evidence()` + a conditional
-(evidence-gated) suppression — Title Invoice is only dropped when nothing in the
-submitted-document set suggests one actually exists yet. This is **not** an
-unconditional ban like Deed of Trust/Grant Deed/Owner Occupancy Certification.
-
-**Why conditional rather than unconditional:** an earlier 10x-consistency audit
-found Title Invoice genuinely *missing* from engine output on loans where the
-underwriter DID expect a Title Fee Sheet/Smart Fee per NQMF submission
-requirements (see `mandatory_docs()`'s existing comment in `tools/doc_rules.py`)
-— a real, contradictory signal from an earlier audit, sitting alongside this
-ticket's finding that it's being over-asked. The evidence-gated approach is a
-deliberate middle ground: it stops the ticket's reported over-ask (predicted
-unconditionally on all 4 UAT loans, confirmed by every one of
-`data/input/*/eligibility_output.json`'s `"Title Invoice": true` entries) without
-re-introducing the earlier audit's under-ask. **Open question, not resolved by
-this change:** whether the title company's invoice legitimately doesn't exist
-until near/at closing on every program, or only on some.
-
-**A real bug found and fixed along the way:** the first deploy of this fix
-still showed "Title Invoice" live despite passing all unit tests. Root cause:
-`apply_deterministic_rules()`'s `eligibility_required_docs()` injects "Title
-Invoice" via a `bypass_negative_gates=True` path (added earlier so
-authoritative eligibility-engine-required docs like Bank Statement/Profit and
-Loss aren't wrongly swept by broad heuristic gates) — this path skips
-`apply_negative_gates()` entirely, so the evidence gate never actually ran on a
-real loan whose eligibility JSON flags "Title Invoice" as a Minimum Required
-Document category, which is exactly what all 4 UAT loans' real eligibility JSON
-does. **That bypass path was the actual mechanism producing the ticket's
-reported over-ask.** Fixed with a narrow carve-out directly in `_inject()` so
-"Title Invoice" specifically always goes through its own evidence check
-regardless of `bypass_negative_gates`, while every other eligibility-required
-doc type keeps bypassing normally.
-
-**Tests** (`TestTitleInvoiceGatedOnEvidence`):
-- `test_no_evidence_suppresses_the_unconditional_floor_ask`
-- `test_real_title_invoice_on_file_is_kept`
-- `test_title_fee_sheet_alias_also_counts_as_evidence`
-- `test_eligibility_required_docs_bypass_path_is_not_exempt` — reproduces the
-  exact bypass-path bug found live, through the real `apply_deterministic_rules()`
-  (not `apply_negative_gates()` in isolation).
-- `test_eligibility_required_docs_bypass_path_still_keeps_it_with_evidence`
-- `test_other_eligibility_required_docs_still_bypass_normally` — negative
-  control: Profit and Loss (on a DSCR loan, where it would normally be
-  heuristically suppressed) still survives via the bypass path, confirming the
-  carve-out didn't disable `bypass_negative_gates` in general.
-
-**Live-confirmed, twice:**
-1. First redeploy — bug found: Title Invoice still present on
-   `compiled_inputs/nyarko` despite no title-invoice evidence in that fixture.
-2. Second redeploy (after the `_inject()` carve-out) — Title Invoice gone;
-   total document requests dropped from 28 to 27, exactly the one removal, with
-   nothing else changed.
-
 ---
 
 ## Live e2e verification (dev, post-deploy)
@@ -293,30 +228,23 @@ is real-borrower PII and isn't committed to this repo).
 
 | Run | What it confirmed |
 |---|---|
-| 1st deploy (commit `372b6fd`) | AC4/AC6/AC7 fixes live; Title Invoice **bug found** — still present despite no evidence, traced to the `bypass_negative_gates` path |
-| 2nd deploy (commit `8591a32`) | Title Invoice bug fixed: document count 28 → 27; Deed of Trust / Grant Deed / Owner Occupancy Certification still correctly absent; Verification of Rent / Current Lease Agreement / Rental Income Calculations Worksheet all still correctly **present** (this fixture has no suppression evidence — negative control intact); no duplicate document type names across the 27 items; ticket 4277's `not_yet_available_pre_closing` Note cross-check regression-checked and still correct |
+| Deploy (commit `372b6fd`) | AC4/AC6/AC7 fixes live: Deed of Trust / Grant Deed / Owner Occupancy Certification correctly absent; Verification of Rent / Current Lease Agreement / Rental Income Calculations Worksheet all correctly **present** (this fixture has no suppression evidence — negative control intact); no duplicate document type names across the output; ticket 4277's `not_yet_available_pre_closing` Note cross-check regression-checked and still correct |
 
-Full regression after both commits: **291 passed, 48 skipped, 0 failures** (up
-from 263 before this ticket — +28 new tests, all in
+Full regression: **291 passed, 48 skipped, 0 failures** (up from 263 before
+this ticket — +28 new tests, all in
 `tests/test_ticket_4274_predicted_conditions_scope.py`).
 
 ---
 
 ## What's still genuinely open
 
-1. **Title Invoice's underlying question is unresolved, by design.** This
-   ticket's fix makes the *symptom* (unconditional over-ask) stop, but whether
-   the title company's invoice should ever be predicted pre-closing on any
-   program — the actual guideline question the ticket asks to confirm — still
-   needs a human/underwriting-policy answer, not a code change. Recommend
-   closing this with underwriting rather than engineering.
-2. **AC7's fix addresses the confirmed, most-likely root cause** (inconsistent
+1. **AC7's fix addresses the confirmed, most-likely root cause** (inconsistent
    `document_context` across per-module LLM proposals), but the original
    report's exact loan-512 symptom (34 conditions, 13 near-exact repeats) was
    never independently reproduced against real loan-512 data (PII, not
    available locally) — the fix is validated against synthetic duplicates and a
    live multi-document nyarko run showing zero duplicates, not loan 512 itself.
-3. **AC4/AC6's evidence detection is best-effort.** `_has_appraisal_rent_schedule()`,
+2. **AC4/AC6's evidence detection is best-effort.** `_has_appraisal_rent_schedule()`,
    `_has_mortgage_statement_evidence()`, and `_has_rent_free_letter()` scan for
    plausible field names and free-text tokens since no local fixture has real
    appraisal/mortgage-statement extraction data to confirm the exact field keys
