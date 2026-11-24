@@ -488,9 +488,14 @@ Invoice" specifically always goes through its own evidence check regardless
 of `bypass_negative_gates`, while every other eligibility-required doc type
 keeps bypassing normally (confirmed via a dedicated negative-control test —
 see `test_other_eligibility_required_docs_still_bypass_normally`). Re-ran
-`compiled_inputs/nyarko` against the corrected redeploy: "Title Invoice" no
-longer appears, "Deed of Trust"/"Grant Deed"/"Owner Occupancy Certification"
-still correctly absent, the Appraisal Report's Note cross-checks still show
-`not_yet_available_pre_closing` (4277 regression check), and no document
-type name repeats in the 28-item output (4274 AC7 regression check on a
-real, not synthetic, run).
+`compiled_inputs/nyarko` against the corrected redeploy: total document
+requests dropped from 28 to 27 (exactly the "Title Invoice" removal, with
+nothing else changed), "Deed of Trust"/"Grant Deed"/"Owner Occupancy
+Certification" still correctly absent, "Verification of Rent"/"Current
+Lease Agreement"/"Rental Income Calculations Worksheet" are all still
+correctly PRESENT (nyarko has no mortgage-statement/rent-free-letter/
+appraisal-rent-schedule evidence, so AC4/AC6's gates correctly did NOT
+over-suppress — negative control intact), the Appraisal Report's Note
+cross-checks still show `not_yet_available_pre_closing` (4277 regression
+check), and no document type name repeats across the 27-item output (4274
+AC7 regression check on a real, not synthetic, run).
