@@ -75,7 +75,7 @@ partially deterministic for one of its three named document types (see AC9 below
 | 6 | Before closing with appraisal → no check against the Note shows missing | ✅ Unit-tested (real bug fixed) | **Found and fixed**: the Note/security instrument only exists after closing, so `cross_document_checks` always reported `missing_sibling_document` for the appraisal's 2 Note-dated specs on every pre-closing file — the correct, universal state, not a real gap. New `not_yet_available_pre_closing` status added specifically for closing-only cross-reference targets. `TestNoteNotCheckedBeforeClosing::test_appraisal_note_cross_checks_do_not_show_missing_sibling_document` |
 | 7 | Credit report with empty tradelines → tradeline requirements "not verified" | ✅ Unit-tested | `TestTradelineNotVerifiedWording` (3 tests) — open tradeline-detail specs are rewritten in place to literally start with "Not verified:", distinct from PC-12's earlier fix (which only stopped them being *falsely satisfied*; this makes the open state explicit) |
 | 8 | Any loan → every condition has at least one requirement | ✅ Unit-tested | `TestEveryConditionHasAtLeastOneRequirement::test_fallback_item_when_canonicalization_resolves_to_empty` |
-| 9 | Loan at Clear to Close with full file → Appraisal Report, Flood Hazard Determination, Title Commitment show most requirements met | ⚠️ **Partially addressed — the hardest AC in this batch** | This is PC-05 from the original 17 Nov report, previously flagged "Not addressed." It is fundamentally about LLM satisfaction-grading quality, not deterministic code. **24 Nov 2026 upgrade for Appraisal Report specifically**: `compiled_inputs/aubrey` has rich real extraction data (`appraiser.license`, non-empty `comps[]` with real `salePrice`/`adjustedValue`) confirming 2 of this doc type's ~35 conditioned specs — "appraiser must provide license/certification" and the Sales Comparison Approach/comps spec — are now safe to credit deterministically. New `_apply_appraisal_report_backstop()` (`tools/merger_tools.py`) does exactly that, mirroring the pattern PC-12 used for Credit Report. `TestAppraisalReportBackstop` (5 tests, incl. one against real `aubrey` data). The other ~33 Appraisal Report specs (photos, sketches, maps, narrative, limiting-conditions certification) have no corresponding field in any fixture and are deliberately left untouched — crediting them would be guessing. **Flood Hazard Determination and Title Commitment remain completely unaddressed**: re-confirmed on fresh inspection that zero of the 5 local fixtures contain either document category at all (an earlier version of this doc inaccurately claimed `weingarten` had a Title Commitment — it does not; its 28 documents include an Appraisal Report but no Title Commitment). Guessing at field names for either risks the opposite failure mode: **false positives** (claiming a requirement is met when it isn't), which is worse than today's over-cautious "mostly open." The general `_SATISFACTION_INSTRUCTIONS` reinforcement paragraph for all 3 document types remains in place for whatever isn't covered by the new backstop. **Recommend**: get one real Flood Hazard Determination / Title Commitment extraction sample from production to close the remaining two document types. |
+| 9 | Loan at Clear to Close with full file → Appraisal Report, Flood Hazard Determination, Title Commitment show most requirements met | ⚠️ **Partially addressed — the hardest AC in this batch** | This is PC-05 from the original 17 Nov report, previously flagged "Not addressed." It is fundamentally about LLM satisfaction-grading quality, not deterministic code. **24 Nov 2026 upgrade for Appraisal Report specifically**: `compiled_inputs/aubrey` has rich real extraction data (`appraiser.license`, non-empty `comps[]` with real `salePrice`/`adjustedValue`) confirming 2 of this doc type's ~35 conditioned specs — "appraiser must provide license/certification" (plus the parallel "licensed/certified in the property's state" spec) and the Sales Comparison Approach spec — are now safe to credit deterministically. New `_apply_appraisal_report_backstop()` (`tools/merger_tools.py`) does exactly that, mirroring the pattern PC-12 used for Credit Report. **A real false positive was caught and fixed during live verification**: the first version matched on the broader phrase "comparable used," which also appears inside the unrelated "must contain a street map showing... all comparable used" spec and the "unfavorable conditions... comparable sales" commentary spec — the live `aubrey` run actually credited the street-map spec with zero evidence a street map exists. Narrowed the keyword to the exact phrase "sales comparison approach," which (confirmed against `data/canonical_doc_specs.json`) appears in exactly one spec — the one `comps[]` actually backs. Re-verified live afterward: only the 3 genuinely field-backed specs are credited. `TestAppraisalReportBackstop` (6 tests, incl. a regression test for this exact false positive, and one against real `aubrey` data). The other ~32 Appraisal Report specs (photos, sketches, maps, narrative, limiting-conditions certification) have no corresponding field in any fixture and are deliberately left untouched — crediting them would be guessing. **Flood Hazard Determination and Title Commitment remain completely unaddressed**: re-confirmed on fresh inspection that zero of the 5 local fixtures contain either document category at all (an earlier version of this doc inaccurately claimed `weingarten` had a Title Commitment — it does not; its 28 documents include an Appraisal Report but no Title Commitment). Guessing at field names for either risks the opposite failure mode: **false positives** (claiming a requirement is met when it isn't), which is worse than today's over-cautious "mostly open" — exactly what the street-map incident above demonstrated firsthand. The general `_SATISFACTION_INSTRUCTIONS` reinforcement paragraph for all 3 document types remains in place for whatever isn't covered by the new backstop. **Recommend**: get one real Flood Hazard Determination / Title Commitment extraction sample from production to close the remaining two document types. |
 
 ---
 
@@ -156,6 +156,38 @@ them on real (not synthetic-test) data:
   run on real extraction data. No fixture with those shapes exists among the locally
   available `compiled_inputs/*` test files; one would need to be sourced or
   hand-built from a redacted real file to close this specific residual gap.
+
+### Third deploy (24 Nov 2026 follow-up: `7c0f55a`, deployed, `deploy` job green in 3m47s)
+
+Specifically to live-verify the two new backstops added this round (bank-statement
+coverage annotation, Appraisal Report license/comps backstop) against real data,
+not just unit tests:
+
+- **`compiled_inputs/nyarko`** — success (27 document requests, 4 hard stops). Bank
+  Statement came back `satisfied_but_review_required`, and its own satisfied-spec
+  reason **directly echoes the new deterministic `_coverage_summary` text**: *"Three
+  consecutive business statements for KOREE PARTNERS LLC (account 4127) were
+  provided, covering 2025-11-01 to 2026-01-30 with no gaps (91 days)."* — confirming
+  the LLM is reading the new field, not recomputing the date math itself.
+- **`compiled_inputs/aubrey`** — success (26 document requests, 4 hard stops).
+  Appraisal Report came back `satisfied_but_review_required`; its satisfied specs
+  confirmed the license and Sales Comparison Approach specs were credited with the
+  backstop's own canned reason text ("Confirmed from the appraisal report's own
+  extracted data...").
+  - **A real false positive was caught right here, on this run**: the first version
+    of the backstop's keyword list also credited "Appraisal report must contain a
+    street map showing the location of the subject property and all comparable
+    used" — a spec about a street map, with zero evidence one exists, solely
+    because it happens to share the phrase "comparable used" with the real
+    Sales Comparison Approach spec. Fixed by narrowing the keyword to the exact
+    phrase "sales comparison approach" (confirmed unique to the one real spec in
+    `data/canonical_doc_specs.json`), added a regression test for the exact
+    false-positive spec text, and re-ran this same `aubrey` output through the
+    fixed backstop directly — confirmed it now credits only the 3 genuinely
+    field-backed specs (license, state-licensure, Sales Comparison Approach) and
+    nothing else. This is exactly the failure mode this document's own PC-05
+    analysis warned was worse than leaving a spec open — caught before being
+    reported as closed, not after.
 
 ## What's still genuinely open after this batch
 

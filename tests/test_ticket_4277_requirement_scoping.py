@@ -310,6 +310,22 @@ class TestAppraisalReportBackstop:
         "Appraisal report must contain original color photographs of the "
         "front, street, and rear views of the subject property"
     )
+    # 24 Nov 2026: this exact spec text is REAL (data/canonical_doc_specs.json)
+    # and is what caused a live, confirmed false positive the first time this
+    # backstop shipped -- its broader keyword list ("comparable used") matched
+    # this unrelated street-map spec purely because that phrase happens to
+    # appear in both. Must stay open; no evidence of a street map exists.
+    _STREET_MAP_SPEC = (
+        "Appraisal report must contain a street map showing the location of "
+        "the subject property and all comparable used"
+    )
+    # Also real, and also mentions "comparable sales" without being backed by
+    # our comps evidence -- the unfavorable-conditions commentary itself (not
+    # the sales-comparison data) is what this spec actually needs.
+    _UNFAVORABLE_CONDITIONS_SPEC = (
+        "When unfavorable conditions exist, the appraiser's analysis must "
+        "reflect and include comparable sales that are similarly affected"
+    )
 
     def test_real_aubrey_data_credits_license_and_comps_but_not_photos(self):
         fields = {
@@ -320,14 +336,22 @@ class TestAppraisalReportBackstop:
                 {"salePrice": 600000, "adjustedValue": 625000},
             ],
         }
-        specs = [self._LICENSE_SPEC, self._COMPS_SPEC, self._PHOTO_SPEC]
+        specs = [
+            self._LICENSE_SPEC, self._COMPS_SPEC, self._PHOTO_SPEC,
+            self._STREET_MAP_SPEC, self._UNFAVORABLE_CONDITIONS_SPEC,
+        ]
         satisfied: list[dict] = []
         _apply_appraisal_report_backstop("Appraisal Report", specs, satisfied, [fields])
         satisfied_texts = {s["specification"] for s in satisfied}
         assert self._LICENSE_SPEC in satisfied_texts
         assert self._COMPS_SPEC in satisfied_texts
-        # Not field-backed -- must stay open, not false-positived.
+        # Not field-backed -- must stay open, not false-positived. The street
+        # map and unfavorable-conditions specs are the real-world regression
+        # this test guards against: both mention "comparable" but aren't
+        # actually about the Sales Comparison Approach data comps[] backs.
         assert self._PHOTO_SPEC not in satisfied_texts
+        assert self._STREET_MAP_SPEC not in satisfied_texts
+        assert self._UNFAVORABLE_CONDITIONS_SPEC not in satisfied_texts
 
     def test_no_appraiser_license_leaves_spec_open(self):
         fields = {"appraiser": {"name": "Jessica L. Dutra"}}  # no license key

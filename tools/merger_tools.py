@@ -3730,8 +3730,17 @@ def _apply_passport_no_address_backstop(
 _APPRAISER_LICENSE_SPEC_KEYWORDS = (
     "license or certification", "licensed or certified",
 )
+# Deliberately NARROW to "sales comparison approach" only. Broader phrases
+# like "comparable sales"/"comparable used" were tried first but caused a
+# real, live-confirmed false positive: both also appear inside the totally
+# unrelated "must contain a street map showing... all comparable used" spec
+# (no evidence of a street map exists anywhere) and the "unfavorable
+# conditions... comparable sales" commentary spec (no evidence of that
+# commentary exists either) — confirmed via data/canonical_doc_specs.json's
+# "appraisal report" entry, where "sales comparison approach" as a phrase
+# appears in exactly one spec, the one comps[] actually backs.
 _SALES_COMPARISON_SPEC_KEYWORDS = (
-    "sales comparison approach", "comparable sales", "comparable used",
+    "sales comparison approach",
 )
 
 
