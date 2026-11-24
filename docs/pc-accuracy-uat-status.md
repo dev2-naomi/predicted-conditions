@@ -380,11 +380,25 @@ before this batch — +34 new tests across the three ticket-specific files).
   with the pointer round-tripping correctly, the no-bucket-configured
   fallback (still fails loudly rather than silently losing data), and
   backward compatibility with the pre-existing decimal-conversion test
-  file's `__new__`-bypass-`__init__` construction pattern. **Live-confirmed**:
-  redeployed and re-ran `compiled_inputs/montes` end-to-end — the run now
-  completes successfully instead of 500ing at creation (see the live e2e
-  note further down this doc / `docs/tickets-4275-4278-acceptance-criteria-proof.md`
-  for the actual run output).
+  file's `__new__`-bypass-`__init__` construction pattern.
+
+  **Live-confirmed, 24 Nov 2026**: redeployed (`e12f616`, `deploy` job green
+  in 3m27s) and re-ran `compiled_inputs/montes` end-to-end. Confirmed directly
+  against AWS, not just the client-side response: the run's DynamoDB item
+  (`RUN#922d985e-2e72-433a-893c-b0bacf7ba610`) carries an `input_payload_ref`
+  pointer instead of an inline payload, pointing at a 486,258-byte object in
+  the `CheckpointOffloadBucket` (`runs/922d985e-.../input.json`) — montes'
+  real combined payload, offloaded exactly as designed. The run itself
+  finished with `status=success` in 143s (no 500, no ValidationException),
+  producing 27 document requests. This also finally unblocked the ORIGINAL
+  reason montes was picked for this round of testing — the EMD-evidence
+  suppression: EMD Check came back `satisfied_but_review_required`, correctly
+  crediting "acceptable source of funds" from the real title-company EMD
+  document + matching bank statement, and correctly marking the 12-month
+  escrow-letter spec "Not applicable" since the contract (2026-02-09) and the
+  EMD document (2026-03-02) are less than a month apart — both exactly the
+  kind of real-data confirmation this fixture was originally chosen for but
+  couldn't reach before this fix.
 
 **Deferred / not addressed (same ticket text, explicitly out of scope for this
 batch):** period-set "names the missing month" naming enhancement (4276); the

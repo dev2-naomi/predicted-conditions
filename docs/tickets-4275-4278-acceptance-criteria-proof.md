@@ -115,8 +115,7 @@ Also confirmed live: `compiled_inputs/niccum` (Retail, negative control) correct
 - **`compiled_inputs/montes`** — originally hit a **pre-existing, unrelated**
   infra limit (DynamoDB 400KB item-size cap in `api/thread_store.py`, nothing to
   do with this batch's document-generation changes) before reaching the agent
-  at all. **Fixed 24 Nov 2026** — see "Fourth deploy" below and
-  `docs/pc-accuracy-uat-status.md` for the full fix writeup.
+  at all. **Fixed and live-verified 24 Nov 2026** — see "Fourth deploy" below.
 
 ### Second deploy (this batch's fixes: `79dea33`, deployed, `deploy` job green in 4m18s)
 
@@ -192,6 +191,40 @@ not just unit tests:
     nothing else. This is exactly the failure mode this document's own PC-05
     analysis warned was worse than leaving a spec open — caught before being
     reported as closed, not after.
+
+### Fourth deploy (24 Nov 2026: `e12f616` — fixes the montes 500, unrelated to the document-generation logic above)
+
+This is the pre-existing, separate infra issue flagged earlier in this
+section: `DynamoDBThreadStore.create_run()` (`api/thread_store.py`) stored
+the full raw run_body inline in one DynamoDB item, and montes' ~455KB
+combined payload exceeded DynamoDB's 400KB hard item-size cap, 500ing
+before the agent was ever invoked. Fixed by reusing the exact same S3
+bucket `api/checkpointer.py`'s `DynamoDBSaver` already offloads oversized
+checkpoints into (no new infra needed) — oversized `run_body` now goes to
+S3 with a small pointer stored in DynamoDB instead.
+
+- **`compiled_inputs/montes`** — success (143s, 27 document requests, 5 hard
+  stops). Confirmed directly against AWS, not just the client response: the
+  run's DynamoDB item carries an `input_payload_ref` pointer to a
+  486,258-byte object in the `CheckpointOffloadBucket`, not an inline
+  payload — the offload fired exactly as designed, and the run finished
+  with `status=success`, no 500, no `ValidationException`.
+  - **Bonus**: this also finally unblocked the ORIGINAL reason montes was
+    picked for live testing — the EMD-evidence suppression (4277-adjacent).
+    EMD Check came back `satisfied_but_review_required`, correctly crediting
+    "acceptable source of funds" from the real title-company EMD document +
+    matching bank statement, and correctly marking the 12-month escrow-letter
+    spec "Not applicable" since the contract (2026-02-09) and EMD document
+    (2026-03-02) are under a month apart.
+- 10 new unit tests in `tests/test_thread_store_s3_offload.py` cover the
+  offload/resolve round-trip, the no-bucket-configured fallback, and
+  backward compatibility with the pre-existing decimal-conversion test
+  file's construction pattern. Both that file and the new one need Python
+  3.11+ (`datetime.UTC`, matching the deploy's own runtime) — verified
+  green under a local 3.11 venv (324 passed, 48 skipped; the only failures
+  were a pre-existing, unrelated `langgraph` version mismatch in a fresh
+  venv for `test_sequential_tool_node.py`, confirmed unrelated by excluding
+  it and re-running clean).
 
 ## What's still genuinely open after this batch
 
