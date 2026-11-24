@@ -383,3 +383,88 @@ and appraisal-lender-mismatch detection are implemented as best-effort against
 plausible field names (see inline code comments in `tools/merger_tools.py` and
 `tools/doc_rules.py`) since no local fixture carries real data to confirm the
 exact extracted-field keys against.
+
+## 24 Nov 2026 addendum — ticket 4274 (closes PC-01's Title Invoice item, PC-02's
+DSCR-purchase lease item, PC-03's VOR item, and PC-11)
+
+Ticket 4274 ("Don't Ask for Documents the Loan Can't Need") restates PC-01/02/
+03/04/11 with 8 explicit, directly testable acceptance criteria plus a Title
+Invoice item that's explicit in "what's asked" but not in the numbered ACs.
+Audited each AC against current code; 4 were already satisfied by prior
+fixes (AC1 Deed of Trust/Grant Deed, AC2 Owner Occupancy Certification, AC3
+DSCR wage docs, AC5 VOD, AC8 wage-earner negative control), 3 were genuinely
+open and fixed this round (AC4, AC6, AC7), plus the non-numbered Title
+Invoice item.
+
+**AC4 — DSCR purchase + appraisal rent schedule → no Current Lease
+Agreement / Rental Income Calculations Worksheet (closes PC-02's remaining
+item):** new `_has_appraisal_rent_schedule()` (`tools/doc_rules.py`) scans a
+submitted Appraisal Report's extracted fields for Form 1007/1025
+rent-schedule evidence (best-effort field-key + free-text scan, no local
+fixture has real appraisal extraction data to confirm exact field names
+against). New `_RENT_SCHEDULE_SUPPRESSED` gate drops Rental Agreement /
+Rental Income Calculations Worksheet when `is_purchase AND
+has_appraisal_rent_schedule`. Guideline-grounded:
+`data/canonical_doc_specs.json`'s "Single Family Comparable Rent Schedule
+(FNMA Form 1007) must be included for all 1-unit Investment Properties when
+rental income is used to qualifying" and
+`data/conditions_masterlist.json`'s "[provide] Form 1007 Comparative Rent
+Schedule (if income is being used)" both treat the 1007/1025 as a standalone
+alternative to a lease, not an additional requirement on top of it. Scoped
+to purchases only (a refinance with an existing tenant still needs its own
+lease evidence even if the appraisal also carries a 1007).
+
+**AC6 — mortgage statements or a rent-free letter in file → no Verification
+of Rent (closes PC-03's remaining item):** new
+`_has_mortgage_statement_evidence()` / `_has_rent_free_letter()` +
+`_VOR_DOCS` gate, same alternative-evidence pattern as the existing
+VOD/`_has_asset_statement()` fix. Guideline-grounded:
+`data/canonical_doc_specs.json`'s "Borrowers living rent-free must provide a
+rent-free letter from the property owner instead of a VOR";
+`data/doctype_masterlist.json` has "Mortgage Statement" as its own real
+document type distinct from Verification of Mortgage.
+
+**AC7 — no condition name appears twice on a multi-borrower, large file
+(closes PC-11):** root cause confirmed as suspected —
+`merge_document_requests`'s existing `_merge_key` (document_type +
+document_context) lets two per-module LLM proposals for the SAME real-world
+document need survive as separate groups whenever document_context is
+populated inconsistently between them (one proposal tags
+`{"borrower": "..."}`, another for the identical need leaves it empty) —
+each then carries different (sometimes contradictory) content under the
+same display name, matching the report's "34 conditions, 13 repeated
+another by name with a different result" symptom. New
+`_collapse_duplicate_canonical_types()` (`tools/merger_tools.py`) runs a
+second, coarser merge pass keyed on canonical document_type alone,
+immediately after the existing context-aware merge — consistent with how
+every other multi-copy scenario in this codebase is represented (one
+document_request carrying multiple document_ids, not multiple rows for the
+same type). Does not affect `tools/coborrower.py`'s later, intentional
+one-row-per-party split for borrower-specific types on a multi-borrower
+loan (that pass re-derives its own rows from this now-deduped canonical set
+afterward).
+
+**Title Invoice ("what's asked", not a numbered AC):** new
+`_has_title_invoice_evidence()` + conditional gate — stops flooring Title
+Invoice as an open "needed" ask when nothing in the submitted-document set
+suggests one actually exists yet, but (unlike Deed of Trust/Grant
+Deed/Owner Occupancy Certification) does NOT ban it outright, since an
+earlier 10x-consistency audit found it genuinely missing from engine output
+on loans where the underwriter DID expect a Title Fee Sheet/Smart Fee per
+NQMF submission requirements (see `mandatory_docs()`'s existing comment —
+a real, contradictory signal from an earlier audit). **Flagged per the
+ticket's own "confirm against guidelines before changing any rule"
+instruction: this is a proposal, not a guideline-verified rule** — the
+open question is whether the title company's invoice legitimately doesn't
+exist until near/at closing on every program, or only on some.
+
+**Tests:** `tests/test_ticket_4274_predicted_conditions_scope.py`, 25/25
+passing — one test class per AC (plus the Title Invoice item), each run
+against the real `mandatory_docs()`/`conditional_docs()`/
+`derive_income_docs()`/`apply_negative_gates()` pipeline (not a synthetic
+doc list standing in for it), including simulated-LLM-reproposal tests for
+the 3 ACs whose document types the floor no longer injects at all (Deed of
+Trust, Grant Deed, Owner Occupancy Certification) — confirming the gate
+itself still catches them, not just that the floor's absence was never
+exercised. Full regression: **288 passed, 48 skipped, 0 failures** (up from
+263 — +25 new tests).

@@ -258,6 +258,34 @@ def derive_flags(ss: dict) -> dict:
         # this defaults to False (don't over-ask) rather than None/unknown
         # -- see _appraisal_ordered_for_different_lender's docstring.
         "appraisal_different_lender": _appraisal_ordered_for_different_lender(ss),
+        # Ticket 4274: "On a purchase, no Current Lease Agreement / Rental
+        # Income Calculations Worksheet when rent comes from the appraisal
+        # rent schedule." Guideline basis: data/canonical_doc_specs.json's
+        # "Single Family Comparable Rent Schedule (FNMA Form 1007) must be
+        # included for all 1-unit Investment Properties when rental income
+        # is used to qualifying" / conditions_masterlist.json's "provide
+        # Form 1007 Comparative Rent Schedule (if income is being used)" --
+        # the 1007/1025 rent schedule is an accepted ALTERNATIVE to a lease,
+        # not an additional requirement on top of it, exactly like PC-03's
+        # VOD-vs-bank-statement pattern. See
+        # _has_appraisal_rent_schedule's docstring for the detection.
+        "has_appraisal_rent_schedule": _has_appraisal_rent_schedule(ss),
+        # Ticket 4274: "no VOR when mortgage statements or a rent-free
+        # letter are in file" -- Verification of Rent is an accepted
+        # ALTERNATIVE to either piece of evidence already being on file,
+        # not an additional requirement on top of them (same PC-03
+        # reasoning as has_asset_statement/VOD above). Guideline basis:
+        # data/canonical_doc_specs.json "Borrowers living rent-free must
+        # provide a rent-free letter from the property owner instead of a
+        # VOR"; data/doctype_masterlist.json has "Mortgage Statement" as
+        # its own real document type distinct from Verification of
+        # Mortgage.
+        "has_mortgage_statement_evidence": _has_mortgage_statement_evidence(ss),
+        "has_rent_free_letter": _has_rent_free_letter(ss),
+        # Ticket 4274: see _has_title_invoice_evidence's docstring (defined
+        # near _TITLE_INVOICE_EVIDENCE_TOKENS, below mandatory_docs()/
+        # conditional_docs() since it's a negative-gate helper).
+        "has_title_invoice_evidence": _has_title_invoice_evidence(ss),
     }
 
 
@@ -379,6 +407,86 @@ def _has_emd_evidence(ss: dict) -> bool:
         name = str(sdoc.get("name") or "").strip().lower()
         dtype = str(sdoc.get("doc_type") or "").strip().lower()
         if any(tok in name or tok in dtype for tok in tokens):
+            return True
+    return False
+
+
+# Field keys and free-text tokens that signal a submitted Appraisal Report
+# actually carries a comparable rent schedule (FNMA Form 1007/1025) -- see
+# derive_flags' has_appraisal_rent_schedule comment for the guideline basis.
+# Best-effort: no local fixture carries real appraisal extraction data with
+# these fields populated, so this defaults to False (don't over-suppress
+# the lease/rental-worksheet docs) whenever none of these are found, same
+# "absence of evidence isn't evidence of absence -- but it's not evidence
+# FOR suppression either" principle as _appraisal_ordered_for_different_lender.
+_RENT_SCHEDULE_FIELD_KEYS = (
+    "rentSchedule", "rent_schedule", "marketRent", "market_rent",
+    "estimatedMonthlyMarketRent", "monthlyMarketRent", "grossMonthlyRent",
+    "estimatedFairMarketRent", "fairMarketRent", "form1007", "form_1007",
+    "comparableRentSchedule",
+)
+_RENT_SCHEDULE_TEXT_TOKENS = (
+    "form 1007", "form 1025", "1007/1025", "comparable rent schedule",
+    "rent schedule",
+)
+
+
+def _has_appraisal_rent_schedule(ss: dict) -> bool:
+    """True when a submitted Appraisal Report's own extracted fields show
+    a populated comparable rent schedule (Form 1007/1025) -- see the
+    module constants above and derive_flags' has_appraisal_rent_schedule
+    comment for the guideline basis (ticket 4274)."""
+    for sdoc in ss.get("_submitted_docs") or []:
+        name = str(sdoc.get("name") or "").strip().lower()
+        dtype = str(sdoc.get("doc_type") or "").strip().lower()
+        if "appraisal" not in name and "appraisal" not in dtype:
+            continue
+        fields = sdoc.get("extracted_fields") or {}
+        if not isinstance(fields, dict):
+            continue
+        for key in _RENT_SCHEDULE_FIELD_KEYS:
+            val = fields.get(key)
+            if val not in (None, "", [], {}):
+                return True
+        for val in fields.values():
+            if isinstance(val, str) and any(
+                tok in val.lower() for tok in _RENT_SCHEDULE_TEXT_TOKENS
+            ):
+                return True
+    return False
+
+
+# Verification of Rent's two accepted alternatives (ticket 4274) -- see
+# derive_flags' has_mortgage_statement_evidence/has_rent_free_letter
+# comment for the guideline basis.
+_MORTGAGE_STATEMENT_EVIDENCE_TOKENS = (
+    "mortgage statement", "mortgage payment history",
+)
+_RENT_FREE_LETTER_TOKENS = (
+    "rent free letter", "rent-free letter", "letter of rent free",
+    "letter of rent-free",
+)
+
+
+def _has_mortgage_statement_evidence(ss: dict) -> bool:
+    """True when a Mortgage Statement (or equivalent mortgage-payment-
+    history document) was itself submitted -- see
+    _MORTGAGE_STATEMENT_EVIDENCE_TOKENS and derive_flags' comment."""
+    for sdoc in ss.get("_submitted_docs") or []:
+        name = str(sdoc.get("name") or "").strip().lower()
+        dtype = str(sdoc.get("doc_type") or "").strip().lower()
+        if any(tok in name or tok in dtype for tok in _MORTGAGE_STATEMENT_EVIDENCE_TOKENS):
+            return True
+    return False
+
+
+def _has_rent_free_letter(ss: dict) -> bool:
+    """True when a rent-free letter was itself submitted -- see
+    _RENT_FREE_LETTER_TOKENS and derive_flags' comment."""
+    for sdoc in ss.get("_submitted_docs") or []:
+        name = str(sdoc.get("name") or "").strip().lower()
+        dtype = str(sdoc.get("doc_type") or "").strip().lower()
+        if any(tok in name or tok in dtype for tok in _RENT_FREE_LETTER_TOKENS):
             return True
     return False
 
@@ -1313,6 +1421,57 @@ _VOM_DOCS = {"verification of mortgage", "vom", "mortgage payment history"}
 # top of it — see _has_asset_statement's module comment (PC-03).
 _VOD_DOCS = {"verification of deposit", "vod", "deposit verification"}
 
+# Verification of Rent is an accepted ALTERNATIVE to mortgage-statement
+# housing history or a rent-free letter, not an additional requirement on
+# top of either -- see has_mortgage_statement_evidence/has_rent_free_letter
+# comments above (ticket 4274, PC-03's own "still open" item).
+_VOR_DOCS = {"verification of rent", "vor"}
+
+# Current Lease Agreement / Rental Income Calculations Worksheet are an
+# accepted ALTERNATIVE to the appraisal's own comparable rent schedule
+# (Form 1007/1025) on a purchase -- there is no lease yet pre-closing on a
+# new purchase, and the guideline text itself treats the 1007/1025 as
+# sufficient on its own when rental income is used to qualify (see
+# has_appraisal_rent_schedule's derive_flags comment for the guideline
+# citations). Ticket 4274's own evidence (loan 511: DSCR purchase,
+# "underwriter used the appraisal rent schedule") is exactly this case.
+_RENT_SCHEDULE_SUPPRESSED = {
+    "rental agreement", "lease agreement", "rental income calculations worksheet",
+}
+
+# Title Invoice evidence tokens -- ticket 4274: "Title Invoice predicted on
+# all four [UAT loans]; the underwriter asked for it on none." Unlike Deed
+# of Trust/Grant Deed/Owner Occupancy Certification (which categorically
+# CANNOT exist pre-closing), a Title Invoice conceivably could be issued
+# earlier by the title company -- so rather than ban it outright (an
+# earlier 10x-consistency audit found it genuinely missing from engine
+# output on loans where the underwriter DID expect a Title Fee Sheet/Smart
+# Fee per NQMF submission requirements, see mandatory_docs()'s comment),
+# this instead stops FLOORING it as an open "needed" ask when nothing in
+# the file suggests one actually exists yet -- mirroring the VOD/VOR
+# alternative-evidence pattern rather than the Deed of Trust-style
+# unconditional ban. If a genuine Title Invoice/Title Fee Sheet IS
+# submitted, it's still recognized and credited normally.
+# CAVEAT (per the ticket's own "confirm against guidelines before changing
+# any rule" instruction): this is a proposal, not a guideline-verified
+# rule -- flagging for confirmation against NQMF's actual submission-
+# requirements timing (does the title company's invoice legitimately not
+# exist until near/at closing on every program, or only on some?) before
+# treating this as fully settled.
+_TITLE_INVOICE_EVIDENCE_TOKENS = ("title invoice", "title fee sheet", "smart fee")
+
+
+def _has_title_invoice_evidence(ss: dict) -> bool:
+    """True when a Title Invoice/Title Fee Sheet-shaped document was
+    itself submitted -- see _TITLE_INVOICE_EVIDENCE_TOKENS above."""
+    for sdoc in ss.get("_submitted_docs") or []:
+        name = str(sdoc.get("name") or "").strip().lower()
+        dtype = str(sdoc.get("doc_type") or "").strip().lower()
+        if any(tok in name or tok in dtype for tok in _TITLE_INVOICE_EVIDENCE_TOKENS):
+            return True
+    return False
+
+
 # Closing-stage documents that CANNOT exist in a pre-closing file by
 # definition — the security instrument records AT closing, a grant deed
 # records the ownership transfer AT closing, and an owner-occupancy
@@ -1369,6 +1528,18 @@ def apply_negative_gates(docs: list[dict], flags: dict) -> tuple[list[dict], lis
               and not flags["is_refinance"]):
             drop = True
         elif dt in _VOD_DOCS and flags["has_asset_statement"]:
+            drop = True
+        elif dt in _VOR_DOCS and (
+            flags.get("has_mortgage_statement_evidence")
+            or flags.get("has_rent_free_letter")
+        ):
+            drop = True
+        elif (
+            dt in _RENT_SCHEDULE_SUPPRESSED and flags["is_purchase"]
+            and flags.get("has_appraisal_rent_schedule")
+        ):
+            drop = True
+        elif dt == "title invoice" and not flags.get("has_title_invoice_evidence"):
             drop = True
         elif dt in _CLOSING_STAGE_SUPPRESSED:
             drop = True

@@ -747,6 +747,65 @@ def _merge_two(base: dict, other: dict) -> dict:
     return merged
 
 
+def _collapse_duplicate_canonical_types(docs: list[dict]) -> list[dict]:
+    """Collapse any remaining document_requests that share the same
+    canonical document_type into one, merging their content via
+    _merge_two.
+
+    Ticket 4274 acceptance criterion ("no condition name appears twice" on
+    a two-borrower, large file) and "what's asked" item ("one condition
+    per document per run"). _merge_key (see module comment above
+    merge_document_requests) already groups same document_type +
+    document_context together, but when the SAME real-world document need
+    gets proposed by multiple per-module LLM steps with inconsistently
+    populated document_context (one proposal carries
+    {"borrower": "Jane Doe"}, another for the identical need leaves
+    document_context empty/absent), they land in two different
+    merge-key groups and both survive to the final output under the same
+    display name with different (sometimes contradictory) content --
+    exactly the 17 Nov 2026 accuracy report's loan-512 symptom ("34
+    conditions, 13 repeated another by name with a different result").
+
+    This runs AFTER the document_context-aware merge above, as a second,
+    coarser pass keyed on canonical document_type ALONE -- deliberately
+    discarding context-based differentiation for same-type duplicates,
+    consistent with how every other multi-copy scenario in this codebase
+    is represented (one document_request carrying multiple document_ids /
+    a merged period range, e.g. ticket 4276's paystub/bank-statement
+    merge and government-ID-per-borrower handling), not multiple
+    document_request rows for the same canonical type. The one sanctioned
+    exception -- one row per PARTY for borrower-specific types on a
+    multi-borrower loan -- is applied later, in tools/coborrower.py's
+    per-party split, which runs after this and re-derives its own rows
+    from the (now deduped) canonical set; it is not affected by this
+    collapse.
+
+    Order-preserving: the first occurrence's position in the output list
+    is kept; later duplicates are merged into it in encounter order.
+    """
+    out: list[dict] = []
+    index_by_canon: dict[str, int] = {}
+    for dr in docs:
+        raw_type = dr.get("document_type") or dr.get("document_name") or ""
+        canon = _canonical_doc_type(raw_type)
+        if not canon:
+            out.append(dr)
+            continue
+        if canon in index_by_canon:
+            i = index_by_canon[canon]
+            base = out[i]
+            merged_corrob = sorted(
+                set(base.get("_corroborating_modules") or [])
+                | set(dr.get("_corroborating_modules") or [])
+            )
+            out[i] = _merge_two(base, dr)
+            out[i]["_corroborating_modules"] = merged_corrob
+        else:
+            index_by_canon[canon] = len(out)
+            out.append(dr)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Image/document-quality specs are never spawned at all.
 #
@@ -872,6 +931,20 @@ def merge_document_requests(
         dr["_corroborating_modules"] = sorted(corroborating_modules.get(key, set()))
 
     merged = list(groups.values())
+    # Ticket 4274 ("no condition name appears twice" / "one condition per
+    # document per run" -- the 17 Nov accuracy report's loan 512: 34
+    # conditions, 13 repeating another by name with a different result).
+    # _merge_key above already groups same document_type + document_context
+    # together, but when document_context is populated inconsistently
+    # across the 7 per-module LLM proposals for what's really the SAME
+    # real-world document need (e.g. one module tags
+    # document_context={"borrower": "..."} and another leaves it empty for
+    # the identical request), two separate groups survive under the same
+    # canonical document_type with genuinely different content. This final
+    # pass collapses any such remaining same-canonical-type duplicates into
+    # one, BEFORE the deterministic floor/gates run -- see
+    # _collapse_duplicate_canonical_types' docstring.
+    merged = _collapse_duplicate_canonical_types(merged)
     llm_count = len(merged)
 
     # ------------------------------------------------------------------
