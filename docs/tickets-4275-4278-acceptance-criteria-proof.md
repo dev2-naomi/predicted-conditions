@@ -11,8 +11,11 @@ Status legend:
   LLM grading quality, which can't be unit-tested to a guaranteed pass.
 - ❌ **Not addressed** — explicitly out of scope for this batch, with why.
 
-Run all tests: `python3 -m pytest tests/ --ignore=tests/test_thread_store_decimal_conversion.py -q`
-→ **302 passed, 48 skipped, 0 failed.**
+Run all tests: `python3 -m pytest tests/ --ignore=tests/test_thread_store_decimal_conversion.py --ignore=tests/test_thread_store_s3_offload.py -q`
+→ **302 passed, 48 skipped, 0 failed.** (Both ignored files need Python 3.11+
+for `datetime.UTC`, same as the deploy's own runtime — they're excluded here
+purely because local dev may be on an older interpreter; see "`compiled_inputs/montes`"
+in the live e2e section below for the thread_store S3-offload fix those tests cover.)
 
 > **24 Nov 2026 update**: revisited every ⚠️ "Partially met" item below against
 > fresh real `compiled_inputs/*` fixture data (not just re-stating the original
@@ -109,10 +112,11 @@ Also confirmed live: `compiled_inputs/niccum` (Retail, negative control) correct
   wholesale-gated docs appeared; Appraisal Delivery Confirmation (universal) did;
   EMD Check's "not yet cleared" branch correctly stayed open (no EMD-evidence
   document on file in this fixture).
-- **`compiled_inputs/montes`** — hit a **pre-existing, unrelated** infra limit
-  (DynamoDB 400KB item-size cap in `api/thread_store.py`, nothing to do with this
-  batch's changes) before reaching the agent at all. Flagged separately as a
-  follow-up; see `docs/pc-accuracy-uat-status.md`.
+- **`compiled_inputs/montes`** — originally hit a **pre-existing, unrelated**
+  infra limit (DynamoDB 400KB item-size cap in `api/thread_store.py`, nothing to
+  do with this batch's document-generation changes) before reaching the agent
+  at all. **Fixed 24 Nov 2026** — see "Fourth deploy" below and
+  `docs/pc-accuracy-uat-status.md` for the full fix writeup.
 
 ### Second deploy (this batch's fixes: `79dea33`, deployed, `deploy` job green in 4m18s)
 

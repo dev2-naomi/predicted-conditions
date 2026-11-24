@@ -13,6 +13,7 @@ run_manifest_cloud.py, etc.) gets an O(1) lookup.
 
 from __future__ import annotations
 
+import json
 import os
 import uuid
 from datetime import UTC, datetime
@@ -20,6 +21,16 @@ from decimal import Decimal
 from typing import Any
 
 RUN_TERMINAL_STATUSES = frozenset({"success", "error", "timeout", "interrupted"})
+
+# Leaves headroom under DynamoDB's 400KB hard item-size cap for every OTHER
+# attribute that lives on the same RUN# record (run_id, thread_id,
+# assistant_id, status, both timestamps, error, and -- the one that can
+# independently grow after creation -- result). Mirrors the ~350KB threshold
+# api/checkpointer.py's DynamoDBSaver already uses for its own s3_offload_config
+# on the same underlying cap; a little more conservative here specifically
+# because `result` is written later via a separate update_item call onto
+# this same item and isn't accounted for at create_run() time.
+_INPUT_PAYLOAD_S3_THRESHOLD_BYTES = 300_000
 
 
 def _floats_to_decimal(value: Any) -> Any:
@@ -195,6 +206,69 @@ class DynamoDBThreadStore(ThreadStore):
         import boto3
 
         self._table = boto3.resource("dynamodb", region_name=region_name).Table(table_name)
+        self._region_name = region_name
+        # Same bucket api/checkpointer.py's DynamoDBSaver already offloads
+        # oversized checkpoints into (CHECKPOINT_S3_BUCKET, already
+        # IAM-granted read/write to both the Lambda and the ECS worker task
+        # role via infra/stacks/predicted_conditions_stack.py's
+        # CheckpointOffloadBucket) — reused here rather than provisioning a
+        # second bucket for the same underlying problem.
+        self._s3_bucket = os.environ.get("CHECKPOINT_S3_BUCKET", "").strip()
+        self._s3 = None  # lazy — only ever created if an oversized payload
+        # actually needs offloading (or an offloaded one needs reading back)
+
+    def _s3_client(self):
+        if getattr(self, "_s3", None) is None:
+            import boto3
+
+            self._s3 = boto3.client("s3", region_name=getattr(self, "_region_name", None))
+        return self._s3
+
+    def _offload_input_payload_if_too_large(
+        self, run_id: str, run_body: dict[str, Any]
+    ) -> dict[str, str] | None:
+        """Upload `run_body` to S3 instead of storing it inline, when it's too
+        big to safely fit in the RUN# DynamoDB item alongside every other
+        attribute. Returns the S3 pointer to store in DynamoDB, or None to
+        store inline as before (either the payload is small enough, or no
+        offload bucket is configured — in which case an oversized payload
+        still fails loudly with DynamoDB's own ValidationException, exactly
+        as it did before this fix, rather than silently losing data).
+
+        See PC: compiled_inputs/montes (~455KB combined loan_file_xml +
+        manifest_json + eligibility_json) hit exactly this cap and failed
+        with a 500 before ever reaching the agent — confirmed via CloudWatch,
+        documented in docs/pc-accuracy-uat-status.md.
+        """
+        # getattr defaults, not direct attribute access: tests (and any
+        # other caller) that construct this class via
+        # DynamoDBThreadStore.__new__(...) to stub out just `_table`,
+        # bypassing __init__ entirely, must keep working exactly as before
+        # this fix — no offload bucket configured, so skip straight to the
+        # inline path below, same as always.
+        s3_bucket = getattr(self, "_s3_bucket", "")
+        try:
+            serialized = json.dumps(run_body, default=str).encode("utf-8")
+            size = len(serialized)
+        except Exception:  # noqa: BLE001 - can't measure it -> treat as oversized
+            serialized = None
+            size = _INPUT_PAYLOAD_S3_THRESHOLD_BYTES + 1
+        if size <= _INPUT_PAYLOAD_S3_THRESHOLD_BYTES or not s3_bucket:
+            return None
+        if serialized is None:
+            serialized = json.dumps(run_body, default=str).encode("utf-8")
+        key = f"runs/{run_id}/input.json"
+        self._s3_client().put_object(
+            Bucket=s3_bucket,
+            Key=key,
+            Body=serialized,
+            ContentType="application/json",
+        )
+        return {"bucket": s3_bucket, "key": key}
+
+    def _load_offloaded_input_payload(self, ref: dict[str, str]) -> dict[str, Any]:
+        obj = self._s3_client().get_object(Bucket=ref["bucket"], Key=ref["key"])
+        return json.loads(obj["Body"].read())
 
     def create(self, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
         thread_id = str(uuid.uuid4())
@@ -260,12 +334,20 @@ class DynamoDBThreadStore(ThreadStore):
             "thread_id": thread_id,
             "assistant_id": assistant_id,
             "status": "pending",
-            "input_payload": _floats_to_decimal(run_body),
             "created_at": now,
             "updated_at": now,
             "error": None,
             "result": None,
         }
+        # Oversized run_body (loan_file_xml + manifest_json + eligibility_json
+        # combined beyond DynamoDB's reach) goes to S3 with a pointer stored
+        # instead of inline — see _offload_input_payload_if_too_large's
+        # docstring. Everything else stores inline exactly as before.
+        s3_ref = self._offload_input_payload_if_too_large(run_id, run_body)
+        if s3_ref is not None:
+            item["input_payload_ref"] = s3_ref
+        else:
+            item["input_payload"] = _floats_to_decimal(run_body)
         self._table.put_item(Item=item)
         # Convert Decimal back to native int/float on the way out — callers
         # further up the stack (e.g. execute_background_run's
@@ -274,14 +356,27 @@ class DynamoDBThreadStore(ThreadStore):
         # pipeline. Mirrors get_run()'s symmetric conversion below so every
         # read path (this immediate return, and any later
         # load_persisted_run()/get_run() re-fetch by a dispatch worker)
-        # behaves identically.
-        return _decimals_to_native({k: v for k, v in item.items() if k not in ("PK", "SK")})
+        # behaves identically. When offloaded, return the caller's own
+        # run_body directly rather than round-tripping through S3 again
+        # immediately after just writing it there.
+        out = {k: v for k, v in item.items() if k not in ("PK", "SK", "input_payload_ref")}
+        if s3_ref is not None:
+            out["input_payload"] = run_body
+        return _decimals_to_native(out)
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
         resp = self._table.get_item(Key={"PK": f"RUN#{run_id}", "SK": "METADATA"})
         item = resp.get("Item")
         if not item:
             return None
+        s3_ref = item.pop("input_payload_ref", None)
+        if s3_ref is not None:
+            # Decimal-free by construction (round-tripped through plain
+            # json.dumps/json.loads on the S3 write/read side, never through
+            # DynamoDB's Decimal-only Number type), but _decimals_to_native
+            # below is a harmless no-op on non-Decimal values either way, so
+            # merging it in before that call keeps this single return path.
+            item["input_payload"] = self._load_offloaded_input_payload(s3_ref)
         return _decimals_to_native({k: v for k, v in item.items() if k not in ("PK", "SK")})
 
     def update_run(

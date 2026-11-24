@@ -11,7 +11,7 @@ Status legend:
 
 Run the ticket's own test file: `python3 -m pytest tests/test_ticket_4274_predicted_conditions_scope.py -v`
 → **28 passed.**
-Full regression: `python3 -m pytest tests/ --ignore=tests/test_thread_store_decimal_conversion.py -q`
+Full regression: `python3 -m pytest tests/ --ignore=tests/test_thread_store_decimal_conversion.py --ignore=tests/test_thread_store_s3_offload.py -q`
 → **291 passed, 48 skipped, 0 failed.**
 
 ---

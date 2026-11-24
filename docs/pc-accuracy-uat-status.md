@@ -356,21 +356,35 @@ before this batch — +34 new tests across the three ticket-specific files).
   Confirmation still appears (universal trigger); EMD Check's "not yet
   cleared" branch stays open as expected (no EMD-evidence document on file).
 - `compiled_inputs/montes` (Wholesale, has "EMD Docs" — would have been the
-  best live test of the EMD-evidence suppression) **failed before reaching
-  the agent at all**: `500 - "An error occurred (ValidationException) when
-  calling the PutItem operation: Item size has exceeded the maximum allowed
-  size"`. Root cause confirmed via CloudWatch/direct API call: `api/
+  best live test of the EMD-evidence suppression) **originally failed before
+  reaching the agent at all**: `500 - "An error occurred (ValidationException)
+  when calling the PutItem operation: Item size has exceeded the maximum
+  allowed size"`. Root cause confirmed via CloudWatch/direct API call: `api/
   thread_store.py`'s `create_run()` stores the full raw-input payload
   (`loan_file_xml` + `manifest_json` + `eligibility_json`) as one DynamoDB
   item, and montes' combined ~455KB exceeds DynamoDB's 400KB item-size cap.
-  **This is a pre-existing infra limitation, not a regression** — none of
-  this batch's diffs touch `api/`, and aubrey's ~365KB combined payload (just
-  under the cap) succeeded cleanly on the same deploy. Flagging as a
-  follow-up: large manifests/eligibility payloads will always 500 at run
-  creation regardless of any document-generation logic, until `thread_store.py`
-  either compresses/truncates the stored `run_body.input` or moves large
-  raw-input fields to S3 with a pointer in DynamoDB instead of storing them
-  inline.
+  This was a pre-existing infra limitation, not a regression from any batch's
+  document-generation diffs — aubrey's ~365KB combined payload (just under
+  the cap) always succeeded cleanly on the same deploys.
+
+  **✅ Fixed 24 Nov 2026.** `DynamoDBThreadStore.create_run()` now offloads
+  any run_body over ~300KB to S3 (reusing the exact same `CheckpointOffloadBucket`
+  `api/checkpointer.py`'s `DynamoDBSaver` already uses for oversized
+  checkpoints — same IAM grants, same bucket, no new infra needed) and stores
+  a small pointer (`input_payload_ref`) in DynamoDB instead of the payload
+  itself. `get_run()` transparently resolves that pointer back to
+  `input_payload` on read, so every caller (`load_persisted_run`, the Lambda
+  self-invoke dispatch path, `execute_background_run`) needed zero changes.
+  10 new unit tests in `tests/test_thread_store_s3_offload.py` cover: small
+  payloads staying inline (no regression), oversized payloads offloading
+  with the pointer round-tripping correctly, the no-bucket-configured
+  fallback (still fails loudly rather than silently losing data), and
+  backward compatibility with the pre-existing decimal-conversion test
+  file's `__new__`-bypass-`__init__` construction pattern. **Live-confirmed**:
+  redeployed and re-ran `compiled_inputs/montes` end-to-end — the run now
+  completes successfully instead of 500ing at creation (see the live e2e
+  note further down this doc / `docs/tickets-4275-4278-acceptance-criteria-proof.md`
+  for the actual run output).
 
 **Deferred / not addressed (same ticket text, explicitly out of scope for this
 batch):** period-set "names the missing month" naming enhancement (4276); the
