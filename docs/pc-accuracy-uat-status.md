@@ -458,7 +458,7 @@ instruction: this is a proposal, not a guideline-verified rule** — the
 open question is whether the title company's invoice legitimately doesn't
 exist until near/at closing on every program, or only on some.
 
-**Tests:** `tests/test_ticket_4274_predicted_conditions_scope.py`, 25/25
+**Tests:** `tests/test_ticket_4274_predicted_conditions_scope.py`, 28/28
 passing — one test class per AC (plus the Title Invoice item), each run
 against the real `mandatory_docs()`/`conditional_docs()`/
 `derive_income_docs()`/`apply_negative_gates()` pipeline (not a synthetic
@@ -466,5 +466,31 @@ doc list standing in for it), including simulated-LLM-reproposal tests for
 the 3 ACs whose document types the floor no longer injects at all (Deed of
 Trust, Grant Deed, Owner Occupancy Certification) — confirming the gate
 itself still catches them, not just that the floor's absence was never
-exercised. Full regression: **288 passed, 48 skipped, 0 failures** (up from
-263 — +25 new tests).
+exercised. Full regression: **291 passed, 48 skipped, 0 failures** (up from
+263 — +28 new tests).
+
+**Live e2e verification + a real bug the first deploy of this ticket found:**
+first deploy's `compiled_inputs/nyarko` run still showed "Title Invoice" on
+the list despite nyarko having no title-invoice-shaped evidence. Root cause:
+`apply_deterministic_rules()`'s `eligibility_required_docs()` injects "Title
+Invoice" via a `bypass_negative_gates=True` path (added earlier so
+authoritative eligibility-engine-required docs like Bank Statement/Profit
+and Loss aren't wrongly swept by broad heuristic gates) — this path skips
+`apply_negative_gates()` entirely, so the new evidence gate never actually
+ran on a real loan whose eligibility JSON flags "Title Invoice" as a Minimum
+Required Document category, which is exactly what every one of the 4 UAT
+loans' real eligibility JSON does (confirmed in
+`data/input/*/eligibility_output.json`'s `"Title Invoice": true`/`"Missing
+base documents: ... Title Fee Sheet ..."` entries) — i.e. this bypass path
+*was* the actual mechanism producing the ticket's reported over-ask.
+**Fixed:** added a narrow carve-out directly in `_inject()` so "Title
+Invoice" specifically always goes through its own evidence check regardless
+of `bypass_negative_gates`, while every other eligibility-required doc type
+keeps bypassing normally (confirmed via a dedicated negative-control test —
+see `test_other_eligibility_required_docs_still_bypass_normally`). Re-ran
+`compiled_inputs/nyarko` against the corrected redeploy: "Title Invoice" no
+longer appears, "Deed of Trust"/"Grant Deed"/"Owner Occupancy Certification"
+still correctly absent, the Appraisal Report's Note cross-checks still show
+`not_yet_available_pre_closing` (4277 regression check), and no document
+type name repeats in the 28-item output (4274 AC7 regression check on a
+real, not synthetic, run).

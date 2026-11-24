@@ -540,3 +540,59 @@ class TestTitleInvoiceGatedOnEvidence:
         docs = _floor_and_conditional(flags)
         out, _ = apply_negative_gates(docs, flags)
         assert "Title Invoice" in _types(out)
+
+    def test_eligibility_required_docs_bypass_path_is_not_exempt(self):
+        """The real bug this ticket reported: eligibility_required_docs()
+        injects "Title Invoice" via apply_deterministic_rules' own
+        bypass_negative_gates=True path (so authoritative eligibility-
+        engine-required docs like Bank Statement/Profit and Loss aren't
+        wrongly swept by broad heuristic gates), which used to skip
+        apply_negative_gates ENTIRELY -- meaning the evidence gate above
+        never actually fired on a real loan whose eligibility JSON flags
+        "Title Invoice" as a Minimum Required Document category (exactly
+        what every one of the 4 UAT loans' eligibility JSON does,
+        confirmed in data/input/*/eligibility_output.json). Live-confirmed
+        as a real regression via compiled_inputs/nyarko on the first
+        deploy of this ticket's fix before this test/fix existed."""
+        from tools.doc_rules import apply_deterministic_rules
+
+        ss = _ss(
+            _submitted_docs=[],
+            _eligibility_data={"required_doc_categories": ["title invoice"]},
+        )
+        final_docs, stats = apply_deterministic_rules(
+            [], ss, canonical_fn=lambda n: n.strip().lower(),
+        )
+        assert "Title Invoice" not in {d["document_type"] for d in final_docs}
+
+    def test_eligibility_required_docs_bypass_path_still_keeps_it_with_evidence(self):
+        from tools.doc_rules import apply_deterministic_rules
+
+        ss = _ss(
+            _submitted_docs=[_submitted("Title Invoice")],
+            _eligibility_data={"required_doc_categories": ["title invoice"]},
+        )
+        final_docs, stats = apply_deterministic_rules(
+            [], ss, canonical_fn=lambda n: n.strip().lower(),
+        )
+        assert "Title Invoice" in {d["document_type"] for d in final_docs}
+
+    def test_other_eligibility_required_docs_still_bypass_normally(self):
+        """Negative control: the carve-out is specific to "title invoice"
+        -- Profit and Loss (a bank-statement-only-gate-suppressed type on
+        a DSCR loan in this test) must still survive via the bypass path,
+        confirming the fix didn't disable bypass_negative_gates in
+        general."""
+        from tools.doc_rules import apply_deterministic_rules
+
+        ss = _ss(
+            occupancy="Investment",
+            income_profile={"income_doc_label": "DSCR"},
+            program="Investor DSCR",
+            _submitted_docs=[],
+            _eligibility_data={"required_doc_categories": ["profit and loss"]},
+        )
+        final_docs, stats = apply_deterministic_rules(
+            [], ss, canonical_fn=lambda n: n.strip().lower(),
+        )
+        assert "Profit and Loss" in {d["document_type"] for d in final_docs}

@@ -1636,6 +1636,24 @@ def apply_deterministic_rules(
 
     def _inject(candidates: list[dict], bypass_negative_gates: bool = False) -> None:
         for cand in candidates:
+            # Ticket 4274: Title Invoice ALWAYS goes through its own
+            # evidence check, even on the bypass_negative_gates=True path
+            # below -- eligibility_required_docs()'s own "title invoice"
+            # category entry (sourced from the eligibility engine's
+            # "Minimum Required Documents" check) is the EXACT mechanism
+            # responsible for the ticket's reported over-ask (flagged
+            # required on every one of the 4 UAT loans; underwriter never
+            # asked for it on any) precisely because it used to ride the
+            # bypass path unconditionally. This is a narrow, explicit
+            # carve-out for this one document type, not a general
+            # exception to bypass_negative_gates' own reasoning (which
+            # remains correct for every other authoritative eligibility-
+            # required doc type).
+            if (
+                canon(cand.get("document_type") or "") == "title invoice"
+                and not flags.get("has_title_invoice_evidence")
+            ):
+                continue
             # candidate may itself be gated out — UNLESS bypass_negative_gates
             # is set, which is used for eligibility_required_docs(): those
             # candidates are authoritative, program-specific requirements
