@@ -759,6 +759,119 @@ def _merge_paystubs(
     return [merged_entry] + undated
 
 
+# Ticket 4276 ACs 3/4: "Needs 12 months bank statements, all 12 in file ->
+# all 12 linked, requirement met" / "one month missing -> requirement
+# open, names the missing month." Unlike paystubs (_merge_paystubs above),
+# bank statements must stay as SEPARATE entries -- AC3 explicitly says
+# "all 12 linked", i.e. each physical statement keeps its own
+# document_id/link, not one merged summary row. What was previously
+# missing is any DETERMINISTIC signal about whether a set of statements
+# for the same account is actually continuous: the satisfaction LLM had
+# to do its own date math across however many raw statement entries exist
+# in the file, with no pre-computed gap data to lean on (unlike paystubs,
+# which get `coverage_gaps` for free via the merge above).
+#
+# data/canonical_doc_specs.json's "bank statement" entry: "12 or 24
+# complete months must be from the same account" / "Statements must be
+# consecutive" -- confirms grouping by account number (not merging
+# different accounts together) is the right key, same spirit as
+# _merge_paystubs grouping by the implicit single-employee period series.
+#
+# Real field names (statementPeriodFrom/statementPeriodTo/accounts[].
+# accountNumber) confirmed against actual Tasktile extractions in
+# compiled_inputs/{montes,niccum,nyarko}/manifest.json -- not guessed.
+_BANK_STATEMENT_GAP_THRESHOLD_DAYS = 5  # statement cycles are monthly, not
+# biweekly like paystubs (_PAYSTUB_GAP_THRESHOLD_DAYS=3) -- a few days'
+# slack between one statement's cycle-end and the next one's cycle-start
+# is normal billing-cycle noise, not a real missing-coverage gap.
+
+
+def _bank_statement_account_number(fields: dict) -> str:
+    """Best-effort account number for grouping bank statement entries that
+    belong to the SAME account -- see _annotate_bank_statement_coverage.
+    Falls back to "" (its own ungrouped bucket) when no account number is
+    extracted, same "don't guess, don't crash" posture as every other
+    best-effort helper in this module."""
+    accounts = fields.get("accounts")
+    if isinstance(accounts, list):
+        for acct in accounts:
+            if isinstance(acct, dict) and acct.get("accountNumber"):
+                return str(acct["accountNumber"]).strip()
+    return ""
+
+
+def _annotate_bank_statement_coverage(entries: list[dict]) -> None:
+    """Mutates each Bank Statement entry's extracted_fields in place to add
+    a deterministic `_coverage_summary` (plus `_coverage_gaps` and
+    `_coverage_span_days`) describing the continuous date range and any
+    real gaps among every OTHER bank statement entry sharing the same
+    account number. Entries are NOT merged or removed -- each keeps its
+    own document_id so it still links individually (AC3's "all 12
+    linked"); this only attaches pre-computed date-math so the
+    satisfaction LLM doesn't have to recompute it itself across however
+    many raw statement entries are in the file, and so a real gap gets
+    named with exact dates (AC4) instead of being missed because the
+    overall earliest-to-latest span merely LOOKS wide enough (the same
+    false-"span is enough" failure mode _merge_paystubs' coverage_gaps
+    fix already caught for paystubs).
+
+    Entries with no parseable statementPeriodFrom/To, or no identifiable
+    account number, are left untouched (grouped into their own "" bucket
+    below, which still gets a summary for however many of them share no
+    account number at all -- better than silently skipping them)."""
+    by_account: dict[str, list[tuple[date, date, dict]]] = {}
+    for entry in entries:
+        fields = entry.get("extracted_fields") or {}
+        from_dt = _parse_date(fields.get("statementPeriodFrom"))
+        to_dt = _parse_date(fields.get("statementPeriodTo"))
+        if from_dt is None or to_dt is None:
+            continue
+        acct_no = _bank_statement_account_number(fields)
+        by_account.setdefault(acct_no, []).append((from_dt, to_dt, entry))
+
+    for acct_no, dated in by_account.items():
+        dated.sort(key=lambda x: (x[0], x[1]))
+
+        coverage_gaps: list[dict] = []
+        for (_, prev_to, _), (next_from, _, _) in zip(dated, dated[1:]):
+            gap_days = (next_from - prev_to).days - 1
+            if gap_days > _BANK_STATEMENT_GAP_THRESHOLD_DAYS:
+                coverage_gaps.append({
+                    "gap_start": (prev_to + timedelta(days=1)).isoformat(),
+                    "gap_end": (next_from - timedelta(days=1)).isoformat(),
+                    "gap_days": gap_days,
+                })
+
+        earliest = dated[0][0]
+        latest = dated[-1][1]
+        span_days = (latest - earliest).days + 1
+        acct_label = f"account ending {acct_no[-4:]}" if acct_no else "this account"
+
+        if coverage_gaps:
+            gap_desc = "; ".join(
+                f"missing {g['gap_start']} to {g['gap_end']}" for g in coverage_gaps
+            )
+            summary = (
+                f"{len(dated)} statement(s) for {acct_label} span "
+                f"{earliest.isoformat()} to {latest.isoformat()} ({span_days} days) "
+                f"but have a COVERAGE GAP: {gap_desc}."
+            )
+        else:
+            summary = (
+                f"{len(dated)} statement(s) for {acct_label} provide continuous "
+                f"coverage from {earliest.isoformat()} to {latest.isoformat()} "
+                f"({span_days} days), no gaps."
+            )
+
+        for _, _, entry in dated:
+            fields = dict(entry.get("extracted_fields") or {})
+            fields["_coverage_summary"] = summary
+            fields["_coverage_gaps"] = coverage_gaps
+            fields["_coverage_span_days"] = span_days
+            fields["has_coverage_gap"] = bool(coverage_gaps)
+            entry["extracted_fields"] = fields
+
+
 def parse_manifest(manifest_path: Union[str, Path]) -> list[dict]:
     """
     Parse a Tasktile manifest JSON file and return a submitted_documents list
@@ -885,8 +998,13 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
 
     # Build output — one entry per unique (category_id, group_name, specific_type)
     # Collect paystubs separately so they can be merged into a 30-day window.
+    # Collect bank statements separately too so they can be annotated with
+    # deterministic coverage-gap data (see _annotate_bank_statement_coverage)
+    # -- unlike paystubs, these stay as separate entries in `result`, just
+    # each gets the summary attached.
     result: list[dict] = []
     paystub_entries: list[dict] = []
+    bank_statement_entries: list[dict] = []
 
     for (category_id, _group_name, _specific_type, _person_sig), (doc, _ts) in sorted(
         groups.items(), key=lambda x: (x[0][0], x[0][1], x[0][2], x[0][3])
@@ -923,12 +1041,21 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
 
         if doc_type == "paystub":
             paystub_entries.append(entry)
+        elif doc_type == "bank_statement":
+            bank_statement_entries.append(entry)
+            result.append(entry)
         else:
             result.append(entry)
 
     # Merge paystubs into a combined 30-day window entry
     if paystub_entries:
         result.extend(_merge_paystubs(paystub_entries, target_days=30))
+
+    # Annotate (not merge) bank statements with deterministic per-account
+    # coverage-gap data -- see _annotate_bank_statement_coverage. Mutates
+    # the entries already appended to `result` above in place.
+    if bank_statement_entries:
+        _annotate_bank_statement_coverage(bank_statement_entries)
 
     return result
 

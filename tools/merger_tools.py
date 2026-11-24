@@ -2299,15 +2299,25 @@ statements must be provided"):
   note — do not invent a different spec for this; the existing spec simply
   stays in the unsatisfied/open set.
 - For bank-statement period specs ("12 consecutive months", "most recent N
-  months"), check each separate submitted Bank Statement's own statement
-  period date against every other one you were given. If the months they
-  cover, sorted chronologically, have a calendar-month gap between any two
-  consecutive statements (i.e. a month with no statement covering it at
-  all), the spec is NOT satisfied — name the specific missing month(s) (e.g.
-  "missing March 2026 — statements cover Jan, Feb, Apr, May 2026") rather
-  than simply counting how many statements were provided. Only mark the
-  spec satisfied when the full required number of CONSECUTIVE, non-
-  overlapping months is actually represented.
+  months"), each separate submitted Bank Statement's own extracted fields
+  now carry a deterministic `_coverage_summary` string (plus
+  `_coverage_gaps`/`has_coverage_gap`) already computed from that
+  statement's real statementPeriodFrom/To against every OTHER statement
+  sharing the same account number — see
+  tools.shared.manifest_parser._annotate_bank_statement_coverage. Use
+  `_coverage_summary`/`_coverage_gaps` directly rather than recomputing the
+  date math yourself: if `has_coverage_gap` is true on the statements you
+  were given, the spec is NOT satisfied — quote the exact missing date
+  range straight from `_coverage_gaps` (e.g. "missing coverage from
+  2026-03-01 to 2026-03-14") in your reasoning. If `has_coverage_gap` is
+  false, the statements you have ARE continuous over the span
+  `_coverage_summary` states — still confirm that span is long enough for
+  the specific spec's own number of required months (12 vs 24, etc.;
+  `_coverage_summary`/`_coverage_gaps` only answer "is it continuous", not
+  "is it enough") before marking satisfied. If a statement lacks
+  `_coverage_summary` entirely (no parseable period or no account number
+  was extracted), fall back to the manual date comparison described
+  above for that statement only.
 
 PREQUAL RESPONSE FORM (LoanNex Product & Pricing Results) specs — e.g. "LoanNex product and pricing
 results matching the loan program, rate, and price reflected in the loan
@@ -3682,6 +3692,110 @@ def _apply_passport_no_address_backstop(
 
 
 # ---------------------------------------------------------------------------
+# Deterministic backstop for two real, field-backed Appraisal Report specs
+# (ticket 4277 AC9 / PC-05)
+# ---------------------------------------------------------------------------
+#
+# PC-05 ("linked document, nothing marked met") named Appraisal Report as
+# one of 3 document types that stay mostly-open even when the right
+# document IS linked. The original fix (tickets 4275-4278) left this as
+# prompt-reinforcement only, explicitly because no local fixture had real
+# Appraisal Report extraction data to build a safe, targeted backstop
+# against — the same way PC-12 built one for Credit Report's
+# creditTradeLines/mortgageSummary. That data now exists
+# (compiled_inputs/aubrey's real Tasktile extraction: appraiser.name/
+# appraiser.license, and a non-empty comps[] list with real salePrice/
+# adjustedValue/distanceMiles/status per comp), confirmed against
+# data/canonical_doc_specs.json's "appraisal report" entries:
+#   - "Appraiser must provide his or her license or certification on the
+#     appraisal report"
+#   - "Appraisal report must include a completed Sales Comparison Approach
+#     section... where there are comparable used..."
+#
+# Deliberately narrow: most of this doc type's ~35 conditioned specs
+# (photos, sketches, maps, narrative commentary, limiting-conditions
+# certification text, unfavorable-conditions analysis) still have NO
+# corresponding field anywhere in any local fixture, so this does NOT
+# close AC9 for Appraisal Report — it only stops these 2 specific,
+# directly-verifiable specs from staying open by default. Flood Hazard
+# Determination and Title Commitment (the other 2 document types PC-05/
+# AC9 names) still have ZERO real extraction samples in any local fixture
+# (re-confirmed 24 Nov 2026 — neither document type appears in any
+# compiled_inputs/*/manifest.json), so no backstop is attempted for
+# either; guessing at field names for those risks the FALSE POSITIVE
+# failure mode PC-05's own analysis flagged as worse than today's
+# over-cautious "mostly open".
+# ---------------------------------------------------------------------------
+
+_APPRAISER_LICENSE_SPEC_KEYWORDS = (
+    "license or certification", "licensed or certified",
+)
+_SALES_COMPARISON_SPEC_KEYWORDS = (
+    "sales comparison approach", "comparable sales", "comparable used",
+)
+
+
+def _apply_appraisal_report_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    all_fields: list[dict],
+) -> None:
+    """Force-satisfy the appraiser-license spec and the sales-comparison/
+    comps spec deterministically off the real appraiser.license /
+    comps[] fields — see module comment above for why only these 2 of
+    this doc type's many conditioned specs get a backstop. Mutates
+    satisfied_specs in place."""
+    if _canonical_doc_type(doc_type) != "appraisal report":
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+
+    has_appraiser_license = False
+    has_comps = False
+    for fields in all_fields:
+        if not isinstance(fields, dict):
+            continue
+        appraiser = fields.get("appraiser")
+        if isinstance(appraiser, dict) and str(appraiser.get("license") or "").strip():
+            has_appraiser_license = True
+        comps = fields.get("comps")
+        if isinstance(comps, list) and any(
+            isinstance(c, dict) and (c.get("salePrice") or c.get("adjustedValue"))
+            for c in comps
+        ):
+            has_comps = True
+
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        if text in already:
+            continue
+        lower = text.lower()
+        if has_appraiser_license and any(
+            kw in lower for kw in _APPRAISER_LICENSE_SPEC_KEYWORDS
+        ):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Confirmed from the appraisal report's own extracted data — "
+                    "the appraiser field includes a license/certification number."
+                ),
+            })
+            already.add(text)
+        elif has_comps and any(
+            kw in lower for kw in _SALES_COMPARISON_SPEC_KEYWORDS
+        ):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Confirmed from the appraisal report's own extracted data — "
+                    "the comps field lists one or more comparable sales with "
+                    "sale/adjusted price data."
+                ),
+            })
+            already.add(text)
+
+
+# ---------------------------------------------------------------------------
 # Deterministic backstop for the "must include all addenda, amendments,
 # and counter-offers" Purchase Contract spec
 # ---------------------------------------------------------------------------
@@ -4524,6 +4638,13 @@ def run_satisfaction_pass(
         # alone (the _SPEC_FIELD_MAP mapping that looked like it covered
         # this was dead code, never actually invoked).
         _apply_tri_merge_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
+        # Deterministic backstop for 2 real, field-backed Appraisal Report
+        # specs (appraiser license, sales-comparison/comps) — see
+        # _apply_appraisal_report_backstop for why only these 2 of this
+        # doc type's many conditioned specs get one (ticket 4277 AC9/PC-05).
+        _apply_appraisal_report_backstop(
             doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
         )
         # Deterministic backstop for cross-document NAME-MATCH specs — see

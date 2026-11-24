@@ -25,7 +25,12 @@ load_dotenv(REPO_DIR / ".env")
 
 import json
 
-from tools.shared.manifest_parser import _doc_rank, _merge_paystubs, parse_manifest_from_string
+from tools.shared.manifest_parser import (
+    _annotate_bank_statement_coverage,
+    _doc_rank,
+    _merge_paystubs,
+    parse_manifest_from_string,
+)
 from tools.merger_tools import _filter_to_subject_property, _find_all_submitted_docs
 
 
@@ -277,3 +282,121 @@ class TestAC5AC6_PaystubConsecutivenessAndGaps:
         ]
         merged = _merge_paystubs(entries)
         assert merged[0]["extracted_fields"]["has_coverage_gap"] is False
+
+
+class TestAC3AC4_BankStatementCoverageAnnotation:
+    """511/513: "Needs 12 months bank statements, all 12 in file -> all 12
+    linked, requirement met" (AC3) / "one month missing -> requirement
+    open, names the missing month" (AC4). Unlike paystubs, bank statements
+    must stay as SEPARATE entries (AC3 says "all 12 linked", not one
+    merged row) -- _annotate_bank_statement_coverage attaches a
+    deterministic `_coverage_summary`/`_coverage_gaps` to EACH entry in
+    place instead of merging them, grouped by account number so two
+    different accounts' statements are never mixed into one timeline."""
+
+    def _stmt(self, doc_id, from_, to_, acct="XX-XXXX-4127"):
+        return {
+            "document_id": doc_id,
+            "extracted_fields": {
+                "statementPeriodFrom": from_, "statementPeriodTo": to_,
+                "accounts": [{"accountNumber": acct}],
+            },
+        }
+
+    def test_contiguous_months_no_gap_all_entries_annotated(self):
+        """Mirrors AC3: 3 consecutive monthly statements, all still
+        present as separate entries (not merged), each annotated with a
+        'no gaps' summary."""
+        entries = [
+            self._stmt("a", "2026-01-01", "2026-01-31"),
+            self._stmt("b", "2026-02-01", "2026-02-28"),
+            self._stmt("c", "2026-03-01", "2026-03-31"),
+        ]
+        _annotate_bank_statement_coverage(entries)
+        assert len(entries) == 3  # never merged/removed
+        for e in entries:
+            assert e["extracted_fields"]["has_coverage_gap"] is False
+            assert e["extracted_fields"]["_coverage_gaps"] == []
+            assert "no gaps" in e["extracted_fields"]["_coverage_summary"]
+            assert "3 statement(s)" in e["extracted_fields"]["_coverage_summary"]
+
+    def test_missing_month_flagged_and_named(self):
+        """Mirrors AC4: March is missing between Feb and Apr statements --
+        the exact missing date range must be named, not just "incomplete"."""
+        entries = [
+            self._stmt("a", "2026-01-01", "2026-01-31"),
+            self._stmt("b", "2026-02-01", "2026-02-28"),
+            self._stmt("c", "2026-04-01", "2026-04-30"),  # March missing
+        ]
+        _annotate_bank_statement_coverage(entries)
+        gapped = [e for e in entries if e["extracted_fields"]["has_coverage_gap"]]
+        assert len(gapped) == 3  # all 3 entries in this account's bucket get it
+        gaps = gapped[0]["extracted_fields"]["_coverage_gaps"]
+        assert gaps == [{
+            "gap_start": "2026-03-01", "gap_end": "2026-03-31", "gap_days": 31,
+        }]
+        assert "2026-03-01" in gapped[0]["extracted_fields"]["_coverage_summary"]
+        assert "COVERAGE GAP" in gapped[0]["extracted_fields"]["_coverage_summary"]
+
+    def test_two_different_accounts_not_mixed_into_one_timeline(self):
+        """513/large-file scenario: a borrower with two bank accounts --
+        each account's own coverage must be evaluated independently, not
+        combined into one (possibly falsely gapped or falsely clean)
+        timeline."""
+        entries = [
+            self._stmt("a", "2026-01-01", "2026-01-31", acct="1111"),
+            self._stmt("b", "2026-02-01", "2026-02-28", acct="1111"),
+            # Second account only has a Jan statement -- its own
+            # single-entry bucket should NOT borrow account 1111's Feb
+            # coverage, and should not be falsely flagged as gapped either
+            # (nothing to compare against yet).
+            self._stmt("c", "2026-01-01", "2026-01-31", acct="2222"),
+        ]
+        _annotate_bank_statement_coverage(entries)
+        acct_1111 = [e for e in entries if e["document_id"] in ("a", "b")]
+        acct_2222 = [e for e in entries if e["document_id"] == "c"]
+        for e in acct_1111:
+            assert e["extracted_fields"]["has_coverage_gap"] is False
+            assert "2 statement(s)" in e["extracted_fields"]["_coverage_summary"]
+        assert acct_2222[0]["extracted_fields"]["has_coverage_gap"] is False
+        assert "1 statement(s)" in acct_2222[0]["extracted_fields"]["_coverage_summary"]
+
+    def test_small_boundary_gap_not_flagged(self):
+        """A statement cycle starting a few days after the prior one ended
+        is normal billing-cycle noise, not a genuine missing-coverage gap
+        -- same principle as paystubs' 3-day threshold, just a slightly
+        wider one (5 days) since statement cycles are monthly."""
+        entries = [
+            self._stmt("a", "2026-01-01", "2026-01-28"),
+            self._stmt("b", "2026-02-02", "2026-02-28"),  # 3-day gap
+        ]
+        _annotate_bank_statement_coverage(entries)
+        assert entries[0]["extracted_fields"]["has_coverage_gap"] is False
+
+    def test_undated_or_no_account_entries_left_untouched(self):
+        """Entries with no parseable period, or no identifiable account
+        number, must not crash the annotation pass and must simply not
+        get a _coverage_summary -- fail safe, not loud."""
+        entries = [
+            {"document_id": "a", "extracted_fields": {}},
+            self._stmt("b", "2026-01-01", "2026-01-31", acct=""),
+        ]
+        _annotate_bank_statement_coverage(entries)
+        assert "_coverage_summary" not in entries[0]["extracted_fields"]
+        # The no-account entry still gets grouped (into the "" bucket) and
+        # annotated -- just labeled generically rather than by account.
+        assert entries[1]["extracted_fields"]["has_coverage_gap"] is False
+        assert "this account" in entries[1]["extracted_fields"]["_coverage_summary"]
+
+    def test_end_to_end_through_parse_manifest_from_string_on_real_nyarko_data(self):
+        """Confirms the real wiring in _parse_manifest_dict, not just the
+        helper in isolation -- against compiled_inputs/nyarko's real,
+        unmodified manifest (2 accounts, 3+2 statements, both genuinely
+        contiguous)."""
+        raw = (REPO_DIR / "compiled_inputs" / "nyarko" / "manifest.json").read_text()
+        entries = parse_manifest_from_string(raw)
+        bank_entries = [e for e in entries if e["doc_type"] == "bank_statement"]
+        assert len(bank_entries) == 5  # all 5 raw statements still individually present
+        for e in bank_entries:
+            assert e["extracted_fields"]["has_coverage_gap"] is False
+            assert "no gaps" in e["extracted_fields"]["_coverage_summary"]

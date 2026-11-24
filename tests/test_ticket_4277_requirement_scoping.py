@@ -30,6 +30,7 @@ from tools.doc_rules import (
 )
 from tools.merger_tools import (
     run_satisfaction_pass, _apply_tradeline_not_verified_wording,
+    _apply_appraisal_report_backstop,
 )
 
 
@@ -285,3 +286,73 @@ class TestTradelineNotVerifiedWording:
         fields = [{"creditTradeLines": []}]
         _apply_tradeline_not_verified_wording("w2", specs, satisfied, fields)
         assert specs[0] == "Tradeline detail must be shown."
+
+
+class TestAppraisalReportBackstop:
+    """AC9/PC-05 follow-up (24 Nov 2026): Appraisal Report stays mostly-open
+    even when linked. Real field data (compiled_inputs/aubrey) now exists
+    for 2 of this doc type's many conditioned specs -- appraiser license
+    and sales-comparison/comps -- confirming they can be credited
+    deterministically instead of left to LLM grading. Everything else
+    (photos, sketches, maps, narrative, limiting-conditions certification)
+    still has no corresponding field in any local fixture and is
+    deliberately left untouched by this backstop."""
+
+    _LICENSE_SPEC = (
+        "Appraiser must provide his or her license or certification on "
+        "the appraisal report"
+    )
+    _COMPS_SPEC = (
+        "Appraisal report must include a completed Sales Comparison "
+        "Approach section with comparable sales"
+    )
+    _PHOTO_SPEC = (
+        "Appraisal report must contain original color photographs of the "
+        "front, street, and rear views of the subject property"
+    )
+
+    def test_real_aubrey_data_credits_license_and_comps_but_not_photos(self):
+        fields = {
+            "appraiser": {"name": "Jessica L. Dutra", "license": "CA#33439"},
+            "comps": [
+                {"salePrice": 610000, "adjustedValue": 625000},
+                {"salePrice": 635000, "adjustedValue": 625000},
+                {"salePrice": 600000, "adjustedValue": 625000},
+            ],
+        }
+        specs = [self._LICENSE_SPEC, self._COMPS_SPEC, self._PHOTO_SPEC]
+        satisfied: list[dict] = []
+        _apply_appraisal_report_backstop("Appraisal Report", specs, satisfied, [fields])
+        satisfied_texts = {s["specification"] for s in satisfied}
+        assert self._LICENSE_SPEC in satisfied_texts
+        assert self._COMPS_SPEC in satisfied_texts
+        # Not field-backed -- must stay open, not false-positived.
+        assert self._PHOTO_SPEC not in satisfied_texts
+
+    def test_no_appraiser_license_leaves_spec_open(self):
+        fields = {"appraiser": {"name": "Jessica L. Dutra"}}  # no license key
+        specs = [self._LICENSE_SPEC]
+        satisfied: list[dict] = []
+        _apply_appraisal_report_backstop("Appraisal Report", specs, satisfied, [fields])
+        assert satisfied == []
+
+    def test_empty_comps_leaves_spec_open(self):
+        fields = {"comps": []}
+        specs = [self._COMPS_SPEC]
+        satisfied: list[dict] = []
+        _apply_appraisal_report_backstop("Appraisal Report", specs, satisfied, [fields])
+        assert satisfied == []
+
+    def test_non_appraisal_report_doc_type_unaffected(self):
+        fields = {"appraiser": {"license": "CA#1"}, "comps": [{"salePrice": 1}]}
+        specs = [self._LICENSE_SPEC, self._COMPS_SPEC]
+        satisfied: list[dict] = []
+        _apply_appraisal_report_backstop("Title Commitment", specs, satisfied, [fields])
+        assert satisfied == []
+
+    def test_already_satisfied_spec_not_duplicated(self):
+        fields = {"appraiser": {"license": "CA#1"}}
+        specs = [self._LICENSE_SPEC]
+        satisfied: list[dict] = [{"specification": self._LICENSE_SPEC, "reason": "LLM already confirmed"}]
+        _apply_appraisal_report_backstop("Appraisal Report", specs, satisfied, [fields])
+        assert len(satisfied) == 1
