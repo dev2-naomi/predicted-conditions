@@ -238,6 +238,31 @@ S3 with a small pointer stored in DynamoDB instead.
   venv for `test_sequential_tool_node.py`, confirmed unrelated by excluding
   it and re-running clean).
 
+### Fifth deploy (25 Nov 2026: `91d44af` — Flood Hazard Determination backstop, built from real historical production data)
+
+Audited 94 real historical dev-deployment runs (not local fixtures — see
+"What's still genuinely open" above for the full audit) and added
+`_apply_flood_hazard_determination_backstop()`. Verified directly against
+the live dev deployment using a real historical run's exact input (`run
+78dbae09`, resolved via DynamoDB/S3 and replayed through
+`/threads/{id}/runs` the same way `test_cloud.py` does):
+
+- **Before this deploy**: live run against `78dbae09` returned Flood Hazard
+  Determination with 19 open `specifications` (including "Flood Certificate
+  must be provided by the Federal Emergency Management Agency (FEMA)") and
+  an empty `satisfied_specifications: []` — the LLM pass alone credited
+  nothing for this doc type on this real data.
+- **After this deploy**: re-ran the identical real input against the newly
+  deployed Lambda (fresh thread/run, `status=success`, 141s) — Flood Hazard
+  Determination now has 18 open `specifications` (the FEMA-certificate line
+  is gone) and `satisfied_specifications` contains exactly that one spec,
+  with the exact reason text the new backstop writes: `"A Flood Hazard
+  Determination / Flood Certificate document is on file for this
+  property."`, correctly tied to the real document's own `document_id`.
+  Title Commitment and Hazard Insurance outputs for the same run were
+  unchanged (0 and 5 satisfied specs respectively, as before) — confirming
+  the new backstop only touched what it was supposed to.
+
 ## What's still genuinely open after this batch
 
 **24 Nov 2026**: re-audited every item below against fresh real fixture data before
