@@ -1003,6 +1003,44 @@ def build_scenario_summary(
     meta = profile.get("metadata", {})
     loan_program = meta.get("loan_program", {})
 
+    # Determine income types. Moved ahead of the bare-minimum-fields gate
+    # below (it used to live further down, right before `program =
+    # _infer_program(...)`) so the gate's DSCR/DTI substitution can use the
+    # same income_types-derived DSCR signal as the advisory-only
+    # `missing_core_variables` check further down this function (see "2026-
+    # 11-25: bare-minimum gate DSCR fallback" comment below for why).
+    #
+    # When the eligibility engine provides an authoritative income_doc,
+    # use ONLY that -- do not infer additional types from document presence.
+    doc_types = [d.get("doc_type") for d in submitted_docs if d.get("doc_type")]
+    income_doc_label = meta.get("income_doc") or ""
+    primary_income_from_label = _map_income_doc_label(income_doc_label) if income_doc_label else "unknown"
+
+    income_types: list[str] = []
+    if primary_income_from_label != "unknown":
+        income_types.append(primary_income_from_label)
+
+    has_authoritative_income = bool(eligibility_data and income_doc_label)
+
+    if not has_authoritative_income:
+        for dt in doc_types:
+            if dt in ("paystub", "W2", "VOE"):
+                if "W2" not in income_types:
+                    income_types.append("W2")
+            elif dt == "bank_statement" and "bank_statement" not in income_types:
+                income_types.append("bank_statement")
+            elif dt == "tax_return" and "self_employed" not in income_types:
+                income_types.append("self_employed")
+            elif dt == "1099" and "1099" not in income_types:
+                income_types.append("1099")
+            elif dt == "P_and_L" and "P_and_L" not in income_types:
+                income_types.append("P_and_L")
+            elif dt == "lease" and "DSCR" not in income_types:
+                income_types.append("DSCR")
+
+    if not income_types:
+        income_types = ["unknown"]
+
     # --- Bare-minimum-fields failure gate -----------------------------------
     # Empirically confirmed across all 16 local sample loan files: when NO
     # eligibility_json is provided at all, the MISMO XML alone NEVER supplies
@@ -1046,8 +1084,23 @@ def build_scenario_summary(
         # this gate on a field (DTI) that DSCR borrowers structurally never
         # have. Mirrors the advisory-only DTI/DSCR swap further down in
         # this function (missing_core_variables / _REQUIRED_FIELDS).
+        #
+        # 2026-11-25: this used to check ONLY borrower_type == "DSCR", with
+        # no fallback -- unlike the advisory-only check below, which ALSO
+        # falls back to income_types when borrower_type doesn't cleanly say
+        # "DSCR" (e.g. a DSCR-program loan with blank/missing income data,
+        # where the upstream loan-file source derives BorrowerType from
+        # income data rather than the loan program itself). Without this
+        # fallback, that exact case would CRITICALLY FAIL the whole run on
+        # "missing DTI" for a loan that structurally never has one, instead
+        # of correctly substituting DSCR. Now mirrors the advisory check's
+        # fallback exactly (see `is_dscr` below) so both paths agree.
         if "DTI" in missing_bare_minimum:
-            if str(meta.get("borrower_type") or "").strip().lower() == "dscr":
+            is_dscr_bare_minimum = (
+                str(meta.get("borrower_type") or "").strip().lower() == "dscr"
+                or any(t in ("DSCR", "dscr") for t in income_types)
+            )
+            if is_dscr_bare_minimum:
                 missing_bare_minimum.remove("DTI")
                 if meta.get("dscr") in (None, "", "unknown"):
                     missing_bare_minimum.append("DSCR")
@@ -1064,39 +1117,6 @@ def build_scenario_summary(
                 ),
                 "missing_fields": missing_bare_minimum,
             }
-
-    doc_types = [d.get("doc_type") for d in submitted_docs if d.get("doc_type")]
-
-    # Determine income types.
-    # When the eligibility engine provides an authoritative income_doc,
-    # use ONLY that -- do not infer additional types from document presence.
-    income_doc_label = meta.get("income_doc") or ""
-    primary_income_from_label = _map_income_doc_label(income_doc_label) if income_doc_label else "unknown"
-
-    income_types: list[str] = []
-    if primary_income_from_label != "unknown":
-        income_types.append(primary_income_from_label)
-
-    has_authoritative_income = bool(eligibility_data and income_doc_label)
-
-    if not has_authoritative_income:
-        for dt in doc_types:
-            if dt in ("paystub", "W2", "VOE"):
-                if "W2" not in income_types:
-                    income_types.append("W2")
-            elif dt == "bank_statement" and "bank_statement" not in income_types:
-                income_types.append("bank_statement")
-            elif dt == "tax_return" and "self_employed" not in income_types:
-                income_types.append("self_employed")
-            elif dt == "1099" and "1099" not in income_types:
-                income_types.append("1099")
-            elif dt == "P_and_L" and "P_and_L" not in income_types:
-                income_types.append("P_and_L")
-            elif dt == "lease" and "DSCR" not in income_types:
-                income_types.append("DSCR")
-
-    if not income_types:
-        income_types = ["unknown"]
 
     program = _infer_program(profile, submitted_docs)
     # Override program from eligibility engine if available
