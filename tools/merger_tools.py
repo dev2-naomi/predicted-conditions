@@ -24,6 +24,11 @@ from tools.shared.normalize import (
     normalize_all,
     normalize_document_structure,
 )
+# Reused by _apply_bank_statement_coverage_backstop below — the SAME
+# best-effort account-number extraction _annotate_bank_statement_coverage
+# itself uses, so "same account" means exactly what that function already
+# grouped entries by, not a second, possibly-divergent definition.
+from tools.shared.manifest_parser import _bank_statement_account_number
 
 
 # ---------------------------------------------------------------------------
@@ -3885,6 +3890,110 @@ def _apply_flood_hazard_determination_backstop(
 
 
 # ---------------------------------------------------------------------------
+# Deterministic backstop for 2 real-field-backed Bank Statement specs
+# (ticket 4276 AC3/AC4 follow-up, 25 Nov 2026) — built on top of
+# _annotate_bank_statement_coverage's _coverage_span_days/_coverage_gaps/
+# has_coverage_gap fields (tools/shared/manifest_parser.py), confirmed
+# real on compiled_inputs/{montes,niccum,nyarko}.
+#
+# data/canonical_doc_specs.json's "bank statement" entry phrases its
+# duration spec as "12 OR 24 consecutive months" — which program applies
+# depends on the loan's own documentation-type selection, and there is no
+# existing derive_flags() flag distinguishing the two (confirmed via
+# tools/doc_rules.py). Rather than guess which applies, this backstop is
+# deliberately conservative: it only force-satisfies the duration spec
+# when the computed, gap-free coverage span safely covers the LARGER of
+# the two possible thresholds (24 months) — correct regardless of which
+# program the loan is actually on. A span between 12 and 24 months stays
+# open for the LLM to judge using the real documentation-type context it
+# has and this code doesn't. AC4 ("gap correctly left open") falls out of
+# this by construction: has_coverage_gap=True never gets credited, no
+# matter how wide the overall span looks.
+#
+# The "must be from the same account" spec is different in kind — not a
+# duration claim at all, just "do all these statements share one account
+# number," which the real `accounts[].accountNumber` field answers
+# directly and unambiguously.
+# ---------------------------------------------------------------------------
+
+_BANK_STATEMENT_DURATION_SPEC_KEYWORDS = (
+    "12 or 24 consecutive months",
+)
+_BANK_STATEMENT_SAME_ACCOUNT_SPEC_KEYWORDS = (
+    "must be from the same account",
+)
+# Conservative (not exact-calendar-math) threshold for "24 consecutive
+# months" — chosen to always be safely within a genuine 24-month span
+# rather than risk crediting a span that's actually a bit short of it.
+_BANK_STATEMENT_FULL_COVERAGE_SPAN_DAYS = 730
+
+
+def _apply_bank_statement_coverage_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    all_fields: list[dict],
+) -> None:
+    """Force-satisfy the 2 Bank Statement specs backed by real
+    _annotate_bank_statement_coverage output (see module comment above).
+    Every entry sharing an account group carries the SAME
+    _coverage_span_days/has_coverage_gap values (that function's own
+    design), so it's enough to find ANY one gap-free, long-enough group
+    among all_fields — that one account alone is sufficient real evidence
+    the file has the required continuous record. Mutates satisfied_specs
+    in place."""
+    if _canonical_doc_type(doc_type) != "bank statement":
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+
+    has_full_gap_free_coverage = False
+    account_numbers: set[str] = set()
+    for fields in all_fields:
+        if not isinstance(fields, dict):
+            continue
+        span_days = fields.get("_coverage_span_days")
+        has_gap = fields.get("has_coverage_gap")
+        if (
+            isinstance(span_days, int)
+            and has_gap is False
+            and span_days >= _BANK_STATEMENT_FULL_COVERAGE_SPAN_DAYS
+        ):
+            has_full_gap_free_coverage = True
+        acct_no = _bank_statement_account_number(fields)
+        if acct_no:
+            account_numbers.add(acct_no)
+    same_account_only = len(account_numbers) == 1
+
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        if text in already:
+            continue
+        lower = text.lower()
+        if has_full_gap_free_coverage and any(
+            kw in lower for kw in _BANK_STATEMENT_DURATION_SPEC_KEYWORDS
+        ):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Confirmed from the bank statements' own computed coverage — "
+                    "continuous, gap-free coverage of at least 24 months is on file."
+                ),
+            })
+            already.add(text)
+        elif same_account_only and any(
+            kw in lower for kw in _BANK_STATEMENT_SAME_ACCOUNT_SPEC_KEYWORDS
+        ):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Confirmed from the bank statements' own extracted account "
+                    "numbers — every statement on file is from the same account."
+                ),
+            })
+            already.add(text)
+
+
+# ---------------------------------------------------------------------------
 # Deterministic backstop for the "must include all addenda, amendments,
 # and counter-offers" Purchase Contract spec
 # ---------------------------------------------------------------------------
@@ -4742,6 +4851,14 @@ def run_satisfaction_pass(
         # of this doc type's 19 conditioned specs gets one (ticket 4277
         # AC1/AC9/PC-05).
         _apply_flood_hazard_determination_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
+        # Deterministic backstop for 2 real-field-backed Bank Statement
+        # specs (duration + same-account) — see
+        # _apply_bank_statement_coverage_backstop for why only these 2 of
+        # this doc type's 10 conditioned specs get one (ticket 4276
+        # AC3/AC4 follow-up).
+        _apply_bank_statement_coverage_backstop(
             doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
         )
         # Deterministic backstop for cross-document NAME-MATCH specs — see

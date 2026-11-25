@@ -31,7 +31,10 @@ from tools.shared.manifest_parser import (
     _merge_paystubs,
     parse_manifest_from_string,
 )
-from tools.merger_tools import _filter_to_subject_property, _find_all_submitted_docs
+from tools.merger_tools import (
+    _filter_to_subject_property, _find_all_submitted_docs,
+    _apply_bank_statement_coverage_backstop,
+)
 
 
 class TestDocRankDateBeforeConfidence:
@@ -400,3 +403,135 @@ class TestAC3AC4_BankStatementCoverageAnnotation:
         for e in bank_entries:
             assert e["extracted_fields"]["has_coverage_gap"] is False
             assert "no gaps" in e["extracted_fields"]["_coverage_summary"]
+
+
+class TestBankStatementCoverageBackstop:
+    """AC3/AC4 follow-up (25 Nov 2026): data/canonical_doc_specs.json's
+    "bank statement" duration spec says "12 OR 24 consecutive months" --
+    which applies depends on the loan's own documentation-type selection,
+    and no derive_flags() flag distinguishes the two (confirmed in
+    tools/doc_rules.py). Rather than guess, this backstop only credits the
+    duration spec when the real, gap-free coverage conservatively clears
+    BOTH possible thresholds (>=24 months) -- correct no matter which
+    program actually applies. AC4 falls out for free: a gap anywhere
+    means the duration spec never gets credited, regardless of overall
+    span width."""
+
+    _DURATION_SPEC = (
+        "Borrowers may provide either 12 or 24 consecutive months of "
+        "personal bank statements"
+    )
+    _SAME_ACCOUNT_SPEC = (
+        "12 or 24 months complete personal bank statements must be from "
+        "the same account"
+    )
+    _UNRELATED_SPEC = "At least one of the borrowers must be self-employed"
+
+    @staticmethod
+    def _monthly_entries(n_months: int, acct="XX-XXXX-4127", start_year=2024, start_month=1):
+        """n_months consecutive, gap-free calendar-month statements on one
+        account, run through the real _annotate_bank_statement_coverage
+        pipeline so _coverage_span_days/has_coverage_gap are genuinely
+        computed, not hand-typed."""
+        import calendar
+        entries = []
+        year, month = start_year, start_month
+        for i in range(n_months):
+            last_day = calendar.monthrange(year, month)[1]
+            entries.append({
+                "document_id": f"stmt-{i}",
+                "extracted_fields": {
+                    "statementPeriodFrom": f"{year:04d}-{month:02d}-01",
+                    "statementPeriodTo": f"{year:04d}-{month:02d}-{last_day:02d}",
+                    "accounts": [{"accountNumber": acct}],
+                },
+            })
+            month += 1
+            if month > 12:
+                month = 1
+                year += 1
+        _annotate_bank_statement_coverage(entries)
+        return [e["extracted_fields"] for e in entries]
+
+    def test_24_months_gap_free_credits_duration_spec(self):
+        all_fields = self._monthly_entries(24)
+        specs = [self._DURATION_SPEC, self._UNRELATED_SPEC]
+        satisfied: list[dict] = []
+        _apply_bank_statement_coverage_backstop("Bank Statement", specs, satisfied, all_fields)
+        satisfied_texts = {s["specification"] for s in satisfied}
+        assert self._DURATION_SPEC in satisfied_texts
+        assert self._UNRELATED_SPEC not in satisfied_texts
+
+    def test_12_months_gap_free_leaves_duration_spec_open(self):
+        """Genuinely ambiguous -- 12 months satisfies a 12-month program
+        but not a 24-month one, and nothing here says which applies, so
+        this must stay open for the LLM (which has the real
+        documentation-type context) to judge."""
+        all_fields = self._monthly_entries(12)
+        specs = [self._DURATION_SPEC]
+        satisfied: list[dict] = []
+        _apply_bank_statement_coverage_backstop("Bank Statement", specs, satisfied, all_fields)
+        assert satisfied == []
+
+    def test_gap_present_never_credits_duration_spec_even_with_wide_overall_span(self):
+        """AC4: a real gap must never be papered over just because the
+        earliest-to-latest span looks wide enough."""
+        # 24 consecutive months, but with one month's statement missing
+        # entirely -- a real gap, even though the overall span (24 months
+        # of calendar range) still looks wide enough on paper.
+        import calendar
+        entries = []
+        year, month = 2024, 1
+        for i in range(24):
+            if i != 11:  # skip month 12 (index 11) -- a real missing month
+                last_day = calendar.monthrange(year, month)[1]
+                entries.append({
+                    "document_id": f"stmt-{i}",
+                    "extracted_fields": {
+                        "statementPeriodFrom": f"{year:04d}-{month:02d}-01",
+                        "statementPeriodTo": f"{year:04d}-{month:02d}-{last_day:02d}",
+                        "accounts": [{"accountNumber": "XX-XXXX-4127"}],
+                    },
+                })
+            month += 1
+            if month > 12:
+                month = 1
+                year += 1
+        _annotate_bank_statement_coverage(entries)
+        all_fields = [e["extracted_fields"] for e in entries]
+        assert any(f["has_coverage_gap"] for f in all_fields)  # sanity check
+        specs = [self._DURATION_SPEC]
+        satisfied: list[dict] = []
+        _apply_bank_statement_coverage_backstop("Bank Statement", specs, satisfied, all_fields)
+        assert satisfied == []
+
+    def test_single_account_credits_same_account_spec(self):
+        all_fields = self._monthly_entries(3, acct="1111")
+        specs = [self._SAME_ACCOUNT_SPEC]
+        satisfied: list[dict] = []
+        _apply_bank_statement_coverage_backstop("Bank Statement", specs, satisfied, all_fields)
+        satisfied_texts = {s["specification"] for s in satisfied}
+        assert self._SAME_ACCOUNT_SPEC in satisfied_texts
+
+    def test_two_distinct_accounts_leaves_same_account_spec_open(self):
+        all_fields = self._monthly_entries(2, acct="1111") + self._monthly_entries(2, acct="2222")
+        specs = [self._SAME_ACCOUNT_SPEC]
+        satisfied: list[dict] = []
+        _apply_bank_statement_coverage_backstop("Bank Statement", specs, satisfied, all_fields)
+        assert satisfied == []
+
+    def test_non_bank_statement_doc_type_unaffected(self):
+        all_fields = self._monthly_entries(24)
+        specs = [self._DURATION_SPEC, self._SAME_ACCOUNT_SPEC]
+        satisfied: list[dict] = []
+        _apply_bank_statement_coverage_backstop("Title Commitment", specs, satisfied, all_fields)
+        assert satisfied == []
+
+    def test_already_satisfied_spec_not_duplicated(self):
+        all_fields = self._monthly_entries(24)
+        specs = [self._DURATION_SPEC]
+        satisfied: list[dict] = [
+            {"specification": self._DURATION_SPEC, "reason": "LLM already confirmed"}
+        ]
+        _apply_bank_statement_coverage_backstop("Bank Statement", specs, satisfied, all_fields)
+        assert len(satisfied) == 1
