@@ -3719,12 +3719,32 @@ def _apply_passport_no_address_backstop(
 # close AC9 for Appraisal Report — it only stops these 2 specific,
 # directly-verifiable specs from staying open by default. Flood Hazard
 # Determination and Title Commitment (the other 2 document types PC-05/
-# AC9 names) still have ZERO real extraction samples in any local fixture
-# (re-confirmed 24 Nov 2026 — neither document type appears in any
-# compiled_inputs/*/manifest.json), so no backstop is attempted for
-# either; guessing at field names for those risks the FALSE POSITIVE
+# AC9 names) had ZERO real extraction samples in any local fixture as of
+# 24 Nov 2026 (neither document type appears in any
+# compiled_inputs/*/manifest.json).
+#
+# 25 Nov 2026 update: audited 94 real historical dev-deployment runs
+# (DynamoDB/S3, not local fixtures — see docs/
+# tickets-4275-4278-acceptance-criteria-proof.md) and confirmed real
+# extraction samples for both. Flood Hazard Determination's real samples
+# (49 across 38 "Flood Certification" + 11 "Flood Hazard Determination"
+# category instances) carry ONLY date/lender/borrowers — NEVER a
+# flood-zone-result field (no specialFloodHazardArea/isInFloodZone/
+# floodZone/etc. anywhere), confirming tools/doc_rules.py's
+# _flood_required_from_submitted_doc field-key guesses can never fire on
+# real data. One spec is still safely backstoppable from pure presence
+# (see _apply_flood_hazard_determination_backstop below). Title
+# Commitment's real samples (address/vestedIn/loanAmount/vestedPersons)
+# don't back ANY of its 13 canonical specs deterministically — those are
+# all title-insurer/history/encroachment judgment calls with no
+# corresponding extracted field — so no backstop is attempted for Title
+# Commitment; guessing at field names for it risks the FALSE POSITIVE
 # failure mode PC-05's own analysis flagged as worse than today's
-# over-cautious "mostly open".
+# over-cautious "mostly open". A live cloud run against real production
+# data (run 78dbae09, 25 Nov 2026) confirmed Title Commitment currently
+# gets ZERO specs credited by the LLM pass either, so this stays fully
+# open and in need of a real backstop later, once a field genuinely
+# exists to build one from.
 # ---------------------------------------------------------------------------
 
 _APPRAISER_LICENSE_SPEC_KEYWORDS = (
@@ -3799,6 +3819,66 @@ def _apply_appraisal_report_backstop(
                     "Confirmed from the appraisal report's own extracted data — "
                     "the comps field lists one or more comparable sales with "
                     "sale/adjusted price data."
+                ),
+            })
+            already.add(text)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic backstop for the ONE real-field-backed Flood Hazard
+# Determination spec (ticket 4277 AC1/AC9/PC-05) — see the module comment
+# above _apply_appraisal_report_backstop for the full 25 Nov 2026
+# real-production-data audit this is based on.
+# ---------------------------------------------------------------------------
+
+# Deliberately just the base presence spec's own distinctive opening
+# phrase. Unlike the appraiser-license/sales-comparison specs above, this
+# one needs no field-content check at all — "a Flood Certificate was
+# provided" IS satisfied by the flood hazard determination document
+# itself being on file (its own category match is the evidence), so
+# there's no false-positive risk the way guessing at a flood-zone-result
+# field would carry.
+_FLOOD_CERTIFICATE_BASE_SPEC_KEYWORDS = (
+    "flood certificate must be provided",
+)
+
+
+def _apply_flood_hazard_determination_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    all_fields: list[dict],
+) -> None:
+    """Force-satisfy the Flood Hazard Determination base spec ("Flood
+    Certificate must be provided by the Federal Emergency Management
+    Agency (FEMA)") whenever a real flood hazard determination document
+    was actually submitted and extracted. This is the ONE spec of this
+    doc type's 19 conditioned specs that's pure presence rather than a
+    field-content claim — every other spec (names/address/policy number/
+    coverage amount/expiration/etc.) requires the SFHA flood_insurance_
+    required=true evidence-of-insurance fields that no real production
+    sample (49 checked, 25 Nov 2026) has ever carried for this document
+    type, so none of those get a backstop. Mutates satisfied_specs in
+    place."""
+    if _canonical_doc_type(doc_type) != "flood hazard determination":
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+
+    has_flood_doc = any(isinstance(f, dict) and f for f in all_fields)
+    if not has_flood_doc:
+        return
+
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        if text in already:
+            continue
+        lower = text.lower()
+        if any(kw in lower for kw in _FLOOD_CERTIFICATE_BASE_SPEC_KEYWORDS):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "A Flood Hazard Determination / Flood Certificate "
+                    "document is on file for this property."
                 ),
             })
             already.add(text)
@@ -4654,6 +4734,14 @@ def run_satisfaction_pass(
         # _apply_appraisal_report_backstop for why only these 2 of this
         # doc type's many conditioned specs get one (ticket 4277 AC9/PC-05).
         _apply_appraisal_report_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
+        # Deterministic backstop for the 1 real-field-backed Flood Hazard
+        # Determination spec (base presence only) — see
+        # _apply_flood_hazard_determination_backstop for why only this 1
+        # of this doc type's 19 conditioned specs gets one (ticket 4277
+        # AC1/AC9/PC-05).
+        _apply_flood_hazard_determination_backstop(
             doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
         )
         # Deterministic backstop for cross-document NAME-MATCH specs — see

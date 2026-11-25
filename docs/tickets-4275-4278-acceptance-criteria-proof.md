@@ -12,7 +12,7 @@ Status legend:
 - ❌ **Not addressed** — explicitly out of scope for this batch, with why.
 
 Run all tests: `python3 -m pytest tests/ --ignore=tests/test_thread_store_decimal_conversion.py --ignore=tests/test_thread_store_s3_offload.py -q`
-→ **302 passed, 48 skipped, 0 failed.** (Both ignored files need Python 3.11+
+→ **307 passed, 48 skipped, 0 failed.** (Both ignored files need Python 3.11+
 for `datetime.UTC`, same as the deploy's own runtime — they're excluded here
 purely because local dev may be on an older interpreter; see "`compiled_inputs/montes`"
 in the live e2e section below for the thread_store S3-offload fix those tests cover.)
@@ -24,6 +24,18 @@ in the live e2e section below for the thread_store S3-offload fix those tests co
 > still genuinely blocked by a total absence of matching fixture data — not
 > left alone out of inertia. See each row and "What's still genuinely open"
 > below for specifics.
+>
+> **25 Nov 2026 update**: the "zero fixture data" root cause for the remaining
+> three items turned out to be a *local-fixture* gap only, not a real-world
+> one. Audited 94 real historical dev-deployment runs (DynamoDB/S3, not local
+> fixtures) and found 51 of them contain real Flood Hazard Determination /
+> Title Commitment / Hazard Insurance document data. A live run against one
+> of them (`run 78dbae09`, straight through the dev cloud deployment) and a
+> direct field audit of 49 real Flood Hazard Determination samples + Property
+> Insurance samples closed one more item (4277 AC1's base "certificate
+> requirement met" spec) and conclusively ruled out two others as currently
+> un-backstoppable for a *different* reason than "no data" — see "What's
+> still genuinely open" below for the updated, final picture.
 
 ---
 
@@ -57,20 +69,20 @@ All 9 ACs covered by `tests/test_ticket_4276_duplicate_copy_selection.py` (23/23
 | 5 | Wage earner, two consecutive paystubs → both linked | ✅ Unit-tested | `TestAC5AC6_PaystubConsecutivenessAndGaps::test_two_consecutive_paystubs_both_linked_no_gap` — `document_ids` carries both contributing stub IDs |
 | 6 | Paystubs with a gap in 30 days → 30-day requirement open | ✅ Unit-tested (real bug fixed) | **Found and fixed a real gap**: `_merge_paystubs` previously only checked the overall earliest→latest SPAN (≥30 days), not whether the days in between were actually covered — a stub for Jan 1-15 and another for Feb 10-24 span 55 days end-to-end but miss Jan 16–Feb 9 entirely, and the old code treated that as satisfying "30 days." Now computes `coverage_gaps` deterministically and surfaces it in the merged entry's own `name` field (e.g. "... — COVERAGE GAP: missing 2026-01-16 to 2026-02-09"). `test_gap_inside_30_day_window_flagged_and_named` + `test_small_boundary_gap_not_flagged` (normal pay-cycle noise ≤3 days isn't a false positive) |
 | 7 | Policies for subject and another property → only subject policy linked to Hazard Insurance | ✅ Unit-tested | `TestSubjectPropertyScoping::test_other_property_hazard_policy_not_linked` + `test_subject_property_hazard_policy_linked` |
-| 8 | Only hazard policy expired → condition says expired | ✅ Unit-tested (spec added) | New "Hazard insurance policy must not be expired" spec added to `data/canonical_doc_specs.json`; whether the LLM correctly flags an *actually* expired policy is grading, same caveat as elsewhere — the spec text now exists to be graded against at all, which it didn't before |
+| 8 | Only hazard policy expired → condition says expired | ✅ Unit-tested (spec added) / ✅ Live-confirmed (happy path) | New "Hazard insurance policy must not be expired" spec added to `data/canonical_doc_specs.json`. **25 Nov 2026**: audited real `Property Insurance` documents from 94 historical dev-deployment runs — they carry a real `expirationDate` field. A live cloud run against real data (`run 78dbae09`) confirmed the LLM correctly reads it and credits this exact spec ("Expiration date of 2027-06-08 is in the future... policy is not expired"). That sample's policy wasn't actually expired though, so the *negative* case (an already-expired date correctly flagged as unmet) is still unconfirmed on real data — no real sample with an expired hazard policy was found among the 94 checked |
 | 9 | Two borrowers, an ID each → both linked, one per borrower | ✅ Unit-tested | `TestAC9_OneGovernmentIdPerBorrower::test_two_borrowers_two_ids_both_survive_as_separate_entries` (two different borrowers' passports both survive dedup) + `test_two_copies_of_the_same_borrowers_id_still_dedup_to_one` (confirms the fix doesn't over-correct into treating every re-upload as a new person) |
 
 ---
 
 ## Ticket 4277 — Keep Each Condition's Requirements to What Applies
 
-8 of 9 ACs covered by `tests/test_ticket_4277_requirement_scoping.py` (23/23 passing);
-1 AC (completeness of LLM grading) is prompt-reinforced, and as of 24 Nov 2026
-partially deterministic for one of its three named document types (see AC9 below).
+8 of 9 ACs covered by `tests/test_ticket_4277_requirement_scoping.py` (28/28 passing);
+1 AC (completeness of LLM grading) is prompt-reinforced, and as of 25 Nov 2026
+partially deterministic for two of its three named document types (see AC9 below).
 
 | # | Acceptance criterion | Status | Evidence |
 |---|---|---|---|
-| 1 | Flood cert shows not in flood zone → flood-insurance requirements not open; certificate requirement met | ✅ Unit-tested (suppression) / ⚠️ Partial (grading) | `TestFloodZoneFromSubmittedDocument::test_flood_cert_shows_not_in_zone_suppresses_flood_insurance_specs` — the conditional specs are deterministically suppressed; "certificate requirement met" (crediting the cert's own base spec) is LLM grading |
+| 1 | Flood cert shows not in flood zone → flood-insurance requirements not open; certificate requirement met | ✅ Unit-tested (suppression) / ✅ Unit-tested (base-spec crediting, 25 Nov 2026) | `TestFloodZoneFromSubmittedDocument::test_flood_cert_shows_not_in_zone_suppresses_flood_insurance_specs` — the conditional specs are deterministically suppressed. **25 Nov 2026**: real production data showed the LLM alone wasn't even crediting the base "Flood Certificate must be provided by FEMA" spec (`satisfied_specifications: []` on a live run with a real flood cert on file) — new `_apply_flood_hazard_determination_backstop()` (`tools/merger_tools.py`) force-credits it on presence alone; see `TestFloodHazardDeterminationBackstop` (5 tests) |
 | 2 | Single-unit appraisal → 2-4 unit form requirement not open | ✅ Unit-tested | `TestSingleUnitNo24UnitFormRequirement` (both directions: single-unit excluded, 4-unit included) |
 | 3 | Standard homeowners policy for subject → no per-peril lines | ✅ Unit-tested | `TestHazardInsurancePerPerilConsolidation` (2 tests) + live-confirmed on `dev` (see e2e section — real Hazard Insurance output shows exactly one consolidated line) |
 | 4 | Purchase with cleared EMD → "not yet cleared" not open | ✅ Unit-tested | `TestEMDCheckEitherOr::test_cleared_evidence_present_drops_not_yet_cleared_branch` |
@@ -78,7 +90,7 @@ partially deterministic for one of its three named document types (see AC9 below
 | 6 | Before closing with appraisal → no check against the Note shows missing | ✅ Unit-tested (real bug fixed) | **Found and fixed**: the Note/security instrument only exists after closing, so `cross_document_checks` always reported `missing_sibling_document` for the appraisal's 2 Note-dated specs on every pre-closing file — the correct, universal state, not a real gap. New `not_yet_available_pre_closing` status added specifically for closing-only cross-reference targets. `TestNoteNotCheckedBeforeClosing::test_appraisal_note_cross_checks_do_not_show_missing_sibling_document` |
 | 7 | Credit report with empty tradelines → tradeline requirements "not verified" | ✅ Unit-tested | `TestTradelineNotVerifiedWording` (3 tests) — open tradeline-detail specs are rewritten in place to literally start with "Not verified:", distinct from PC-12's earlier fix (which only stopped them being *falsely satisfied*; this makes the open state explicit) |
 | 8 | Any loan → every condition has at least one requirement | ✅ Unit-tested | `TestEveryConditionHasAtLeastOneRequirement::test_fallback_item_when_canonicalization_resolves_to_empty` |
-| 9 | Loan at Clear to Close with full file → Appraisal Report, Flood Hazard Determination, Title Commitment show most requirements met | ⚠️ **Partially addressed — the hardest AC in this batch** | This is PC-05 from the original 17 Nov report, previously flagged "Not addressed." It is fundamentally about LLM satisfaction-grading quality, not deterministic code. **24 Nov 2026 upgrade for Appraisal Report specifically**: `compiled_inputs/aubrey` has rich real extraction data (`appraiser.license`, non-empty `comps[]` with real `salePrice`/`adjustedValue`) confirming 2 of this doc type's ~35 conditioned specs — "appraiser must provide license/certification" (plus the parallel "licensed/certified in the property's state" spec) and the Sales Comparison Approach spec — are now safe to credit deterministically. New `_apply_appraisal_report_backstop()` (`tools/merger_tools.py`) does exactly that, mirroring the pattern PC-12 used for Credit Report. **A real false positive was caught and fixed during live verification**: the first version matched on the broader phrase "comparable used," which also appears inside the unrelated "must contain a street map showing... all comparable used" spec and the "unfavorable conditions... comparable sales" commentary spec — the live `aubrey` run actually credited the street-map spec with zero evidence a street map exists. Narrowed the keyword to the exact phrase "sales comparison approach," which (confirmed against `data/canonical_doc_specs.json`) appears in exactly one spec — the one `comps[]` actually backs. Re-verified live afterward: only the 3 genuinely field-backed specs are credited. `TestAppraisalReportBackstop` (6 tests, incl. a regression test for this exact false positive, and one against real `aubrey` data). The other ~32 Appraisal Report specs (photos, sketches, maps, narrative, limiting-conditions certification) have no corresponding field in any fixture and are deliberately left untouched — crediting them would be guessing. **Flood Hazard Determination and Title Commitment remain completely unaddressed**: re-confirmed on fresh inspection that zero of the 5 local fixtures contain either document category at all (an earlier version of this doc inaccurately claimed `weingarten` had a Title Commitment — it does not; its 28 documents include an Appraisal Report but no Title Commitment). Guessing at field names for either risks the opposite failure mode: **false positives** (claiming a requirement is met when it isn't), which is worse than today's over-cautious "mostly open" — exactly what the street-map incident above demonstrated firsthand. The general `_SATISFACTION_INSTRUCTIONS` reinforcement paragraph for all 3 document types remains in place for whatever isn't covered by the new backstop. **Recommend**: get one real Flood Hazard Determination / Title Commitment extraction sample from production to close the remaining two document types. |
+| 9 | Loan at Clear to Close with full file → Appraisal Report, Flood Hazard Determination, Title Commitment show most requirements met | ⚠️ **Partially addressed — Title Commitment is the one remaining gap** | This is PC-05 from the original 17 Nov report, previously flagged "Not addressed." It is fundamentally about LLM satisfaction-grading quality, not deterministic code. **24 Nov 2026 upgrade for Appraisal Report**: `compiled_inputs/aubrey` has rich real extraction data (`appraiser.license`, non-empty `comps[]`) confirming 2 of this doc type's ~35 conditioned specs are safe to credit deterministically — `_apply_appraisal_report_backstop()` (`tools/merger_tools.py`), mirroring PC-12's Credit Report pattern (a real false-positive was caught and fixed along the way — see git history / `TestAppraisalReportBackstop`'s 6 tests). **25 Nov 2026 upgrade for Flood Hazard Determination**: audited 94 real historical dev-deployment runs (DynamoDB/S3) and found 49 real Flood Hazard Determination samples — none carry a flood-zone-result field, but a live cloud run (`run 78dbae09`) showed the LLM wasn't even crediting the one purely-presence-based spec ("Flood Certificate must be provided by FEMA"). New `_apply_flood_hazard_determination_backstop()` force-credits exactly that 1 spec on document presence alone — see `TestFloodHazardDeterminationBackstop`'s 5 tests and "What's still genuinely open" below for the full real-data audit. **Title Commitment remains open**: 40 of the 94 real runs carry real Title Commitment fields (`address`, `vestedIn`, `loanAmount`), and the same live run confirmed it, but none of this doc type's 13 canonical specs (title-insurer qualification/licensing, 24-month history, encroachment exceptions) are backed by any of those fields — they're genuine underwriting judgment calls, not something a structured field can confirm. Guessing at a field meaning here risks the same false-positive failure mode the Appraisal Report street-map incident demonstrated firsthand — left open on purpose. The general `_SATISFACTION_INSTRUCTIONS` reinforcement paragraph remains in place for everything not covered by a backstop. See "What's still genuinely open" below for the complete 25 Nov 2026 real-production-data findings. |
 
 ---
 
@@ -232,32 +244,85 @@ S3 with a small pointer stored in DynamoDB instead.
 re-listing it here — nothing below is carried over unchanged just because it was
 flagged before. Two items from the original list (4276 AC3/AC4 bank-statement
 coverage, and the Appraisal Report portion of 4277 AC9) were closed with real
-deterministic backstops this round and are no longer listed below. The following
-remain genuinely blocked, re-confirmed by directly inspecting all 5 local
-`compiled_inputs/*` manifests again rather than re-asserting the original finding:
+deterministic backstops this round and are no longer listed below.
 
-1. **4277 AC9 / PC-05 — Flood Hazard Determination and Title Commitment** only
-   (Appraisal Report is now partially closed, see its table row above). Zero of
-   the 5 local fixtures contain either document category at all — no field data
-   exists anywhere locally to build a safe backstop against. Still
-   prompt-reinforced only, not deterministically guaranteed. Needs a real
-   extraction sample of either document type from production to close properly.
-2. **4276 AC8** (expired hazard policy correctly flagged) — the spec exists to
-   grade against, but whether the LLM correctly reads an actual expiration date
-   against the closing-date projection is grading quality (same caveat the
-   original PC-10 Government ID expiration fix already carried). No fixture
-   contains a Hazard Insurance/Homeowners document at all, so no backstop can be
-   built here either.
-3. **4277 AC1** (flood cert "certificate requirement met" crediting) — the
-   conditional flood-insurance specs are deterministically suppressed when a
-   flood cert says "not in zone" (that part is ✅); crediting the cert's own base
-   "requirement met" spec is still LLM grading. No fixture contains a Flood
-   Hazard Determination document, so this can't be backstopped either — same root
-   cause as item 1 above.
+**25 Nov 2026**: the root cause behind the remaining 3 items ("zero fixture
+data") turned out to be a *local-fixture-only* gap. Pulled 94 real historical
+dev-deployment `run_id`s from CloudWatch Logs Insights (not a local fixture —
+real production runs, 28 Oct–24 Nov 2026) and resolved each one's stored
+`manifest_json` via DynamoDB/S3 (reusing the `api/thread_store.py` S3-offload
+mechanism from the `montes` fix above). **51 of 94 real runs contain Flood
+Hazard Determination / Title Commitment / Hazard Insurance document data.**
+Sent one of them (`run 78dbae09`) straight through the live dev cloud
+deployment (`_run_real_prod_run_cloud.py`, a `test_cloud.py`-style script
+that posts a real historical run's exact input) to confirm the pipeline
+genuinely links and grades these documents end-to-end on real data (not just
+hypothetically) — all 3 came back `satisfied_but_review_required`/SOFT-STOP
+with real, correctly-generated cross-document checks (e.g. "Cross-checked
+against Appraisal Report, but consistency could not be automatically
+confirmed — review manually"), not stuck or broken.
 
-All three remaining items share one root cause: **zero local fixture data** for
-Flood Hazard Determination and Hazard Insurance/Homeowners document categories.
-Building a backstop for either without a real sample would mean guessing field
-names, which risks false positives (claiming a requirement is met when it isn't)
-— explicitly worse than today's over-cautious "mostly open," per this doc's own
-PC-05 analysis. These are not new regressions introduced by this batch.
+Inspecting the real extracted fields and the live run's own
+`satisfied_specifications` output (which specs the LLM pass itself credited,
+spec-by-spec) gave a much more precise picture than "no data" ever could:
+
+1. **4276 AC8 (expired hazard policy correctly flagged) — ✅ now live-confirmed,
+   not just unit-tested.** Real `Property Insurance` documents (89 of 94 runs
+   carry this category, which already canonicalizes to "hazard insurance" —
+   see `tools/merger_tools.py`'s `_ALIAS_TO_CANONICAL`) DO carry real,
+   populated fields: `expirationDate`, `owners[]` (named insured), `company.name`
+   (insurer), `propertyAddresses[]`. In the live `run 78dbae09`, the LLM
+   satisfaction pass correctly credited **5 real specs** off these fields,
+   including the exact AC8 spec — `"Hazard insurance policy must not be
+   expired -- effective dates must cover the anticipated closing date"` —
+   with reason `"Expiration date of 2027-06-08 is in the future relative to
+   the pre-closing file, so the policy is not expired."` This is genuine,
+   real grading quality working correctly, not a guess. (Caveat: this one
+   real sample had a *valid, unexpired* policy — it confirms the happy path
+   works, not that an *actually expired* date is correctly flagged as unmet;
+   no real sample with an already-expired hazard policy was found among the
+   94 checked.) No new backstop code was needed or written for this one —
+   the existing LLM-grading path already handles it correctly on real data.
+2. **4277 AC1 (flood cert "certificate requirement met" crediting) — ✅ now
+   closed with a real deterministic backstop.** Audited 49 real Flood Hazard
+   Determination samples (38 "Flood Certification" + 11 "Flood Hazard
+   Determination" category instances across the 94 runs) and found they
+   carry ONLY `date`/`lender`/`borrowers[]` — **never** a flood-zone-result
+   field (no `specialFloodHazardArea`/`isInFloodZone`/`floodZone`/etc.
+   anywhere), confirming `tools/doc_rules.py`'s `_flood_required_from_submitted_doc`
+   field-key guesses can never actually fire on real data (that part stays
+   prompt-only, unconfirmable either way). But the live run's own
+   `satisfied_specifications` for Flood Hazard Determination was `[]` — the
+   LLM credited *zero* specs, not even the purely-presence-based "Flood
+   Certificate must be provided by the Federal Emergency Management Agency
+   (FEMA)" one. New `_apply_flood_hazard_determination_backstop()`
+   (`tools/merger_tools.py`) force-credits exactly that one spec — the only
+   one of this doc type's 19 conditioned specs that's pure presence (a flood
+   cert document being on file at all IS the evidence) rather than a
+   field-content claim — whenever a real flood hazard determination document
+   was actually submitted. 5 new unit tests in
+   `tests/test_ticket_4277_requirement_scoping.py` (`TestFloodHazardDeterminationBackstop`),
+   using a field shape that mirrors the real production extraction exactly
+   (with synthetic names, not real borrower data).
+3. **4277 AC9 / PC-05 — Title Commitment only remains open** (Appraisal Report
+   and Flood Hazard Determination are now both at least partially closed —
+   see above and their table rows). Real Title Commitment samples (40 of 94
+   runs) DO carry real fields — `address`, `vestedIn`, `loanAmount`,
+   `vestedPersons` — but none of them deterministically back ANY of this doc
+   type's 13 canonical specs: they're all title-insurer qualification/
+   licensing/rating judgment calls, 24-month title-history/transfer
+   provenance, or encroachment-exception calls — none of which a structured
+   `address`/`vestedIn`/`loanAmount` field can confirm or deny on its own.
+   The live run's own `satisfied_specifications` for Title Commitment was
+   also `[]` — genuinely nothing gets credited today, LLM or otherwise. This
+   is a real, confirmed gap, not a guess — and per this doc's own PC-05
+   analysis, it would take guessing at a field meaning (e.g. assuming
+   `vestedIn` alone proves "no flipping activity" or that the title insurer
+   is "duly authorized and licensed") to force a close here, which risks the
+   exact false-positive failure mode PC-05 flagged as worse than staying
+   open. Left open on purpose.
+
+None of these are new regressions introduced by this batch — AC8 and AC1 are
+now genuinely stronger (one live-confirmed, one newly backstopped); Title
+Commitment's "open" status is now a *confirmed, field-audited* finding
+instead of an "untested, no data" one.

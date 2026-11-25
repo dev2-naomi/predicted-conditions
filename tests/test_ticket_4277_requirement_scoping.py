@@ -30,7 +30,7 @@ from tools.doc_rules import (
 )
 from tools.merger_tools import (
     run_satisfaction_pass, _apply_tradeline_not_verified_wording,
-    _apply_appraisal_report_backstop,
+    _apply_appraisal_report_backstop, _apply_flood_hazard_determination_backstop,
 )
 
 
@@ -379,4 +379,90 @@ class TestAppraisalReportBackstop:
         specs = [self._LICENSE_SPEC]
         satisfied: list[dict] = [{"specification": self._LICENSE_SPEC, "reason": "LLM already confirmed"}]
         _apply_appraisal_report_backstop("Appraisal Report", specs, satisfied, [fields])
+        assert len(satisfied) == 1
+
+
+class TestFloodHazardDeterminationBackstop:
+    """AC1/AC9/PC-05 follow-up (25 Nov 2026): audited 94 real historical
+    dev-deployment runs (DynamoDB/S3) and found 49 real Flood Hazard
+    Determination document samples, none of which carry a flood-zone-
+    result field (no specialFloodHazardArea/isInFloodZone/floodZone/etc.)
+    -- ruling out a field-content backstop for the other 18 conditioned
+    specs in this doc type. The base "Flood Certificate must be provided"
+    spec is different: it's pure presence, not a field-content claim, so
+    it's safe to credit whenever a real flood hazard determination
+    document was actually submitted. Field shape below mirrors the real
+    production extraction shape (category/date/lender/borrowers/
+    confidence/exceptions) with generic/synthetic names, not real
+    borrower data."""
+
+    _BASE_SPEC = (
+        "Flood Certificate must be provided by the Federal Emergency "
+        "Management Agency (FEMA)"
+    )
+    _ZONE_SPEC = (
+        "Flood insurance is required when property is located in a "
+        "Special Flood Hazard Area (SFHA), Coastal Barrier System (CBRS), "
+        "or Otherwise Protected Area (OPA)"
+    )
+    _POLICY_NUMBER_SPEC = "Evidence of Insurance must show Policy Number"
+
+    _REAL_SHAPED_FIELDS = {
+        "date": "2026-05-14",
+        "lender": "SAMPLE LENDER, INC",
+        "category": "538_Flood Certification",
+        "borrowers": [
+            {"suffix": None, "lastName": "Doe", "firstName": "Jane", "middleName": None}
+        ],
+        "confidence": 0.999,
+        "exceptions": {"expired": False, "corrupted": False, "blank_page": False},
+        "total_pages": 1,
+        "vision_check": "passed",
+    }
+
+    def test_real_production_shaped_doc_credits_base_spec_only(self):
+        specs = [self._BASE_SPEC, self._ZONE_SPEC, self._POLICY_NUMBER_SPEC]
+        satisfied: list[dict] = []
+        _apply_flood_hazard_determination_backstop(
+            "Flood Hazard Determination", specs, satisfied, [self._REAL_SHAPED_FIELDS]
+        )
+        satisfied_texts = {s["specification"] for s in satisfied}
+        assert self._BASE_SPEC in satisfied_texts
+        # Neither has a corresponding field anywhere in real production data
+        # -- must stay open, not false-positived.
+        assert self._ZONE_SPEC not in satisfied_texts
+        assert self._POLICY_NUMBER_SPEC not in satisfied_texts
+
+    def test_no_submitted_doc_leaves_spec_open(self):
+        specs = [self._BASE_SPEC]
+        satisfied: list[dict] = []
+        _apply_flood_hazard_determination_backstop(
+            "Flood Hazard Determination", specs, satisfied, []
+        )
+        assert satisfied == []
+
+    def test_empty_fields_dict_leaves_spec_open(self):
+        specs = [self._BASE_SPEC]
+        satisfied: list[dict] = []
+        _apply_flood_hazard_determination_backstop(
+            "Flood Hazard Determination", specs, satisfied, [{}]
+        )
+        assert satisfied == []
+
+    def test_non_flood_doc_type_unaffected(self):
+        specs = [self._BASE_SPEC]
+        satisfied: list[dict] = []
+        _apply_flood_hazard_determination_backstop(
+            "Title Commitment", specs, satisfied, [self._REAL_SHAPED_FIELDS]
+        )
+        assert satisfied == []
+
+    def test_already_satisfied_spec_not_duplicated(self):
+        specs = [self._BASE_SPEC]
+        satisfied: list[dict] = [
+            {"specification": self._BASE_SPEC, "reason": "LLM already confirmed"}
+        ]
+        _apply_flood_hazard_determination_backstop(
+            "Flood Hazard Determination", specs, satisfied, [self._REAL_SHAPED_FIELDS]
+        )
         assert len(satisfied) == 1
