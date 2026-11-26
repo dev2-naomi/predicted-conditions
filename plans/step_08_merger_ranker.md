@@ -185,6 +185,12 @@ as an open requirement forever, since "legibility" was never a field the
 extraction pipeline reports on its own.
 
 Tool call sequence for STEP_08:
+Call `run_document_merger_pipeline` once, with no arguments — it runs all
+four stages below in order (merge, rank, cross-check, finalize) in a
+single call. Then call `save_step_report`.
+
+(The four stages, for reference — this is what `run_document_merger_pipeline`
+does internally; you do not call these individually in a normal run):
 1. `merge_document_requests`
 2. `rank_document_requests`
 3. `cross_check_satisfaction`

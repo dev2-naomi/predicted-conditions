@@ -20,7 +20,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import queue
 import random
+import threading
 import time
 from typing import Annotated, Any, Literal
 from typing_extensions import NotRequired
@@ -41,6 +43,7 @@ from typing_extensions import TypedDict
 from registry import STEP_ORDER
 from step_loader import load_system_prompt, resolve_plan_for_step, resolve_tools_for_step
 from tools import ALL_TOOLS
+from tools.sequential_tool_node import SequentialToolNode
 
 # ---------------------------------------------------------------------------
 # Custom reducers
@@ -79,6 +82,14 @@ class PredictiveConditionsState(TypedDict, total=False):
     loan_file_xml: str                # MISMO XML — primary input
     manifest_json: str                # Raw manifest JSON (document inventory from extraction)
     eligibility_json: str             # Raw eligibility engine output JSON
+    current_program: str              # Optional plain string naming the loan's CURRENT,
+                                       # already-assigned program (e.g. from the LOS). When
+                                       # present, this is the single highest-priority source
+                                       # for scenario_summary.program -- it overrides both
+                                       # the XML-inferred program and the eligibility
+                                       # engine's eligible_programs list (see
+                                       # tools.scenario_tools.build_scenario_summary).
+                                       # Absent/blank is a graceful no-op.
     required_documents_json: str      # Submission Requirements checklist (program_name,
                                        # program_results_key, documents[]) — the loan's
                                        # minimum_required_documents item, same one the
@@ -106,6 +117,25 @@ class PredictiveConditionsState(TypedDict, total=False):
     final_output: Annotated[NotRequired[dict], _last_value]
     dev_mode: NotRequired[dict]
 
+    # Deterministic failure gate (see tools.scenario_tools.build_scenario_summary):
+    # set when NO eligibility_json was provided AND the MISMO XML alone is
+    # missing one or more of the 16 bare-minimum eligibility-engine fields.
+    # When set, route_after_tools() routes straight to fail_fast_node instead
+    # of back to the orchestrator, skipping STEP_01-08 entirely.
+    critical_failure: Annotated[NotRequired[dict], _last_value]
+
+    # Stall-recovery counter (see should_continue()/nudge_node()) -- added
+    # 2026-11-07 alongside OpenRouter support. Lower reasoning-effort models
+    # occasionally stop calling tools mid-workflow (observed on
+    # claude-sonnet-5.5 via OpenRouter at "low"/"medium" effort -- the model
+    # does the real work correctly, e.g. storing document requests, but then
+    # skips the follow-up save_step_report call and emits a plain text
+    # reply instead). Rather than hard-failing on the very first stall
+    # (previously should_continue()'s only behavior), this counts stalls so
+    # should_continue() can route to a cheap one-message nudge first and
+    # only raise once the retry budget (_STALL_RETRY_LIMIT) is exhausted.
+    stall_retry_count: Annotated[NotRequired[int], _last_value]
+
 
 # ---------------------------------------------------------------------------
 # LLM
@@ -123,17 +153,148 @@ _SYSTEM_PROMPT = load_system_prompt()
 # API's own default of 1.0.
 _LLM_TEMPERATURE = os.environ.get("LLM_TEMPERATURE", "0.2")
 
-_llm_kwargs: dict = {
-    "model": _MODEL,
-    "max_tokens": 16384,
-    "max_retries": 0,
-}
-if "opus" in _MODEL:
-    _llm_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
-else:
-    _llm_kwargs["temperature"] = float(_LLM_TEMPERATURE)
+# Per-request network timeout (seconds) for every LLM client constructed
+# below (primary + all fallback tiers). Added 2026-10-06 after a stuck
+# STEP_06 run (thread fde51090.../run 4379e698...) blocked for the full
+# 8.5-minute AWS Lambda ceiling: the underlying ChatOpenAI().invoke() call
+# simply never returned and never raised, so _invoke_with_retry() never even
+# got a chance to run (it only reacts to raised exceptions, not hangs), and
+# the fallback chain was never engaged. Lambda's hard 900s timeout then
+# force-killed the invocation, leaving the run permanently stuck in
+# "running" state with no error ever recorded. Setting an explicit timeout
+# turns a silent hang into a raised (and therefore retryable/catchable)
+# exception well before the Lambda ceiling. Applies to the underlying
+# HTTP client in both langchain-openai and langchain-anthropic.
+_LLM_TIMEOUT_SECONDS = float(os.environ.get("LLM_TIMEOUT_SECONDS", "90"))
 
-_llm = ChatAnthropic(**_llm_kwargs)
+# Primary-provider override — set PRIMARY_PROVIDER=openai (or leave
+# ANTHROPIC_API_KEY unset) to run entirely on OpenAI instead of Anthropic.
+# Added 2026-10-05 after a revoked/invalid ANTHROPIC_API_KEY hard-failed
+# every run with a 401 (not in _RETRYABLE_STATUS below, so the fallback
+# chain never even got a chance to kick in) — gives us a clean way to run
+# dev/test traffic on OpenAI only without touching the Anthropic client
+# construction at all (which errors at import time on a missing key).
+# OPENAI_PRIMARY_MODEL defaults to "gpt-5-mini" -- OpenAI's balanced/
+# cost-effective tier, the closest analog to claude-sonnet-4-5 (mirrors the
+# existing Opus-flagship vs Sonnet-balanced split, vs. "gpt-5" flagship
+# which is the closer Opus analog and is already used as the Tier 2
+# cross-provider fallback default below).
+#
+# PRIMARY_PROVIDER=openrouter — added 2026-11-07 after the OPENAI_API_KEY
+# override above (from the 2026-10-05 Anthropic outage) was itself
+# silently revoked (401 on every call), with no good direct-OpenAI or
+# direct-Anthropic key available for dev at the time. OpenRouter is an
+# OpenAI-compatible proxy in front of many providers/keys, so routing
+# through it (same ChatOpenAI client, different base_url + key) gives a
+# third, independent way to reach a model without depending on either
+# direct provider key being valid. OPENROUTER_MODEL defaults to
+# "anthropic/claude-sonnet-5.5" (the model allowed by the OpenRouter
+# workspace's guardrail at the time this was added).
+_PRIMARY_PROVIDER = os.environ.get("PRIMARY_PROVIDER", "").strip().lower()
+_USE_OPENROUTER_PRIMARY = _PRIMARY_PROVIDER == "openrouter"
+_USE_OPENAI_PRIMARY = not _USE_OPENROUTER_PRIMARY and (
+    _PRIMARY_PROVIDER == "openai" or (
+        not os.environ.get("ANTHROPIC_API_KEY") and _PRIMARY_PROVIDER != "anthropic"
+    )
+)
+
+if _USE_OPENROUTER_PRIMARY:
+    from langchain_openai import ChatOpenAI
+
+    _OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5")
+    # Explicit max_tokens cap (matches the Anthropic/OpenAI primary branches
+    # below). Without this, ChatOpenAI leaves max_tokens unset and OpenRouter
+    # defaults to the model's theoretical max output (65536 for
+    # claude-sonnet-5.5), which can exceed OpenRouter's per-request
+    # affordability ceiling and fail with a 402 "requires more credits, or
+    # fewer max_tokens" error REGARDLESS of actual remaining account/key
+    # balance -- confirmed 2026-11-19 via a live dev run that failed
+    # deterministically on every retry with the exact same 402 even though
+    # the key had $41 of $50 weekly budget remaining.
+    _OPENROUTER_MAX_TOKENS = int(os.environ.get("OPENROUTER_MAX_TOKENS", "16384"))
+    _or_primary_kwargs: dict = {
+        "model": _OPENROUTER_MODEL,
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key": os.environ.get("OPENROUTER_API_KEY"),
+        "max_tokens": _OPENROUTER_MAX_TOKENS,
+        "max_retries": 0,
+        "timeout": _LLM_TIMEOUT_SECONDS,
+        "temperature": float(_LLM_TEMPERATURE),
+    }
+    # claude-sonnet-5.5 has MANDATORY reasoning on OpenRouter, defaulting to
+    # effort="high" if unset -- found 2026-11-07 after a full montes test
+    # run cost ~$1.40 (completion/reasoning tokens billed at $10/M). Tried
+    # dropping straight to "low" for cost, but that caused the orchestrator
+    # to stop calling tools mid-workflow on a SEPARATE test case (niccum,
+    # STEP_05) and hit the should_continue() hard-failure guard below --
+    # i.e. forced tool_choice can't compensate here (Claude rejects forced
+    # tool_choice outright for this model; see _PRIMARY_LLM_PROVIDER
+    # comment), so under-reasoning is a reliability risk, not just a
+    # quality one. The stall-recovery nudge mechanism (should_continue()/
+    # nudge_node()) now makes "low" safe/reliable in practice (verified via
+    # repeated local test runs on both niccum and montes -- each needed
+    # exactly 1 nudge retry and completed successfully, ~$0.5-0.9/run vs.
+    # ~$1.1-3.0/run at "high"), so "low" is the default here; the simpler
+    # satisfaction-check call in merger_tools.py uses its own "low" default
+    # independently.
+    _or_effort = os.environ.get("OPENROUTER_REASONING_EFFORT", "low")
+    if _or_effort:
+        _or_primary_kwargs["reasoning_effort"] = _or_effort
+    _llm = ChatOpenAI(**_or_primary_kwargs)
+    logging.getLogger(__name__).warning(
+        "PRIMARY MODEL OVERRIDE: running via OpenRouter model %s instead of "
+        "Anthropic %s (PRIMARY_PROVIDER=%r).",
+        _OPENROUTER_MODEL, _MODEL, _PRIMARY_PROVIDER,
+    )
+elif _USE_OPENAI_PRIMARY:
+    from langchain_openai import ChatOpenAI
+
+    _OPENAI_PRIMARY_MODEL = os.environ.get(
+        "OPENAI_PRIMARY_MODEL", os.environ.get("OPENAI_FALLBACK_MODEL", "gpt-5-mini"),
+    )
+    _oai_primary_kwargs: dict = {
+        "model": _OPENAI_PRIMARY_MODEL,
+        "max_retries": 0,
+        "timeout": _LLM_TIMEOUT_SECONDS,
+    }
+    _primary_effort = os.environ.get("OPENAI_REASONING_EFFORT", "medium")
+    if _primary_effort:
+        _oai_primary_kwargs["reasoning_effort"] = _primary_effort
+    _llm = ChatOpenAI(**_oai_primary_kwargs)
+    logging.getLogger(__name__).warning(
+        "PRIMARY MODEL OVERRIDE: running on OpenAI %s instead of Anthropic "
+        "%s (PRIMARY_PROVIDER=%r, ANTHROPIC_API_KEY set=%s).",
+        _OPENAI_PRIMARY_MODEL, _MODEL, _PRIMARY_PROVIDER,
+        bool(os.environ.get("ANTHROPIC_API_KEY")),
+    )
+else:
+    _llm_kwargs: dict = {
+        "model": _MODEL,
+        "max_tokens": 16384,
+        "max_retries": 0,
+        "timeout": _LLM_TIMEOUT_SECONDS,
+    }
+    if "opus" in _MODEL:
+        _llm_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
+    else:
+        _llm_kwargs["temperature"] = float(_LLM_TEMPERATURE)
+
+    _llm = ChatAnthropic(**_llm_kwargs)
+
+# OpenRouter uses the OpenAI-compatible ChatOpenAI client under the hood,
+# but it is NOT given the "openai" provider label here: _bind() below forces
+# tool_choice="required" for provider=="openai" (to keep the orchestrator
+# reliably calling a tool each turn), and that OpenAI-shaped forced-choice
+# value doesn't translate cleanly through OpenRouter when the underlying
+# model is Anthropic — Claude Sonnet 5.5 rejected it outright with "tool_choice:
+# type \"tool\" and \"any\" are not supported for this model" (discovered
+# 2026-11-07 testing anthropic/claude-sonnet-5.5 via OpenRouter). Giving it
+# its own "openrouter" label makes _bind() fall through to plain
+# bind_tools(step_tools) (auto tool choice) instead.
+_PRIMARY_LLM_PROVIDER = (
+    "openrouter" if _USE_OPENROUTER_PRIMARY
+    else ("openai" if _USE_OPENAI_PRIMARY else "anthropic")
+)
 
 # Fallback chain — tried in order when the primary model returns a transient
 # overload/rate-limit error. Each entry is (provider, llm). A cross-provider
@@ -143,13 +304,23 @@ _llm = ChatAnthropic(**_llm_kwargs)
 _fallback_specs: list[tuple[str, Any]] = []
 
 # Tier 1 — Anthropic Sonnet (same provider; cheaper/faster than Opus).
-# Set ANTHROPIC_FALLBACK_MODEL="" to disable this tier.
+# Set ANTHROPIC_FALLBACK_MODEL="" to disable this tier. Also skipped
+# whenever the primary is already running on the OpenAI or OpenRouter
+# override above — no point building a second client against the same
+# (missing/invalid) Anthropic key when that's precisely why the override
+# is active.
 _FALLBACK_MODEL = os.environ.get("ANTHROPIC_FALLBACK_MODEL", "claude-sonnet-4-5")
-if _FALLBACK_MODEL and _FALLBACK_MODEL != _MODEL:
+if (
+    _FALLBACK_MODEL
+    and _FALLBACK_MODEL != _MODEL
+    and not _USE_OPENAI_PRIMARY
+    and not _USE_OPENROUTER_PRIMARY
+):
     _fallback_kwargs: dict = {
         "model": _FALLBACK_MODEL,
         "max_tokens": 16384,
         "max_retries": 0,
+        "timeout": _LLM_TIMEOUT_SECONDS,
     }
     if "opus" in _FALLBACK_MODEL:
         _fallback_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 8192}
@@ -161,12 +332,27 @@ if _FALLBACK_MODEL and _FALLBACK_MODEL != _MODEL:
 # Enabled only when OPENAI_API_KEY is set and langchain-openai imports.
 # Configure model via OPENAI_FALLBACK_MODEL (default gpt-5) and reasoning depth
 # via OPENAI_REASONING_EFFORT (default "medium"; set "" to disable reasoning).
+# Skipped under PRIMARY_PROVIDER=openrouter (same reasoning as the Anthropic
+# Tier 1 skip above): dev's OpenAI/Anthropic fallback keys have repeatedly
+# been stale/invalid while OpenRouter itself has been the one source of
+# truth being actively maintained, so a broken "safety net" was making
+# otherwise-transient OpenRouter errors (402 in-flight/rate-limit blips)
+# fatal instead of recoverable. Pure-OpenRouter now just relies on
+# _invoke_with_retry's own backoff/retry loop against the primary.
 _OPENAI_FALLBACK_MODEL = os.environ.get("OPENAI_FALLBACK_MODEL", "gpt-5")
-if os.environ.get("OPENAI_API_KEY") and _OPENAI_FALLBACK_MODEL:
+if (
+    os.environ.get("OPENAI_API_KEY")
+    and _OPENAI_FALLBACK_MODEL
+    and not _USE_OPENROUTER_PRIMARY
+):
     try:
         from langchain_openai import ChatOpenAI
 
-        _oai_kwargs: dict = {"model": _OPENAI_FALLBACK_MODEL, "max_retries": 0}
+        _oai_kwargs: dict = {
+            "model": _OPENAI_FALLBACK_MODEL,
+            "max_retries": 0,
+            "timeout": _LLM_TIMEOUT_SECONDS,
+        }
         _effort = os.environ.get("OPENAI_REASONING_EFFORT", "medium")
         if _effort:
             _oai_kwargs["reasoning_effort"] = _effort
@@ -184,7 +370,20 @@ if os.environ.get("OPENAI_API_KEY") and _OPENAI_FALLBACK_MODEL:
 _RETRY_COOLDOWN_SECONDS = float(os.environ.get("LLM_RETRY_COOLDOWN", "5"))
 _RETRY_MAX_BACKOFF = float(os.environ.get("LLM_RETRY_MAX_BACKOFF", "60"))
 _MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "8"))
-_RETRYABLE_STATUS = {429, 500, 502, 503, 529}
+_RETRYABLE_STATUS = {
+    402,  # Added 2026-11-11: OpenRouter returns 402 Payment Required when
+          # the workspace runs out of credits mid-run. Unlike a genuinely
+          # fatal config error (e.g. the 401-on-revoked-key case described
+          # near PRIMARY_PROVIDER above, which is intentionally left OUT of
+          # this set so a bad key fails loudly/immediately), running out of
+          # budget is an expected, recoverable-via-fallback condition now
+          # that the OpenAI Tier 2 fallback (_fallback_specs below) exists
+          # specifically to cover it -- treating 402 as retryable makes
+          # _invoke_with_retry's existing "primary fails transiently -> try
+          # fallback in the same round" path engage automatically instead of
+          # the run hard-failing.
+    429, 500, 502, 503, 529,
+}
 _logger = logging.getLogger(__name__)
 
 
@@ -208,12 +407,30 @@ _DEFAULT_INITIAL_PROMPT = (
     "  STEP_05: load_guideline_sections (property), then generate_property_document_requests\n"
     "  STEP_06: load_guideline_sections (title), then generate_title_document_requests\n"
     "  STEP_07: load_guideline_sections (compliance), then generate_compliance_document_requests\n"
-    "  STEP_08: merge_document_requests, rank_document_requests, cross_check_satisfaction, generate_final_output\n"
-    "  STEP_09: style_document_requests (restyle all document requests into AUS-like display format)\n\n"
+    "  STEP_08: run_document_merger_pipeline (one call does merge + rank + cross-check + finalize)\n"
+    "  STEP_09: get_final_document_requests (to see what needs styling), then "
+    "style_document_requests (restyle all document requests into AUS-like display format)\n\n"
     "For STEP_02 through STEP_07: first load the relevant guideline sections, then "
     "reason over the scenario_summary + guidelines to generate document requests.\n"
     "Output document_requests (not conditions). Each document request must include "
-    "specifications and reasons_needed."
+    "specifications and reasons_needed.\n\n"
+    "COST-EFFICIENCY RULES (follow these to minimize round-trips -- every extra "
+    "turn costs real money and time, with no quality benefit):\n"
+    "1. Do NOT call get_workflow_status at the start of a step or after save_step_report. "
+    "save_step_report's own response already tells you the next step, and the step "
+    "sequence above already tells you which tools to call for it -- you already have "
+    "everything get_workflow_status would return. Only call it if you are genuinely "
+    "unsure of your current state (e.g. right after a stall/nudge recovery).\n"
+    "2. For STEP_01 through STEP_07 ONLY: call save_step_report in the SAME turn as "
+    "that step's generate_*_document_requests tool call (batch them together into one "
+    "tool-calling turn) whenever the generate call's result is already known at that "
+    "point -- do not spend a separate turn just to call save_step_report alone. "
+    "(This does NOT apply to STEP_08 -- call run_document_merger_pipeline on "
+    "its own, THEN save_step_report on the NEXT turn. Batching them together "
+    "would make save_step_report read state from before run_document_merger_"
+    "pipeline's update was applied, since LangGraph dispatches every tool "
+    "call in a turn against the same pre-update snapshot -- it would see an "
+    "empty module_outputs['08'] and reject the save every time.)"
 )
 
 
@@ -407,6 +624,13 @@ _TRANSIENT_KEYWORDS = (
     "overload", "rate_limit", "ratelimit", "timeout", "connection",
     "serviceunavailable", "service_unavailable", "internalserver",
     "internal_server", "api_error", "apierror",
+    # Added 2026-11-11 alongside the OpenAI Tier-2 fallback becoming the
+    # OpenRouter credit-exhaustion safety net (see _RETRYABLE_STATUS below
+    # for the primary 402 signal) -- backup keyword match in case OpenRouter
+    # (or some other gateway) reports running out of balance in the error
+    # body/message instead of a clean 402 status code.
+    "insufficient_quota", "insufficient quota", "insufficient_credit",
+    "insufficient credit", "payment_required", "payment required",
 )
 
 
@@ -472,12 +696,144 @@ def _messages_for_openai(messages: list) -> list:
     return out
 
 
-def _invoke_with_retry(llm, messages: list, fallbacks=None) -> AIMessage:
+_CACHE_CONTROL = {"type": "ephemeral"}
+
+
+def _with_cache_breakpoint(message: BaseMessage) -> BaseMessage:
+    """Return a copy of ``message`` with an Anthropic prompt-caching
+    breakpoint on its last content block (``cache_control: {"type":
+    "ephemeral"}``) -- verified 2026-11-07 against OpenRouter for
+    claude-sonnet-5.5: a repeat call with an identical cached prefix cut
+    that portion's cost ~17x (cache reads bill at $0.10/M vs $2/M normal
+    prompt tokens). Only meaningful when routed to a Claude model --
+    langchain_openai's _format_message_content passes unrecognized dict
+    keys through unchanged for ANY provider (verified by reading its
+    source), but only Claude actually honors cache_control; it's a
+    harmless no-op extra field everywhere else.
+    """
+    content = message.content
+    if isinstance(content, str):
+        if not content:
+            return message
+        new_content: list = [{"type": "text", "text": content, "cache_control": _CACHE_CONTROL}]
+    elif isinstance(content, list) and content:
+        new_content = list(content)
+        last = new_content[-1]
+        if isinstance(last, dict):
+            new_content[-1] = {**last, "cache_control": _CACHE_CONTROL}
+        else:
+            new_content[-1] = {"type": "text", "text": str(last), "cache_control": _CACHE_CONTROL}
+    else:
+        return message
+    return message.model_copy(update={"content": new_content})
+
+
+def _messages_for_openrouter_cached(messages: list) -> list:
+    """Add Anthropic prompt-caching breakpoints for the OpenRouter primary
+    path (claude-sonnet-5.5 via PRIMARY_PROVIDER=openrouter -- see its
+    construction above).
+
+    Two breakpoints (within Anthropic's budget of 4 per request):
+    1. The system message (index 0, if present) -- its content (current
+       step's plan + running completed-step summary) is stable across the
+       handful of orchestrator turns within a single step, so this is a
+       cache hit on every turn after the first one in that step.
+    2. The LAST message in the (growing, append-only within a step)
+       conversation history -- the standard Anthropic "incremental
+       caching" trick: each turn's call marks its own last message, so the
+       NEXT turn's call (whose history is this call's history + 1-2 newly
+       appended messages) gets a cache hit on everything through this
+       breakpoint, paying full price only for what's new since.
+
+    Each of agent.py's ~15-20 LLM calls per run currently resends the
+    entire growing conversation (system prompt + tool schemas + every
+    prior turn) at full price -- this cuts the prompt-token portion of
+    that cost substantially on cache hits, though it does NOT reduce the
+    mandatory-reasoning/completion-token cost, which is the other major
+    (and larger) cost driver for this model.
+    """
+    if not messages:
+        return messages
+    out = list(messages)
+    is_system_first = isinstance(out[0], SystemMessage)
+    if is_system_first:
+        out[0] = _with_cache_breakpoint(out[0])
+    if len(out) > 1:
+        out[-1] = _with_cache_breakpoint(out[-1])
+    elif not is_system_first:
+        out[0] = _with_cache_breakpoint(out[0])
+    return out
+
+
+def _invoke_with_hard_deadline(current: Any, msgs: list, timeout_s: float) -> AIMessage:
+    """Invoke ``current.invoke(msgs)`` with a hard wall-clock deadline.
+
+    The client's own ``timeout=_LLM_TIMEOUT_SECONDS`` kwarg (set on every
+    ChatAnthropic/ChatOpenAI construction above) is NOT sufficient on its
+    own. Observed live in production on 2026-10-07: three concurrent runs
+    each hung for 685s, 826s, and >900s (never raised at all) despite every
+    client being constructed with that same 90s timeout. The underlying
+    SDK's own internal timeout/retry plumbing (e.g. openai-python's ~600s
+    default plus its own internal retries, layered independently of
+    LangChain's ``max_retries=0``) can silently override or outlast the
+    configured per-request value — especially for a slow/trickling response
+    where each individual read never technically exceeds the per-operation
+    timeout even though the *total* call runs far longer than intended.
+    That's a client-timeout-didn't-fire bug, not the retry-budget-exhausted
+    scenario the original 2026-10-06 fix (see comment near
+    ``_LLM_TIMEOUT_SECONDS`` above) was written for.
+
+    Running the blocking call on a background daemon thread and bounding
+    OUR OWN wait with ``queue.get(timeout=...)`` guarantees a hard ceiling
+    regardless of what happens inside the HTTP/SDK layer. If the call
+    doesn't finish in time we raise ``TimeoutError`` (classified as
+    transient by ``_is_transient_exc`` via the "timeout" keyword) so the
+    retry/fallback chain in ``_invoke_with_retry`` engages immediately
+    instead of silently stalling. The orphaned thread is abandoned
+    (``daemon=True`` so it can't block process exit) rather than forcibly
+    killed — Python has no safe way to kill a running thread, and the
+    hung call will eventually terminate on its own (connection reset,
+    provider-side timeout, or the Lambda process exiting at its own
+    ceiling) without blocking anything we still care about.
+    """
+    result_q: queue.Queue = queue.Queue(maxsize=1)
+
+    def _worker() -> None:
+        try:
+            result_q.put(("ok", current.invoke(msgs)))
+        except Exception as e:  # noqa: BLE001 — forwarded to the caller below
+            result_q.put(("error", e))
+
+    threading.Thread(target=_worker, daemon=True).start()
+    try:
+        kind, payload = result_q.get(timeout=timeout_s)
+    except queue.Empty:
+        raise TimeoutError(
+            f"LLM invoke exceeded hard deadline of {timeout_s:.0f}s "
+            "(client-level timeout did not fire in time; abandoning this "
+            "attempt and treating it as transient)"
+        ) from None
+    if kind == "error":
+        raise payload
+    return payload
+
+
+def _invoke_with_retry(llm, messages: list, fallbacks=None, primary_provider: str = "anthropic") -> AIMessage:
     """
     Invoke the LLM with retry logic. On transient server errors (429 rate
     limit, 500/502/503/529 overloaded, connection/timeout), retry up to
     LLM_MAX_RETRIES attempts (default 8) using exponential backoff with full
     jitter, capped at LLM_RETRY_MAX_BACKOFF seconds (default 60).
+
+    *primary_provider* labels the PRIMARY slot for the per-provider message
+    transforms below (_messages_for_openai / _messages_for_openrouter_cached)
+    -- defaulting to "anthropic" preserves prior behavior for the normal
+    case, but callers running under PRIMARY_PROVIDER=openai/openrouter MUST
+    pass their actual _PRIMARY_LLM_PROVIDER here. Discovered 2026-11-07 while
+    adding OpenRouter prompt caching: this was hardcoded to "anthropic"
+    unconditionally before, so neither that transform NOR the pre-existing
+    _messages_for_openai sanitization ever actually applied to the primary
+    call under an OpenAI/OpenRouter override -- only to fallback slots.
 
     *fallbacks* is an ordered list of (provider, llm) tuples. Each attempt tries
     the primary first and, on a transient error, immediately tries each fallback
@@ -489,7 +845,7 @@ def _invoke_with_retry(llm, messages: list, fallbacks=None) -> AIMessage:
     error on well-formed input). Fallback errors are always swallowed so a
     best-effort fallback (e.g. cross-provider format quirks) never kills a run.
     """
-    candidates: list[tuple[str, str, Any, bool]] = [("primary", "anthropic", llm, True)]
+    candidates: list[tuple[str, str, Any, bool]] = [("primary", primary_provider, llm, True)]
     for i, (provider, fb_llm) in enumerate(fallbacks or []):
         candidates.append((f"fallback[{i + 1}:{provider}]", provider, fb_llm, False))
 
@@ -497,8 +853,13 @@ def _invoke_with_retry(llm, messages: list, fallbacks=None) -> AIMessage:
     for attempt in range(1, _MAX_RETRIES + 1):
         for label, provider, current, is_primary in candidates:
             try:
-                msgs = _messages_for_openai(messages) if provider == "openai" else messages
-                return current.invoke(msgs)
+                if provider == "openai":
+                    msgs = _messages_for_openai(messages)
+                elif provider == "openrouter":
+                    msgs = _messages_for_openrouter_cached(messages)
+                else:
+                    msgs = messages
+                return _invoke_with_hard_deadline(current, msgs, _LLM_TIMEOUT_SECONDS)
             except Exception as e:  # noqa: BLE001 — classified below
                 last_exc = e
                 transient = _is_transient_exc(e)
@@ -532,11 +893,36 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
     3. Inject the current step's plan as a transient system message
        (DynamicPlanMiddleware).
     """
-    # Dynamic tool binding
+    # Dynamic tool binding.
+    #
+    # OpenAI's reasoning models (gpt-5 family, incl. gpt-5-mini/5/5.1/5.2 —
+    # confirmed across all of them in dev testing) have a much stronger
+    # tendency than Claude to self-terminate early: their internal reasoning
+    # "convinces" them the task is done and they emit a plain-text reply
+    # with no tool_calls instead of continuing, even when the system/human
+    # prompt explicitly says "you MUST complete ALL steps, do NOT stop
+    # early". Prompt wording alone does not fix this for OpenAI models.
+    #
+    # The real fix is structural: force tool_choice="required" on OpenAI
+    # models (langchain_openai supports this; langchain_anthropic does not
+    # take the same value, and Claude doesn't need it) for as long as
+    # final_output.document_requests hasn't been populated yet -- i.e. the
+    # workflow is NOT genuinely finished. Once generate_final_output (the
+    # STEP_09 tool) has actually run and populated final_output, we stop
+    # forcing so the model can emit its natural closing text reply and let
+    # should_continue() route to party_split as designed.
+    final_output = state.get("final_output") or {}
+    _workflow_incomplete = not final_output.get("document_requests")
+
+    def _bind(llm, provider: str):
+        if _workflow_incomplete and provider == "openai":
+            return llm.bind_tools(step_tools, tool_choice="required")
+        return llm.bind_tools(step_tools)
+
     step_tools = resolve_tools_for_step(state)
-    llm_with_tools = _llm.bind_tools(step_tools)
+    llm_with_tools = _bind(_llm, _PRIMARY_LLM_PROVIDER)
     fallbacks_with_tools = [
-        (provider, fb_llm.bind_tools(step_tools))
+        (provider, _bind(fb_llm, provider))
         for provider, fb_llm in _fallback_specs
     ]
 
@@ -578,17 +964,40 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
         injected = non_system
 
     response: AIMessage = _invoke_with_retry(
-        llm_with_tools, injected, fallbacks=fallbacks_with_tools
+        llm_with_tools, injected, fallbacks=fallbacks_with_tools,
+        primary_provider=_PRIMARY_LLM_PROVIDER,
     )
     return {"messages": [response]}
 
 
 def tool_node_factory(tools: list) -> ToolNode:
-    """Create a ToolNode with all tools (tool_resolver scoping happens at LLM layer)."""
-    return ToolNode(tools)
+    """Create a ToolNode with all tools (tool_resolver scoping happens at LLM layer).
+
+    Uses SequentialToolNode (see tools/sequential_tool_node.py), not the
+    stock ToolNode, so that a multi-tool-call batch with inter-tool
+    dependencies (e.g. build_scenario_summary depending on parse_loan_file's
+    output) is executed correctly regardless of whether the orchestrator LLM
+    happens to batch them into the same turn.
+    """
+    return SequentialToolNode(tools)
 
 
-def should_continue(state: PredictiveConditionsState) -> Literal["tools", "party_split"]:
+# Max number of cheap reminder nudges should_continue() will issue (across
+# the WHOLE run, not per-stall) before giving up and raising for real. Kept
+# small and deliberately simple (a flat run-wide budget, not per-step) --
+# the observed stalls are rare, isolated lapses, not a pattern that needs
+# elaborate per-step tracking. Configurable for tuning without a code change.
+_STALL_RETRY_LIMIT = int(os.environ.get("STALL_RETRY_LIMIT", "2"))
+
+_NUDGE_MESSAGE = (
+    "You stopped without calling a tool, but the workflow is not finished "
+    "yet (no final_output.document_requests). Please continue: call "
+    "get_workflow_status if you're unsure what's next, then proceed with "
+    "the current step's tools."
+)
+
+
+def should_continue(state: PredictiveConditionsState) -> Literal["tools", "party_split", "nudge"]:
     """Route: if the last message has tool calls, execute them; otherwise run
     the per-party attribution post-pass before ending."""
     messages = state.get("messages", [])
@@ -610,16 +1019,48 @@ def should_continue(state: PredictiveConditionsState) -> Literal["tools", "party
     # is correctly recorded as an error (retriable/investigable) instead of a
     # false "success" that callers have no way to distinguish from a real,
     # complete, empty-document-set result.
+    #
+    # 2026-11-07: before raising, give the model a cheap chance to recover.
+    # Observed stalls (on claude-sonnet-5.5 via OpenRouter at low/medium
+    # reasoning effort) look like one-off lapses -- e.g. it correctly stores
+    # a step's document requests via the right tool call, then simply skips
+    # the follow-up save_step_report call instead of being genuinely
+    # confused about the task. A single reminder message is enough to get
+    # it back on track in that case, at the cost of one extra cheap LLM call
+    # -- far cheaper than forcing a high reasoning-effort tier for the
+    # entire run just to avoid rare stalls. route_to_nudge() below is only
+    # reached _STALL_RETRY_LIMIT times total per run before this still
+    # raises for real, so a model that's genuinely stuck (not just lapsed)
+    # still fails loudly rather than looping forever.
     final_output = state.get("final_output") or {}
     if not final_output.get("document_requests"):
+        if state.get("stall_retry_count", 0) < _STALL_RETRY_LIMIT:
+            return "nudge"
         current_step = state.get("current_step", "unknown")
         raise RuntimeError(
             "Orchestrator stopped calling tools before completing the workflow "
             f"(current_step={current_step!r}, final_output.document_requests "
-            "empty). Treating this as a failed run rather than a false "
-            "'success' with an incomplete result."
+            f"empty) after {_STALL_RETRY_LIMIT} nudge retr"
+            f"{'y' if _STALL_RETRY_LIMIT == 1 else 'ies'}. Treating this as a "
+            "failed run rather than a false 'success' with an incomplete result."
         )
     return "party_split"
+
+
+def nudge_node(state: PredictiveConditionsState) -> dict:
+    """Cheap stall-recovery step: append a reminder HumanMessage and bump the
+    retry counter, then loop back to the orchestrator. See should_continue()
+    for when/why this is reached."""
+    count = state.get("stall_retry_count", 0) + 1
+    logging.getLogger(__name__).warning(
+        "Orchestrator stalled without finishing the workflow (current_step=%r) "
+        "-- sending nudge retry %d/%d.",
+        state.get("current_step", "unknown"), count, _STALL_RETRY_LIMIT,
+    )
+    return {
+        "messages": [HumanMessage(content=_NUDGE_MESSAGE)],
+        "stall_retry_count": count,
+    }
 
 
 def party_split_node(state: PredictiveConditionsState) -> dict:
@@ -631,25 +1072,87 @@ def party_split_node(state: PredictiveConditionsState) -> dict:
     return apply_coborrower_pass(dict(state))
 
 
+def route_after_tools(state: PredictiveConditionsState) -> Literal["orchestrator", "fail_fast"]:
+    """After every tool-execution batch, check whether build_scenario_summary
+    (STEP_00) just flagged a critical_failure (no eligibility_json provided
+    AND the MISMO XML alone is missing bare-minimum eligibility fields).
+
+    If so, route straight to fail_fast_node instead of back to the
+    orchestrator -- a deterministic short-circuit that skips STEP_01-08
+    entirely, rather than relying on the orchestrator LLM to notice an
+    advisory message and choose to stop on its own.
+    """
+    if state.get("critical_failure"):
+        return "fail_fast"
+    return "orchestrator"
+
+
+def fail_fast_node(state: PredictiveConditionsState) -> dict:
+    """Deterministic terminal node for the critical_failure short-circuit.
+
+    Emits a clean, empty-document-requests final_output carrying the failure
+    reason, instead of letting STEP_01-08 run guideline reasoning against a
+    loan file known to be missing fundamental inputs (FICO, income doc type,
+    etc. -- see tools.scenario_tools.build_scenario_summary).
+    """
+    cf = state.get("critical_failure") or {}
+    scenario_summary = state.get("scenario_summary", {}) or {}
+
+    final_output = {
+        "scenario_summary": scenario_summary,
+        "seen_conflicts": state.get("seen_conflicts", []),
+        "document_requests": [],
+        "stats": {
+            "total_document_requests": 0,
+            "status": "failed",
+            "failure_reason": cf.get("reason", "unknown"),
+            "missing_fields": cf.get("missing_fields", []),
+        },
+        "error": cf.get(
+            "message",
+            "Run failed: critical eligibility fields missing and no "
+            "eligibility_json was provided.",
+        ),
+    }
+
+    return {
+        "final_output": final_output,
+        "current_step": "FAILED",
+        "messages": [AIMessage(
+            content="Run stopped before document generation: " + cf.get(
+                "message", "critical fields missing.",
+            )
+        )],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Graph construction
 # ---------------------------------------------------------------------------
 
-_tool_node = ToolNode(ALL_TOOLS)
+_tool_node = SequentialToolNode(ALL_TOOLS)
 
 _builder = StateGraph(PredictiveConditionsState)
 _builder.add_node("orchestrator", orchestrator_node)
 _builder.add_node("tools", _tool_node)
 _builder.add_node("party_split", party_split_node)
+_builder.add_node("fail_fast", fail_fast_node)
+_builder.add_node("nudge", nudge_node)
 
 _builder.set_entry_point("orchestrator")
 _builder.add_conditional_edges(
     "orchestrator",
     should_continue,
-    {"tools": "tools", "party_split": "party_split"},
+    {"tools": "tools", "party_split": "party_split", "nudge": "nudge"},
 )
-_builder.add_edge("tools", "orchestrator")
+_builder.add_edge("nudge", "orchestrator")
+_builder.add_conditional_edges(
+    "tools",
+    route_after_tools,
+    {"orchestrator": "orchestrator", "fail_fast": "fail_fast"},
+)
 _builder.add_edge("party_split", END)
+_builder.add_edge("fail_fast", END)
 
 
 def build_agent(checkpointer: Any | None = None):

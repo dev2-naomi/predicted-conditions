@@ -13,9 +13,9 @@ You only rewrite the presentation language.
 
 ## Input
 
-You receive the finalized `document_requests` from `final_output` (produced by STEP_08).
+Call `get_final_document_requests` FIRST to retrieve the finalized `document_requests` from `final_output` (produced by STEP_08) — this is the only way to see them; they are not visible anywhere else in this conversation.
 
-Read each document request's `specifications`, `reasons_needed`, and `satisfied_specifications`. Then produce a `display` block for each document.
+Read each document request's `specifications`, `reasons_needed`, and `satisfied_specifications` from that tool's output. Then produce a `display` block for each document.
 
 ## Output
 
@@ -196,7 +196,7 @@ Styled output:
 
 ## Procedure
 
-1. Read `final_output.document_requests` from state
+1. Call `get_final_document_requests` to read `final_output.document_requests`
 2. For each document request, restyle its `specifications` into `documentation_requirements`, its `reasons_needed` into `reason_for_requirement`, extract conditional/advisory items into `review_notes`, and restyle its `satisfied_specifications` into `satisfied_requirements`
 3. Merge repetitive bullets — consolidate overlapping specs into single concise statements
 4. Call `style_document_requests` with the display objects. You MUST style ALL documents. If the list is long, split into multiple calls (the tool merges incrementally). Do NOT skip any document.

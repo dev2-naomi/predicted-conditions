@@ -18,7 +18,7 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         "name": "Scenario Builder",
         "description": "Parse MISMO XML, manifest documents, and eligibility output into scenario_summary; detect missing variables and contradictions; build document inventory; route docs and overlays to facets.",
         "plan_file": "step_00_scenario_builder.md",
-        "tools": ["parse_loan_file", "parse_manifest_documents", "parse_eligibility_output", "load_doctype_masterlist", "build_scenario_summary", "detect_contradictions", "route_to_facets"],
+        "tools": ["parse_loan_file", "parse_manifest_documents", "parse_eligibility_output", "parse_required_documents", "load_doctype_masterlist", "build_scenario_summary", "detect_contradictions", "route_to_facets"],
         "substeps": [
                 {
                         "id": "0.1",
@@ -39,6 +39,13 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
                         "name": "Parse eligibility engine output",
                         "tools": [
                                 "parse_eligibility_output"
+                        ]
+                },
+                {
+                        "id": "0.35",
+                        "name": "Parse Submission Requirements checklist (required_documents_json)",
+                        "tools": [
+                                "parse_required_documents"
                         ]
                 },
                 {
@@ -286,8 +293,15 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         "name": "Document Request Merger and Ranker",
         "description": "Merge document requests from modules 01-07; aggregate specifications and reasons; de-duplicate; rank; produce final Predictive Document Needs List.",
         "plan_file": "step_08_merger_ranker.md",
-        "tools": ["merge_document_requests", "rank_document_requests", "cross_check_satisfaction", "generate_final_output"],
+        "tools": ["run_document_merger_pipeline", "merge_document_requests", "rank_document_requests", "cross_check_satisfaction", "generate_final_output"],
         "substeps": [
+                {
+                        "id": "8.0",
+                        "name": "Merge, rank, cross-check, and finalize in one call",
+                        "tools": [
+                                "run_document_merger_pipeline"
+                        ]
+                },
                 {
                         "id": "8.1",
                         "name": "Merge and de-duplicate document requests",
@@ -329,8 +343,15 @@ STEP_CONFIG: dict[str, dict[str, Any]] = {
         "name": "AUS-Like Presentation Styler",
         "description": "Restyle document request specifications and reasons into AUS/DU/LP-inspired findings language, adding a display block to each document request.",
         "plan_file": "step_09_presentation_styler.md",
-        "tools": ["style_document_requests"],
+        "tools": ["get_final_document_requests", "style_document_requests"],
         "substeps": [
+                {
+                        "id": "9.0",
+                        "name": "Read the finalized document_requests to style",
+                        "tools": [
+                                "get_final_document_requests"
+                        ]
+                },
                 {
                         "id": "9.1",
                         "name": "Style document requests with AUS-like display blocks",
@@ -361,7 +382,7 @@ STEP_ORDER: list[str] = ["STEP_00", "STEP_01", "STEP_02", "STEP_03", "STEP_04", 
 # General tools — always available regardless of current step
 # ---------------------------------------------------------------------------
 
-GENERAL_TOOL_NAMES: list[str] = ["write_todo", "get_workflow_status", "save_step_report"]
+GENERAL_TOOL_NAMES: list[str] = ["write_todo", "get_workflow_status", "save_step_report", "inspect_raw_xml_data"]
 
 
 # ---------------------------------------------------------------------------

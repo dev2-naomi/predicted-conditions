@@ -1,19 +1,22 @@
 """Graph run execution helpers.
 
-Lambda-only (no Fargate): predicted-conditions runs typically take 8-11
-minutes, comfortably inside Lambda's 900s ceiling (see the "When to add
-Fargate?" ADR in the AWS deployment playbook — this agent doesn't need it).
-Background runs (create_background_run/execute_background_run) still exist
-so /threads/{id}/runs matches LangGraph Platform's async semantics and lets
-callers avoid holding an HTTP connection open for 8-11 minutes; execution is
-just dispatched to a Lambda self-invoke (or a local thread when running
-outside Lambda) instead of an ECS task.
+predicted-conditions runs typically take 8-11 minutes, comfortably inside
+Lambda's 900s ceiling — but some inputs (more submitted documents -> more
+satisfaction-check passes) legitimately run longer and hit that ceiling even
+with no bugs/hangs involved (confirmed 2026-10-07: two real runs hard-killed
+by AWS at exactly 900.00s per CloudWatch, with the run otherwise progressing
+normally). Background runs now dispatch to an ECS Fargate task (no execution
+time ceiling) when one is configured, falling back to the original Lambda
+self-invoke (still 900s-capped) or a local thread when Fargate isn't set up
+— see _dispatch_background_run's docstring for the exact priority order.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
+import traceback
 import uuid
 from collections.abc import Iterator
 from typing import Any
@@ -174,8 +177,18 @@ def execute_background_run(
         graph = build_graph(assistant_id, config, checkpointer=_checkpointer_for_run(thread_id))
         result = graph.invoke(run_body.get("input") or {}, config=config)
     except Exception as exc:  # noqa: BLE001 - always record *a* terminal status
-        store.update_run(run_id, status="error", error=str(exc))
-        return {"status": "error", "error": str(exc)}
+        # Full traceback, not just str(exc) — the bare message alone (e.g.
+        # "cannot unpack non-iterable int object") gives no file/line/call
+        # stack to debug from, and this exception is never otherwise logged
+        # anywhere (no logger.exception call existed here before). Surfaced
+        # on the run record's `error` field so it's visible via the normal
+        # GET /threads/{id}/runs/{run_id} polling path without needing
+        # CloudWatch access. Truncated defensively in case of a pathological
+        # recursion-limit traceback.
+        tb = traceback.format_exc()
+        logging.getLogger(__name__).exception("Background run %s failed", run_id)
+        store.update_run(run_id, status="error", error=tb[-4000:])
+        return {"status": "error", "error": tb[-4000:]}
     # `result` is the raw graph.invoke() state — it holds LangChain message
     # objects (HumanMessage/AIMessage/...) that boto3's DynamoDB serializer
     # can't handle directly. _json_safe recursively converts pydantic models
@@ -206,10 +219,13 @@ def create_background_run(
     """Create a run record and dispatch its execution asynchronously.
 
     Dispatch order (first configured mechanism wins):
-      1. Lambda self-invoke (AWS_LAMBDA_FUNCTION_NAME set) — the normal path
-         on the deployed Lambda. Still 900s-capped, which is fine here since
-         full runs take 8-11 minutes.
-      2. A local Python thread — dev/test only, needs no AWS resources.
+      1. ECS Fargate (WORKER_TASK_DEFINITION_ARN set) — the normal path once
+         the worker stack is deployed. No execution-time ceiling, so this is
+         what actually fixes runs that legitimately exceed 900s.
+      2. Lambda self-invoke (AWS_LAMBDA_FUNCTION_NAME set, but no Fargate
+         config) — the original path, kept as a lighter-weight fallback.
+         Still 900s-capped.
+      3. A local Python thread — dev/test only, needs no AWS resources.
     """
     store = get_thread_store()
     run = store.create_run(thread_id, assistant_id=assistant_id, run_body=run_body)
@@ -229,12 +245,61 @@ def get_background_run(run_id: str) -> dict[str, Any] | None:
 
 
 def _dispatch_background_run(run_id: str) -> None:
+    task_definition_arn = os.environ.get("WORKER_TASK_DEFINITION_ARN", "").strip()
+    if task_definition_arn:
+        _dispatch_via_fargate(run_id, task_definition_arn)
+        return
+
     function_name = os.environ.get("AWS_LAMBDA_FUNCTION_NAME", "").strip()
     if function_name:
         _dispatch_via_lambda_self_invoke(run_id, function_name)
         return
 
     _dispatch_via_thread(run_id)
+
+
+def _dispatch_via_fargate(run_id: str, task_definition_arn: str) -> None:
+    """Launch an ECS Fargate task to run api/worker.py for this run_id.
+
+    No execution-time ceiling (unlike Lambda's 900s), bounded instead by
+    api/worker.py's own wall-clock safety-net timer. The task reads every
+    other piece of the run (thread_id, assistant_id, input payload) back out
+    of the persisted run record via load_persisted_run — only run_id crosses
+    the wire here, via a per-task container environment override, matching
+    the Lambda self-invoke path's existing pattern.
+    """
+    import boto3
+
+    region = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-2"))
+    cluster_arn = os.environ["WORKER_CLUSTER_ARN"]
+    subnet_ids = [s for s in os.environ.get("WORKER_SUBNET_IDS", "").split(",") if s]
+    security_group_id = os.environ["WORKER_SECURITY_GROUP_ID"]
+    container_name = os.environ["WORKER_CONTAINER_NAME"]
+
+    ecs_client = boto3.client("ecs", region_name=region)
+    ecs_client.run_task(
+        cluster=cluster_arn,
+        taskDefinition=task_definition_arn,
+        launchType="FARGATE",
+        networkConfiguration={
+            "awsvpcConfiguration": {
+                "subnets": subnet_ids,
+                "securityGroups": [security_group_id],
+                # Public subnets, no NAT gateway (see the CDK stack) — the
+                # task needs a public IP for outbound internet access
+                # (DynamoDB/Secrets Manager/LLM provider APIs).
+                "assignPublicIp": "ENABLED",
+            }
+        },
+        overrides={
+            "containerOverrides": [
+                {
+                    "name": container_name,
+                    "environment": [{"name": "PC_RUN_ID", "value": run_id}],
+                }
+            ]
+        },
+    )
 
 
 def _dispatch_via_lambda_self_invoke(run_id: str, function_name: str) -> None:

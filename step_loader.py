@@ -89,11 +89,24 @@ def get_tool_registry() -> dict[str, Any]:
 # all multi-call batches are benign (write_todo bundled alongside a real
 # tool call), so a blanket disable would roughly double LLM round-trips for
 # the ENTIRE pipeline just to fix this one four-tool chain — real risk
-# against the 900s Lambda timeout on larger loan files. Instead, only
-# expose ONE of these four tools at a time while on STEP_08, advancing
-# strictly based on which stage of module_outputs["08"] is already
-# populated — making it physically impossible for the model to batch two
-# of them together, without touching tool-call parallelism anywhere else
+# against the 900s Lambda timeout on larger loan files.
+#
+# 2026-11-13: rather than just avoiding the race by serializing across 4
+# turns (costing 4x the mandatory reasoning/tool-call overhead for work
+# with zero LLM judgment in it), tools.merger_tools.run_document_merger_pipeline
+# eliminates it at the root by running all 4 steps as plain sequential
+# Python calls inside ONE tool invocation — no concurrent dispatch is
+# possible inside a single Python call, so the race cannot occur regardless
+# of model behavior (see that function's docstring for the parity-tested
+# equivalence proof). On a fresh STEP_08 (no module_outputs["08"] at all
+# yet — true for every normal run), that single combined tool is exposed
+# instead of the old 4-tool chain. The old one-at-a-time chain is kept as a
+# defensive fallback for the one case the combined tool doesn't cover: a
+# run resumed mid-STEP_08 (some but not all of the 4 markers already set,
+# e.g. from an older saved thread) — in that case this falls back to
+# exactly the prior gating behavior, advancing strictly based on which
+# stage of module_outputs["08"] is already populated, making it physically
+# impossible for the model to batch two of the 4 individual tools together
 # (write_todo etc. are unaffected since they're general tools, always
 # available alongside whichever single STEP_08 tool is currently exposed).
 _STEP_08_CHAIN: list[tuple[str, Any]] = [
@@ -105,10 +118,13 @@ _STEP_08_CHAIN: list[tuple[str, Any]] = [
 
 
 def _gate_step_08_tools(state: dict, step_tool_names: list[str]) -> list[str]:
-    """Return the single next STEP_08 tool name still owed, or `step_tool_names`
-    unchanged (defensive fallback) if the chain tool isn't actually in it, or
-    [] once all four have run (only save_step_report, a general tool, remains)."""
+    """Return the STEP_08 tool name(s) still owed right now, or
+    `step_tool_names` unchanged (defensive fallback) if an expected tool
+    isn't actually registered, or [] once STEP_08 is fully done (only
+    save_step_report, a general tool, remains)."""
     mo08 = (state.get("module_outputs") or {}).get("08") or {}
+    if not mo08 and "run_document_merger_pipeline" in step_tool_names:
+        return ["run_document_merger_pipeline"]
     for name, still_pending in _STEP_08_CHAIN:
         if still_pending(mo08, state):
             return [name] if name in step_tool_names else step_tool_names

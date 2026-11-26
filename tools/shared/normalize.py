@@ -55,6 +55,14 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     "government issued photo id": "Government-Issued Photo ID",
     "photo id": "Government-Issued Photo ID",
     "state id": "Government-Issued Photo ID",
+    # Encompass's generic "Identifying Documentations" catch-all category —
+    # not NQM-relevant on its own (data/doctype_masterlist.json, doctype_id
+    # 375) and has no dedicated spec library, but every real-world document
+    # it could refer to is already covered by the Government-Issued Photo ID
+    # acceptable_types group. Routed there instead of being silently dropped
+    # by normalize_all()'s masterlist filter.
+    "identifying documentations": "Government-Issued Photo ID",
+    "identifying documentation": "Government-Issued Photo ID",
     "driver's license": "Drivers License",
     "drivers license": "Drivers License",
     "non-driver id": "Non-Driver ID",
@@ -201,6 +209,18 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     "investment account statement": "Investment Account Statement",
     "401k": "401K",
     "401k statement": "401K",
+    # IRA is flagged not NQM-relevant in data/doctype_masterlist.json
+    # (doctype_id lookup has no nqm_relevant entry) and has no
+    # canonical_doc_specs.json entry of its own — per data/guidelines.md
+    # ("Vested funds from individual retirement accounts (IRA/SEP/Keogh
+    # accounts)... are acceptable sources of funds"), an IRA statement is
+    # documented the same way as any other brokerage/investment account
+    # statement, so route it there instead of letting it fall through
+    # normalize_all()'s masterlist filter and get silently dropped.
+    "ira": "Investment Account Statement",
+    "ira statement": "Investment Account Statement",
+    "sep ira": "Investment Account Statement",
+    "keogh account": "Investment Account Statement",
     "wire transfer": "Wire Transfer",
     "wire transfer receipt": "Wire Transfer",
     "gift letter": "Gift",
@@ -269,6 +289,15 @@ _DOCTYPE_ALIASES: dict[str, str] = {
 
     # Title / Closing
     "title commitment": "Title Commitment",
+    # "Preliminary Report" ("prelim") is the title industry's own name for
+    # the same document this pipeline tracks as "Title Commitment" — it's
+    # flagged not NQM-relevant in data/doctype_masterlist.json (doctype_id
+    # 194) and has no canonical_doc_specs.json entry of its own, so without
+    # this alias it fell through normalize_all()'s masterlist filter and
+    # was silently dropped instead of merging with the real Title
+    # Commitment floor doc.
+    "preliminary report": "Title Commitment",
+    "preliminary title report": "Title Commitment",
     "title insurance": "Title Insurance",
     # "Title Fee Sheet" / "Smart Fee" are the NQMF submission-requirements
     # checklist's names (data/submission_documents.md, "All Transactions"
@@ -335,6 +364,27 @@ _DOCTYPE_ALIASES: dict[str, str] = {
     "itin documentation": "ITIN",
     "application for itin w7": "Application for ITIN W7",
 
+    # EIN / Federal Tax ID — both "EIN" and "Federal Tax ID Number" are
+    # flagged not NQM-relevant in data/doctype_masterlist.json (doctype_ids
+    # 2301 and 2160), so on their own they'd fall through normalize_all()'s
+    # masterlist filter and get silently dropped despite
+    # canonical_doc_specs.json's "federal tax id number" entry having real
+    # guideline-sourced specs (per data/guidelines.md's entity-vesting
+    # section: "Tax Identification Number (EIN)... Single member LLC may
+    # use the EIN or the guarantor's social security number; Multiple
+    # member LLCs require an EIN"). Canonicalized onto "Federal Tax ID
+    # Number" (matching the masterlist's own casing) so the guideline specs
+    # attach and the normalize_all() filter extension below (via
+    # _GUIDELINE_SPEC_NAMES_LOWER) lets it survive.
+    "ein": "Federal Tax ID Number",
+    "ein letter": "Federal Tax ID Number",
+    "ein confirmation": "Federal Tax ID Number",
+    "federal tax id": "Federal Tax ID Number",
+    "federal tax id number": "Federal Tax ID Number",
+    "tax id number": "Federal Tax ID Number",
+    "tax identification number": "Federal Tax ID Number",
+    "employer identification number": "Federal Tax ID Number",
+
     # Misc LOE
     "loe addresses on credit report": "LOE Addresses on Credit Report",
     "loe cash out": "LOE Cash Out",
@@ -369,9 +419,32 @@ _DOCTYPE_ALIASES: dict[str, str] = {
 _OUTPUT_DISPLAY_NAMES: dict[str, str] = {
     # --- Minimum Submission Requirements (All Loans) ---
     "loan application (1003)": "Initial Loan Application (1003)",
-    "borrowers authorization": "Borrower Authorization",
+    # 2026-10-13: was "Borrower Authorization" (singular) to match NQMF's
+    # "Order for Presenting Documents" wording at the time this override was
+    # added. Per explicit request, the engine's final output should now use
+    # the plural form instead, matching the masterlist/canonical name (id
+    # 237) and tools/doc_rules.py's floor-doc label.
+    #
+    # BOTH spellings are keyed here (not just "borrowers authorization")
+    # because this lookup is a literal .lower() of whatever raw document_type
+    # text survived merge-dedup -- NOT the canonical merge key. _merge_two()
+    # never rewrites document_type; it's first-source-wins. The canonical
+    # merge key for both spellings is actually "borrower authorization"
+    # (singular — confirmed via _canonical_doc_type), so in practice an
+    # LLM-drafted module (e.g. module 01, independently phrasing its own
+    # "Borrower Authorization" text from guideline/checklist wording) very
+    # often claims the merge key *before* doc_rules.py's plural floor doc
+    # even gets injected, and that LLM-drafted singular text is what wins
+    # and survives to this display step -- live-verified on a real dev
+    # rerun. Mapping only the plural spelling silently no-ops for that (very
+    # common) case, so both forms must map here to guarantee plural output
+    # regardless of which source won the merge.
+    "borrower authorization": "Borrowers Authorization",
+    "borrowers authorization": "Borrowers Authorization",
     # --- Income / rental ---
     "rental agreement": "Current Lease Agreement",
+    # --- LLC / business entity ---
+    "federal tax id number": "Federal EIN",
 }
 
 
@@ -415,6 +488,30 @@ def _load_masterlist_names() -> None:
     nqm = {d["document_type"] for d in data if d.get("nqm_relevant")}
     _MASTERLIST_NAMES = nqm
     _MASTERLIST_LOWER = {n.lower(): n for n in nqm}
+
+
+# Document types covered by data/canonical_doc_specs.json (the guideline-
+# extracted spec library consumed by tools/doc_rules.py's
+# apply_guideline_canonicalization) are real, guideline-verified document
+# types regardless of their data/doctype_masterlist.json `nqm_relevant`
+# flag. Several (e.g. "federal tax id number", "operating or partnership
+# agreement") are flagged nqm_relevant=false in the masterlist purely
+# because that flag tracks a different, unrelated Encompass taxonomy — but
+# they have real, guideline-sourced specs and should never be silently
+# dropped by normalize_all()'s masterlist filter just because of that flag.
+_GUIDELINE_SPEC_NAMES_LOWER: set[str] = set()
+
+
+def _load_guideline_spec_names() -> None:
+    global _GUIDELINE_SPEC_NAMES_LOWER
+    if _GUIDELINE_SPEC_NAMES_LOWER:
+        return
+    specs_path = Path(__file__).parent.parent.parent / "data" / "canonical_doc_specs.json"
+    if not specs_path.exists():
+        return
+    with open(specs_path, encoding="utf-8") as f:
+        data = json.load(f)
+    _GUIDELINE_SPEC_NAMES_LOWER = {k.lower() for k in data.keys()}
 
 
 def _fuzzy_match(name: str) -> str | None:
@@ -485,26 +582,40 @@ def normalize_document_type(name: str) -> str:
     return name
 
 
-def normalize_priority(val: str | None) -> str:
+def normalize_priority(val: Any) -> str:
+    # `val` is typed `str | None` but isn't always one in practice -- a
+    # document request's priority/severity/category can originate from
+    # LLM-generated JSON or a source-system field (e.g. title_tools.py's
+    # checklist-derived requests) where a bare int slips through instead of
+    # the expected "P1"/"P2" string. Unguarded `.strip()` on that crashes
+    # with AttributeError: 'int' object has no attribute 'strip' -- found
+    # live 2026-10-07 via a document whose priority field was an int,
+    # reached for the first time only after the hard-deadline LLM-hang fix
+    # (agent.py) let runs actually progress this far instead of dying
+    # earlier on the unrelated hang. str(val) first so any non-string,
+    # non-None value (int, float, etc.) is handled instead of crashing.
     if not val:
         return "P2"
+    val = str(val)
     key = val.strip().lower()
     if val in _VALID_PRIORITIES:
         return val
     return _PRIORITY_ALIASES.get(key, "P2")
 
 
-def normalize_severity(val: str | None) -> str:
+def normalize_severity(val: Any) -> str:
     if not val:
         return "SOFT-STOP"
+    val = str(val)
     if val in _VALID_SEVERITIES:
         return val
     return _SEVERITY_ALIASES.get(val.strip().lower(), "SOFT-STOP")
 
 
-def normalize_category(val: str | None) -> str:
+def normalize_category(val: Any) -> str:
     if not val:
         return "Other"
+    val = str(val)
     if val in _VALID_CATEGORIES:
         return val
     return _CATEGORY_ALIASES.get(val.strip().lower(), "Other")
@@ -567,6 +678,14 @@ _CANONICAL_FIELDS: dict[str, Any] = {
     "reasons_needed": [],
     "satisfied_specifications": [],
     "document_ids": [],
+    # Classifier category ids (manifest's upstream document-classification
+    # category_id, e.g. "117" = Credit Report) associated with this
+    # document request — merged at STEP_08 from (a) the manifest documents
+    # that satisfied this request (via document_ids -> document_inventory
+    # lookup) and (b) required_documents_json's per-item category_ids,
+    # when this request came from that checklist. See
+    # tools.merger_tools.generate_final_output.
+    "category_ids": [],
     "display": {},
     "source_module": "",
     "tags": [],
@@ -582,6 +701,17 @@ _CANONICAL_FIELDS: dict[str, Any] = {
     #   "needs_review". Empty when this document has no cross-reference
     #   specs this run.
     "cross_document_checks": [],
+    # Deterministic confidence score (0.0-1.0) in how confident the pipeline
+    # is that this requirement is genuinely applicable and its satisfied/
+    # needed status is correct -- NOT a prediction of whether the borrower
+    # will actually provide the document. Computed by
+    # tools.merger_tools.assign_confidence_scores, called from
+    # generate_final_output and coborrower.build_party_document_requests
+    # (the two call sites for this function, both of which must set it
+    # before this projection runs or it falls back to the conservative
+    # default below). See assign_confidence_scores's docstring for the
+    # scoring rules.
+    "confidence": 0.6,
 }
 
 # Fields to silently drop (LLM sometimes adds these non-standard keys)
@@ -620,7 +750,7 @@ def normalize_document_structure(dr: dict) -> dict:
 
     # Coerce list fields
     for lf in ("specifications", "reasons_needed", "satisfied_specifications", "document_ids", "tags",
-               "applicable_parties", "cross_document_checks"):
+               "applicable_parties", "cross_document_checks", "category_ids"):
         v = out[lf]
         if isinstance(v, str):
             out[lf] = [v] if v else []
@@ -637,13 +767,20 @@ def normalize_document_structure(dr: dict) -> dict:
 def normalize_all(document_requests: list[dict], default_category: str = "Other") -> list[dict]:
     """Normalize a list of document request dicts.
 
-    Documents that don't resolve to a canonical masterlist name are dropped.
+    Documents that don't resolve to a canonical masterlist name, a
+    Government-Issued-Photo-ID-style multi-type group, or a guideline-
+    verified canonical_doc_specs.json entry are dropped.
     """
     _load_masterlist_names()
+    _load_guideline_spec_names()
     result = []
     for dr in document_requests:
         normalize_document_request(dr, default_category)
         dt = dr.get("document_type", "")
-        if dt in _MASTERLIST_NAMES or dt in _MULTI_TYPE_DOCS:
+        if (
+            dt in _MASTERLIST_NAMES
+            or dt in _MULTI_TYPE_DOCS
+            or dt.strip().lower() in _GUIDELINE_SPEC_NAMES_LOWER
+        ):
             result.append(dr)
     return result

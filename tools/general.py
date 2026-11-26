@@ -197,6 +197,49 @@ def _resolve_next_step(step_id: str, existing_step_reports: dict) -> tuple[str, 
     return _STEP_SEQUENCE[furthest_idx], is_regression
 
 
+# ---------------------------------------------------------------------------
+# Step-skip guard
+#
+# Root cause of a confirmed, reproducible GraphRecursionError (150-step cap
+# hit with zero progress) on a real run (thread 0659c53d-841b-41db-a4f3-
+# b394899f88cd, 2026-10-14): step_reports ended up with STEP_00-STEP_07 and
+# STEP_09, but STEP_08 was never present at all, and module_outputs only had
+# "01"/"02" -- proof STEP_08's tools (merge_document_requests etc.) never
+# ran. The orchestrator called save_step_report(step_id="STEP_09", ...)
+# directly, skipping STEP_08 entirely.
+#
+# _validate_step_08 (above) exists specifically to catch a fraudulent STEP_08
+# completion -- but it only runs when step_id == "STEP_08" is the one being
+# saved. Since the orchestrator skipped straight past it to "STEP_09"
+# instead, that validator never executed at all. _validate_step_09 then let
+# the bogus advance through, because its own check --
+# `if not drs: return None  # nothing to style — trivially satisfied` --
+# can't distinguish "this loan legitimately needs zero documents" from "the
+# step that should have populated final_output never ran", and
+# final_output was `{"document_requests": []}` (present but empty) either
+# way. With current_step then wrongly stuck at "STEP_09" and nothing left
+# to productively advance, the orchestrator never emitted a plain
+# no-tool-call stop (which would have at least surfaced should_continue's
+# clean RuntimeError) and instead kept cycling until LangGraph's hard
+# 150-step recursion cap fired.
+#
+# This guard closes the whole class of skip-ahead bugs generically, not
+# just the STEP_08->STEP_09 pairing: no step_id may be saved more than one
+# position past the furthest step already present in step_reports,
+# regardless of which specific steps are involved or what each one's own
+# completion validator does or doesn't check.
+# ---------------------------------------------------------------------------
+
+
+def _furthest_reported_idx(existing_step_reports: dict) -> int:
+    """Index into _STEP_SEQUENCE of the furthest step with an existing,
+    already-accepted step_report -- or -1 if none yet."""
+    indices = [
+        _STEP_SEQUENCE.index(sid) for sid in (existing_step_reports or {}) if sid in _STEP_SEQUENCE
+    ]
+    return max(indices, default=-1)
+
+
 @tool
 def save_step_report(
     step_id: str,
@@ -214,6 +257,27 @@ def save_step_report(
         summary: A one-paragraph plain-English summary of what this step found.
         outputs: Dict of key results produced by this step (module output JSON).
     """
+    existing_step_reports = (state or {}).get("step_reports") or {}
+    idx = _STEP_SEQUENCE.index(step_id) if step_id in _STEP_SEQUENCE else -1
+    furthest_before = _furthest_reported_idx(existing_step_reports)
+
+    if idx > furthest_before + 1:
+        skipped = _STEP_SEQUENCE[furthest_before + 1 : idx]
+        next_required = skipped[0]
+        return Command(update={
+            "messages": [ToolMessage(
+                f"save_step_report REJECTED for {step_id}: you skipped "
+                f"{', '.join(skipped)} entirely -- step_reports only has "
+                f"{sorted(existing_step_reports.keys()) or '[]'} saved so far, "
+                f"so you cannot save a report for {step_id} yet. Go back and "
+                f"actually run {next_required}'s tools (per the step sequence "
+                f"in your instructions), then call save_step_report for "
+                f"{next_required} before proceeding further. current_step "
+                f"remains {(state or {}).get('current_step') or next_required}.",
+                tool_call_id=tool_call_id,
+            )],
+        })
+
     validator = _STEP_COMPLETION_VALIDATORS.get(step_id)
     if validator is not None:
         error = validator(state or {})
@@ -235,7 +299,6 @@ def save_step_report(
         "completed_at": datetime.datetime.utcnow().isoformat(),
     }
 
-    existing_step_reports = (state or {}).get("step_reports") or {}
     next_step, is_regression = _resolve_next_step(step_id, existing_step_reports)
 
     if is_regression:

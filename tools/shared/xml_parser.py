@@ -21,6 +21,7 @@ Public API:
 
 from __future__ import annotations
 
+import json
 import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
@@ -283,6 +284,23 @@ _FIELD_MAP: Dict[str, List[tuple]] = {
     "attachment_type": [
         ("PROPERTY_DETAIL", "AttachmentType"),
     ],
+    # Confirmed against a real MISMO FNM export sample (data/input/xml/
+    # FannieExport-02122025 3.xml): SpecialFloodHazardAreaIndicator lives
+    # under PROPERTY > FLOOD_DETERMINATION > FLOOD_DETERMINATION_DETAIL,
+    # while PropertyFloodInsuranceIndicator lives directly under
+    # PROPERTY > PROPERTY_DETAIL (a sibling of AttachmentType/PUDIndicator
+    # etc. above, NOT nested under FLOOD_DETERMINATION_DETAIL). Added so
+    # doc_rules.py's "flood_insurance_required" canonical-spec condition
+    # (data/canonical_doc_specs.json) can resolve against the loan's own
+    # actual flood determination instead of being hardcoded to always-true
+    # — see tools/doc_rules.py's derive_flags for how this is consumed
+    # (engine accuracy report, 17 Nov 2026, PC-06).
+    "special_flood_hazard": [
+        ("FLOOD_DETERMINATION_DETAIL", "SpecialFloodHazardAreaIndicator"),
+    ],
+    "flood_insurance_required": [
+        ("PROPERTY_DETAIL", "PropertyFloodInsuranceIndicator"),
+    ],
     "appraised_value": [
         ("PROPERTY_VALUATION_DETAIL", "PropertyValuationAmount"),
         ("PROPERTY_DETAIL", "PropertyEstimatedValueAmount"),
@@ -327,6 +345,10 @@ _FIELD_MAP: Dict[str, List[tuple]] = {
     ],
     "prepaid_items": [
         ("URLA_DETAIL", "PrepaidItemsEstimatedAmount"),
+    ],
+    "closing_date": [
+        ("CLOSING_INFORMATION_DETAIL", "ClosingDate"),
+        ("CLOSING_INFORMATION_DETAIL", "LoanEstimatedClosingDate"),
     ],
     "property_estate_type": [
         ("PROPERTY_DETAIL", "PropertyEstateType"),
@@ -690,6 +712,289 @@ def _extract_residences(sections: Dict[str, Any]) -> List[Dict]:
 
 
 # ---------------------------------------------------------------------------
+# Flat loan-data JSON object — an alternative shape for the loan_file_xml
+# input, used when no real MISMO XML document is available. The same
+# channel (loan_file_xml) can carry either real XML text or a flat JSON
+# object like:
+#   {"FicoScore": 724, "LTV": 70, "CLTV": 70, "DTI": 41.2,
+#    "LoanAmount": 420000, "PropertyValue": 600000, "Occupancy": "Primary",
+#    "LoanPurpose": "Purchase", "IncomeDocType": "Bank Statements: 12 Mo.",
+#    "Channel": "wholesale", "BorrowerType": "Self-Employed",
+#    "Citizenship": "US Citizen", "State": "CA", "County": "Orange",
+#    "LoanType": "Conventional", "ReservesMonths": 0,
+#    "FirstTimeHomeBuyer": "No"}
+# For a DSCR-qualified primary borrower, "DTI" is replaced by a "DSCR" tier
+# field instead (one of "DSCR No Ratio", "DSCR < 1%", "DSCR 1-1.14%",
+# "DSCR > 1.15%") -- see the "Incomes" array note further below and
+# tools/scenario_tools.py's build_scenario_summary.
+# 2026-10-12 design decision: both shapes must be supported transparently --
+# xml_to_loan_profile()/parse_mismo_xml() detect which one they were given
+# and produce the same profile/parsed-dict shape either way, so nothing
+# downstream (build_scenario_summary, etc.) needs to know or care which
+# format the input arrived in.
+# ---------------------------------------------------------------------------
+
+# NOTE: kept in sync BY HAND with tools/scenario_tools.py's
+# _ELIGIBILITY_FIELD_MAP (duplicated here, not imported, to avoid a
+# circular import -- scenario_tools.py imports FROM this module), EXCEPT
+# for "DSCR" below, which is intentionally flat-JSON-only (not part of the
+# 16-field eligibility bare-minimum contract -- see "DSCR" note just below).
+_FLAT_JSON_FIELD_MAP: Dict[str, str] = {
+    "FicoScore": "fico",
+    "LTV": "ltv_pct",
+    "CLTV": "cltv_pct",
+    "DTI": "dti",
+    # 2026-11-03: DSCR borrowers (primary borrower's Incomes-array entry has
+    # borrower_type == "DSCR") don't carry a DTI -- a DSCR tier takes its
+    # place instead for program-eligibility purposes. Possible values:
+    # "DSCR No Ratio", "DSCR < 1%", "DSCR 1-1.14%", "DSCR > 1.15%". See
+    # tools/scenario_tools.py's build_scenario_summary required-fields logic
+    # (DTI required unless primary borrower_type == "DSCR", in which case
+    # this field is required instead).
+    "DSCR": "dscr",
+    "LoanAmount": "loan_amount",
+    "PropertyValue": "property_value",
+    "PropertyType": "property_type",
+    "Occupancy": "occupancy",
+    "LoanPurpose": "purpose",
+    "IncomeDocType": "income_doc",
+    "Channel": "channel",
+    "BorrowerType": "borrower_type",
+    "Citizenship": "citizenship",
+    "State": "state",
+    "County": "county",
+    "LoanType": "loan_type",
+}
+
+# Minimum number of recognized keys required before we treat a JSON blob as
+# this flat loan-data shape (rather than, say, some unrelated small JSON
+# object) -- avoids false positives on a stray `{"State": "CA"}`-ish value.
+_FLAT_JSON_MIN_MATCHING_KEYS = 3
+
+# 2026-10-13: the flat shape's old top-level "IncomeDocType"/"BorrowerType"
+# scalar fields are being replaced by an "Incomes" array, to accommodate
+# multiple borrowers' income documentation (primary, secondary, co-borrower)
+# instead of just one -- matching the same array shape the eligibility
+# engine itself consumes:
+#   "Incomes": [
+#       {"income_tier": "Primary", "is_primary_borrower": true,
+#        "borrower_type": "Retired / Fixed Income",
+#        "income_doc": "Asset Utilization", "bank_statements_kind": null},
+#       {"income_tier": "Secondary", "is_primary_borrower": true,
+#        "borrower_type": "Wage Earner", "income_doc": "Written VOE",
+#        "bank_statements_kind": null},
+#       {"income_tier": "Primary", "is_primary_borrower": false,
+#        "borrower_type": "Self-Employed",
+#        "income_doc": "Bank Statements: 12 Mo.",
+#        "bank_statements_kind": "Personal"},
+#   ]
+# A DSCR-qualified primary borrower's entry looks like:
+#   "Incomes": [
+#       {"income_tier": "Primary", "is_primary_borrower": true,
+#        "borrower_type": "DSCR", "income_doc": "DSCR Long Term Rent",
+#        "bank_statements_kind": null},
+#   ]
+# -- borrower_type == "DSCR" (not an income_doc-label substring match) is
+# what tools/scenario_tools.py's build_scenario_summary uses to swap the
+# DTI requirement out for a DSCR-tier requirement instead (sourced from the
+# top-level "DSCR" field above, NOT from this array).
+#
+# Only the PRIMARY BORROWER's entry -- income_tier == "Primary" AND
+# is_primary_borrower == True -- is required for/consumed by the
+# bare-minimum-fields gate (tools/scenario_tools.py's _ELIGIBILITY_FIELD_MAP
+# check against metadata["income_doc"]/["borrower_type"]); note that
+# "Primary" here is a TIER label (this borrower's own primary income
+# source), not a borrower-order label, so a non-primary-borrower's income
+# can also carry income_tier == "Primary" (their own primary income) --
+# is_primary_borrower is what actually identifies the primary borrower,
+# income_tier narrows down to THEIR primary (as opposed to secondary)
+# income. Secondary-income and co-borrower entries are preserved verbatim
+# in `_xml_supplemental["incomes"]` for any downstream consumer that wants
+# them, but are not required for the gate.
+#
+# The OLD flat top-level "IncomeDocType"/"BorrowerType" keys are still
+# honored as a fallback for any caller not yet sending "Incomes" (and for
+# this flat shape's existing field-mapping detection logic below).
+_PRIMARY_INCOME_TIER = "primary"
+
+
+def _primary_borrower_income(incomes: Any) -> Dict[str, Any]:
+    """Finds the primary borrower's entry in a flat-JSON "Incomes" array
+    (income_tier == "Primary" and is_primary_borrower == True, both
+    case/type-tolerant). Returns ``{}`` if ``incomes`` isn't a non-empty
+    list or no entry matches -- callers should treat a ``{}`` result the
+    same as "no income_doc/borrower_type known from this array", not
+    raise or special-case it."""
+    if not isinstance(incomes, list):
+        return {}
+    for entry in incomes:
+        if not isinstance(entry, dict):
+            continue
+        tier = str(entry.get("income_tier") or "").strip().lower()
+        if tier == _PRIMARY_INCOME_TIER and bool(entry.get("is_primary_borrower")):
+            return entry
+    return {}
+
+
+def _try_parse_flat_loan_json(xml_content: Any) -> Optional[Dict[str, Any]]:
+    """Detects whether ``xml_content`` is actually a flat loan-data JSON
+    object rather than real MISMO XML text, and returns the parsed dict if
+    so, else ``None``."""
+    data: Any
+    if isinstance(xml_content, dict):
+        data = xml_content
+    elif isinstance(xml_content, str):
+        stripped = xml_content.strip()
+        if not stripped or stripped.startswith("<"):
+            return None  # empty, or looks like XML -- not our concern here
+        try:
+            data = json.loads(stripped)
+        except (json.JSONDecodeError, TypeError):
+            return None
+    else:
+        return None
+
+    if not isinstance(data, dict):
+        return None
+    matching_keys = set(data.keys()) & set(_FLAT_JSON_FIELD_MAP.keys())
+    if len(matching_keys) < _FLAT_JSON_MIN_MATCHING_KEYS:
+        return None
+    return data
+
+
+def _flat_loan_json_to_profile(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Builds a profile dict in the SAME shape ``xml_to_loan_profile``
+    normally produces from real MISMO XML, but sourced directly from a flat
+    loan-data JSON object. Fields with no equivalent in this flat shape
+    (borrower name, property address, liabilities, declarations, etc.) are
+    left at the same None/empty defaults the real MISMO-XML path uses when
+    that data is genuinely absent from the XML -- i.e. this is a strict
+    subset of what real XML can supply, never a richer/different shape."""
+    incomes = data.get("Incomes")
+    primary_income = _primary_borrower_income(incomes)
+
+    metadata: Dict[str, Any] = {
+        "dti": data.get("DTI"),
+        # DSCR tier label for a DSCR-qualified primary borrower (see
+        # "DSCR" field map note above and the "Incomes" array comment) --
+        # e.g. "DSCR No Ratio", "DSCR < 1%", "DSCR 1-1.14%", "DSCR > 1.15%".
+        # Only sourced from this flat loan_file_xml shape's top-level
+        # "DSCR" field today; real MISMO XML and the eligibility engine do
+        # not currently supply it.
+        "dscr": data.get("DSCR"),
+        "fico": data.get("FicoScore"),
+        "itin": None,
+        "state": data.get("State"),
+        "units": 0,
+        "county": data.get("County"),
+        "escrow": None,
+        "channel": data.get("Channel"),
+        "ltv_pct": data.get("LTV"),
+        "purpose": data.get("LoanPurpose"),
+        "borrower": {"suffix": "", "last_name": "", "first_name": "", "middle_name": ""},
+        "cltv_pct": data.get("CLTV"),
+        "loan_type": data.get("LoanType"),
+        "occupancy": data.get("Occupancy"),
+        # "Incomes" array (primary borrower's entry) takes priority over the
+        # old flat IncomeDocType/BorrowerType fields when both are somehow
+        # present -- see the _primary_borrower_income() module comment above.
+        "income_doc": primary_income.get("income_doc") or data.get("IncomeDocType"),
+        "citizenship": data.get("Citizenship"),
+        "co_borrower": None,
+        "loan_amount": data.get("LoanAmount"),
+        "loan_number": None,
+        "is_us_credit": None,
+        "loan_program": {
+            "id": None, "name": None, "rate": None, "type": None,
+            "rateRange": None, "originalApiKey": None,
+        },
+        "borrower_type": primary_income.get("borrower_type") or data.get("BorrowerType"),
+        "property_type": data.get("PropertyType"),
+        "property_value": data.get("PropertyValue"),
+        # Distinct, non-collapsed values — see property_value note in
+        # xml_to_loan_profile. The flat shape doesn't distinguish
+        # appraised_value from purchase_price, so both default to the same
+        # PropertyValue figure (a reasonable best-effort approximation).
+        "appraised_value": data.get("PropertyValue"),
+        "purchase_price": None,
+        "rural_property": None,
+        "months_reserves": data.get("ReservesMonths"),
+        "property_address": None,
+        "secondary_income": None,
+        "first_lien_amount": None,
+        "prepayment_penalty": None,
+        "total_liquid_assets": None,
+        "secondary_income_doc": None,
+        "subordinate_amount_pct": None,
+        "total_investment_assets": None,
+        "total_retirement_assets": None,
+        "closed_end_second_amount": None,
+        "from_peoples_republic_of_china": None,
+        "self_employed": None,
+        "military": None,
+    }
+
+    known_keys = set(_FLAT_JSON_FIELD_MAP.keys()) | {"ReservesMonths", "Incomes"}
+    extra_fields = {k: v for k, v in data.items() if k not in known_keys}
+
+    supplemental: Dict[str, Any] = {
+        "liabilities": [],
+        "declarations": {},
+        "housing_expenses": {},
+        "owned_properties": [],
+        "credit_scores": [],
+        "assets": [],
+        "employers": [],
+        "residences": [],
+        "income_sources": [],
+        "borrower_ssns": [],
+        "borrower_dobs": [],
+        "loan_terms": {
+            "amortization_type": None, "term_months": None,
+            "interest_only": None, "prepay_penalty": None,
+            "balloon": None, "lien_priority": None,
+        },
+        "cash_out_amount": None,
+        "total_monthly_income": None,
+        "total_monthly_liabilities": None,
+        "proposed_housing_expense": None,
+        "closing_date": None,
+        "year_built": None,
+        "property_city": None,
+        "property_zip": None,
+        "format": "flat_json",
+        "raw_sections": {},
+        # Any top-level keys not in the recognized field map (e.g.
+        # FirstTimeHomeBuyer) -- preserved here rather than silently
+        # dropped, even though no profile field consumes them today.
+        "extra_flat_json_fields": extra_fields,
+        # Full "Incomes" array verbatim (not just the primary borrower's
+        # entry already folded into metadata["income_doc"]/["borrower_type"]
+        # above) -- secondary-income and co-borrower entries have no
+        # metadata field of their own yet, but are preserved here for any
+        # future consumer (e.g. coborrower.py) rather than silently dropped.
+        # Distinct from the unrelated, differently-shaped "income_sources"
+        # key above (1003-declared income-by-source for real MISMO XML).
+        "incomes": incomes if isinstance(incomes, list) else [],
+    }
+
+    return {
+        "id": None,
+        "workspace_id": None,
+        "template_id": None,
+        "template_version_id": None,
+        "external_ref": None,
+        "title": "Loan",
+        "status": "pending",
+        "metadata": metadata,
+        "_xml_supplemental": supplemental,
+        "created_at": None,
+        "updated_at": None,
+        "deleted_at": None,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Main parser — parse_mismo_xml
 # ---------------------------------------------------------------------------
 
@@ -700,7 +1005,16 @@ def parse_mismo_xml(xml_content: str) -> Dict[str, Any]:
     Return contract is compatible with the previous implementation so
     ``scenario_tools.py`` works without changes.  A new ``raw_xml`` key
     contains the full section-grouped extraction for LLM reasoning.
+
+    ``xml_content`` may also be a flat loan-data JSON object/string (see
+    ``_try_parse_flat_loan_json``) instead of real MISMO XML -- in that
+    case a minimal, non-error dict is returned (no section-level raw XML
+    data exists to extract from a flat JSON object).
     """
+    flat = _try_parse_flat_loan_json(xml_content)
+    if flat is not None:
+        return {"raw_xml": {}, "format": "flat_json", "_flat_json_source": flat}
+
     try:
         root = ET.fromstring(xml_content)
     except ET.ParseError as e:
@@ -736,6 +1050,10 @@ def parse_mismo_xml(xml_content: str) -> Dict[str, Any]:
     total_monthly_liabilities_val = _resolve_float(sections, "total_monthly_liabilities")
     proposed_housing_expense = _resolve_float(sections, "proposed_housing_expense")
     borrower_count_raw = _resolve_float(sections, "borrower_count_raw")
+    closing_date = _resolve_str(sections, "closing_date", default=None)
+
+    special_flood_hazard = _resolve_bool(sections, "special_flood_hazard")
+    flood_insurance_required = _resolve_bool(sections, "flood_insurance_required")
 
     pud = _resolve_bool(sections, "pud_indicator")
     in_project = _resolve_bool(sections, "in_project_indicator")
@@ -806,6 +1124,8 @@ def parse_mismo_xml(xml_content: str) -> Dict[str, Any]:
         "year_built": year_built,
         "appraised_value": appraised_value,
         "purchase_price": purchase_price,
+        "special_flood_hazard": special_flood_hazard,
+        "flood_insurance_required": flood_insurance_required,
         "lien_priority": lien_priority,
         "fico": fico,
         "ltv": ltv,
@@ -825,6 +1145,7 @@ def parse_mismo_xml(xml_content: str) -> Dict[str, Any]:
         "total_monthly_income": total_monthly_income,
         "total_monthly_liabilities": total_monthly_liabilities_val,
         "proposed_housing_expense": proposed_housing_expense,
+        "closing_date": closing_date,
         "housing_expenses": housing_expenses,
         "assets": assets,
         "employers": employers,
@@ -864,7 +1185,16 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
     An ``_xml_supplemental`` key carries rich data (liabilities,
     declarations, housing expenses, etc.) that the profile shape
     doesn't accommodate.
+
+    ``xml_content`` may also be a flat loan-data JSON object/string (e.g.
+    ``{"FicoScore": 724, "LTV": 70, ...}``) instead of real MISMO XML --
+    see ``_try_parse_flat_loan_json``/``_flat_loan_json_to_profile``. Both
+    shapes return a profile dict in the same contract.
     """
+    flat = _try_parse_flat_loan_json(xml_content)
+    if flat is not None:
+        return _flat_loan_json_to_profile(flat)
+
     parsed = parse_mismo_xml(xml_content)
 
     if "parse_error" in parsed:
@@ -893,6 +1223,10 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
 
     metadata: Dict[str, Any] = {
         "dti": parsed.get("dti"),
+        # No real MISMO XML tag is currently mapped for this -- DSCR tier
+        # is only sourced from the flat loan_file_xml shape's "DSCR" field
+        # (see _flat_loan_json_to_profile above) or an eligibility_json
+        # overlay, never from real XML text.
         "dscr": None,
         "fico": parsed.get("fico"),
         "itin": None,
@@ -909,7 +1243,13 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
             "first_name": primary.get("first_name", ""),
             "middle_name": primary.get("middle_name", ""),
         },
-        "cltv_pct": parsed.get("cltv") or 0,
+        # NOTE: intentionally no "or 0" fallback here (unlike some other
+        # fields) -- a genuinely-unknown CLTV must stay None, not silently
+        # become a false "0% CLTV" sentinel. build_scenario_summary's
+        # bare-minimum-fields gate (tools/scenario_tools.py) relies on None
+        # to detect "CLTV truly unknown" vs. a real value; defaulting to 0
+        # would make that check permanently unable to catch missing CLTV.
+        "cltv_pct": parsed.get("cltv"),
         "loan_type": _LIEN_MAP.get(parsed.get("lien_priority", ""), parsed.get("lien_priority")),
         "occupancy": parsed.get("occupancy"),
         "income_doc": None,
@@ -939,6 +1279,8 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
         # Distinct, non-collapsed values — see property_value note above.
         "appraised_value": parsed.get("appraised_value"),
         "purchase_price": parsed.get("purchase_price"),
+        "special_flood_hazard": parsed.get("special_flood_hazard"),
+        "flood_insurance_required": parsed.get("flood_insurance_required"),
         "rural_property": None,
         "months_reserves": None,
         "property_address": parsed.get("property_address"),
@@ -980,6 +1322,7 @@ def xml_to_loan_profile(xml_content: str) -> Dict[str, Any]:
         "total_monthly_income": parsed.get("total_monthly_income"),
         "total_monthly_liabilities": parsed.get("total_monthly_liabilities"),
         "proposed_housing_expense": parsed.get("proposed_housing_expense"),
+        "closing_date": parsed.get("closing_date"),
         "year_built": parsed.get("year_built"),
         "property_city": parsed.get("property_city"),
         "property_zip": parsed.get("property_zip"),

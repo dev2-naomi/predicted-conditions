@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
 from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
@@ -24,25 +24,71 @@ from tools.shared.normalize import (
     normalize_all,
     normalize_document_structure,
 )
+# Reused by _apply_bank_statement_coverage_backstop below — the SAME
+# best-effort account-number extraction _annotate_bank_statement_coverage
+# itself uses, so "same account" means exactly what that function already
+# grouped entries by, not a second, possibly-divergent definition.
+from tools.shared.manifest_parser import _bank_statement_account_number
 
 
 # ---------------------------------------------------------------------------
 # Document-type alias map
 # ---------------------------------------------------------------------------
-# Two maps control how the engine matches requested documents against the
+# Three maps control how the engine matches requested documents against the
 # manifest:
 #
 # _DOCTYPE_BLANKET_ALIASES — functionally equivalent documents.  When a
 #   blanket alias matches, ALL specs are marked satisfied (the submitted doc
 #   is a different document that fully covers the requirement).
 #
-# _DOCTYPE_ALIASES — naming variants of the same document.  When a name
-#   variant matches, the normal extracted-fields check still runs so only
-#   specs actually confirmed by extracted data are satisfied.
+# _DOCTYPE_ALIASES — naming variants of the SAME document (e.g. "VOE" is
+#   just a shorthand for "Verification of Employment" — there's only ever
+#   one real document). When a name variant matches, the normal
+#   extracted-fields check still runs so only specs actually confirmed by
+#   extracted data are satisfied. IMPORTANT: this map is ALSO reversed into
+#   _ALIAS_TO_CANONICAL (below) and used to compute merge keys for document
+#   REQUESTS themselves (_canonical_doc_type/_merge_key) — so an entry here
+#   doesn't just help evidence-matching, it also collapses any two document
+#   requests sharing a variant into ONE. Only put names here that really are
+#   the same document under a different label.
+#
+# _DOCTYPE_EVIDENCE_ALIASES — evidence-only cross-references: "a submitted
+#   document classified as X also counts as evidence for canonical type Y",
+#   WITHOUT collapsing the two into one document request. Use this (not
+#   _DOCTYPE_ALIASES) whenever Y is a genuinely distinct, separately-
+#   tracked document type from X (e.g. the generic eligibility-engine
+#   "Asset" catch-all recognizing a Bank Statement or Investment Account
+#   Statement as valid evidence, without merging those three into a single
+#   request — see the "asset" entry below for the bug this fixes).
 
 _DOCTYPE_BLANKET_ALIASES: dict[str, set[str]] = {
     "borrower certification as to business purpose": {
         "borrowers authorization",
+    },
+}
+
+_DOCTYPE_EVIDENCE_ALIASES: dict[str, set[str]] = {
+    # Generic eligibility-engine-flagged "Asset" document_type (distinct
+    # from the mandatory-floor "Bank Statement" and standalone "Investment
+    # Account Statement" docs) -- same real-world evidence (account
+    # statement showing balance/ownership), just a broader catch-all
+    # category name. These names are OTHER REAL canonical document types
+    # in their own right, so they live here (evidence-only) rather than in
+    # _DOCTYPE_ALIASES: putting them there previously caused "Bank
+    # Statement" (and "Investment Account Statement") document REQUESTS to
+    # silently collapse into "Asset" via _ALIAS_TO_CANONICAL's merge-key
+    # reuse of that same map -- confirmed via real payload (Kelly/Goldberg
+    # thread 328a7ced...): a borrower's "Bank Statement" floor doc
+    # vanished entirely (merged into "Asset", losing its own 6 specs) the
+    # moment this fix originally went into _DOCTYPE_ALIASES instead of
+    # here. This dict is consumed ONLY by _get_aliases() for satisfaction-
+    # matching, never by _ALIAS_TO_CANONICAL, so Asset/Bank
+    # Statement/Investment Account Statement now cross-recognize each
+    # other's evidence while remaining three separate, independently
+    # tracked document requests.
+    "asset": {
+        "bank statement", "bank_statement",
+        "investment account statement", "brokerage statement",
     },
 }
 
@@ -68,6 +114,28 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
         # Confirmed against eligibility-engine repo source, not just the
         # payload output.
         "most recent asset statement for proof reserves",
+        # Manifest category_id 827 ("Other Asset") -- brokerage/investment/
+        # trust account statements that carry the same evidence shape as a
+        # bank statement (institution, owner, account number, balance) but
+        # get a distinct category_name from the indexer. Confirmed via real
+        # payload (Kelly/Goldberg thread 328a7ced...): two "Other Asset"
+        # documents (Morgan Stanley, Bank of America trust accounts) were
+        # present in the file but never matched Bank Statement/Asset
+        # requests because "other asset" wasn't in this alias set.
+        "other asset",
+    },
+    # Generic eligibility-engine-flagged "Asset" document_type (distinct
+    # from the mandatory-floor "Bank Statement" doc above) -- only genuinely
+    # generic/non-canonical evidence-category names go here (names that
+    # aren't ALSO some other real, separately-tracked document type). Cross-
+    # type evidence recognition ("a Bank Statement or Investment Account
+    # Statement also counts as Asset evidence") lives in
+    # _DOCTYPE_EVIDENCE_ALIASES instead — see that dict's docstring for why
+    # putting those two here previously caused Bank Statement requests to
+    # silently merge into Asset instead of just being recognized as
+    # evidence for it.
+    "asset": {
+        "other asset", "asset statement", "proof of assets",
     },
     "hazard insurance": {
         "homeowners insurance", "property insurance", "insurance binder",
@@ -77,6 +145,13 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     },
     "irs 4506-c authorization": {
         "4506-c", "4506c", "irs form 4506-c", "tax transcript authorization",
+        # Task Tile's own category name for the production 4506-C copy the
+        # underwriter actually used was "4506-C IVES" (the IVES-participant
+        # variant of the same IRS form), not any of the names above — the
+        # document was correctly in the file but never matched (engine
+        # accuracy report, ticket 4275, PC-07 follow-up: "In file, not
+        # recognised" on loan 513).
+        "4506-c ives",
     },
     "purchase contract": {
         "sales contract", "purchase agreement", "contract of sale",
@@ -92,6 +167,12 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     },
     "verification of employment": {
         "voe", "verbal verification of employment",
+        # Task Tile's own category name for a production Verification of
+        # Employment report was "Verification of Income", not any of the
+        # names above — the document was correctly in the file but never
+        # matched (engine accuracy report, 17 Nov 2026, PC-07: "In file,
+        # not recognised" on loan 510).
+        "verification of income",
     },
     "verification of mortgage": {
         "vom", "mortgage verification",
@@ -154,9 +235,20 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     "asset depletion worksheet": {
         "asset utilization worksheet", "asset depletion calculation",
         "asset utilization calculation",
+        # Task Tile's own category name for the production asset-depletion
+        # worksheet was plain "Asset Worksheet", not any of the names
+        # above — the document was correctly in the file but never matched
+        # (engine accuracy report, ticket 4275, PC-07 follow-up: "In file,
+        # not recognised" on loan 513).
+        "asset worksheet",
     },
     "investment account statement": {
         "brokerage statement", "investment statement", "brokerage account statement",
+        # Manifest category_id 827 ("Other Asset") -- see the "bank
+        # statement" entry above for the same reasoning; a brokerage
+        # statement (e.g. Morgan Stanley) is just as likely to land in this
+        # generic indexer bucket as a bank statement is.
+        "other asset",
     },
     "trust documents": {
         "trust agreement", "living trust", "revocable trust documents",
@@ -208,6 +300,22 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     },
     "emd check": {
         "earnest money deposit check", "emd", "earnest money check",
+        # Task Tile's own category name for the production earnest-money
+        # evidence (account activity showing the deposit cleared) was
+        # "Transaction History", not any of the names above — the document
+        # was correctly in the file but never matched (engine accuracy
+        # report, 17 Nov 2026, PC-07: "In file, not recognised" on loan 510).
+        "transaction history",
+    },
+    # Task Tile's own category name for the production income-calculation
+    # worksheets on a bank-statement loan was "Income Calculations
+    # Worksheet" — this canonical type had NO alias entry at all, so the
+    # documents were correctly in the file but never matched (engine
+    # accuracy report, 17 Nov 2026, PC-07: "In file, not recognised" on
+    # loan 512).
+    "non qm bank statement analysis worksheet": {
+        "income calculations worksheet", "bank statement analysis worksheet",
+        "income calculation worksheet",
     },
     # Eligibility-engine's category name for the same signed cash-out /
     # business-purpose certification form covered by "Borrower Certification
@@ -218,6 +326,43 @@ _DOCTYPE_ALIASES: dict[str, set[str]] = {
     "borrower certification as to business purpose": {
         "borrower certifications and disclosure",
     },
+    # Ticket 4278 ("Add the Documents Almost Every Loan Needs") — these 7
+    # document types are brand new to the engine, so no real Task Tile
+    # category name has been confirmed against production data yet
+    # (unlike PC-07/ticket 4275's aliases, which were all confirmed via
+    # real UAT loan manifests). Common-sense industry-standard synonyms
+    # only, so "already in file -> linked" (ticket 4278's final acceptance
+    # criterion) works for the most likely real-world labels.
+    "title company wiring instructions": {
+        "wiring instructions", "wire instructions", "wire transfer instructions",
+    },
+    "title company e&o insurance": {
+        "e&o insurance", "errors and omissions insurance", "eo insurance",
+        "title company e&o",
+    },
+    "closing protection letter": {
+        "cpl", "insured closing letter", "icl",
+    },
+    "property tax certificate": {
+        "tax certificate", "property tax cert", "tax cert", "tax certification",
+    },
+    "appraisal delivery confirmation": {
+        "appraisal delivery", "proof of appraisal delivery",
+        "appraisal receipt confirmation", "evidence of appraisal delivery",
+    },
+    "w-2 or 1099 tax transcripts": {
+        "tax transcripts", "irs tax transcripts", "w2 transcripts",
+        "1099 transcripts", "w-2 transcripts",
+    },
+    "articles of organization": {
+        "certificate of organization", "certificate of formation",
+    },
+    "appraisal transfer letter": {
+        "transfer letter", "appraisal transfer",
+    },
+    "air certification": {
+        "air cert", "appraiser independence certification",
+    },
 }
 
 
@@ -225,7 +370,7 @@ def _get_aliases(doc_type: str) -> set[str]:
     """Return all names (including the original) that count as the same doc."""
     key = doc_type.strip().lower()
     aliases = {key, key.replace(" ", "_"), key.replace("_", " ")}
-    for alias_map in (_DOCTYPE_ALIASES, _DOCTYPE_BLANKET_ALIASES):
+    for alias_map in (_DOCTYPE_ALIASES, _DOCTYPE_BLANKET_ALIASES, _DOCTYPE_EVIDENCE_ALIASES):
         for mapped in alias_map.get(key, set()):
             m = mapped.strip().lower()
             aliases.update({m, m.replace(" ", "_"), m.replace("_", " ")})
@@ -278,18 +423,30 @@ def _sort_key(dr: dict) -> tuple:
 # ---------------------------------------------------------------------------
 
 _CANONICAL_NAMES: dict[str, str] = {
-    "executed lease agreement": "lease agreement",
-    "executed lease": "lease agreement",
-    "lease": "lease agreement",
+    # NOTE: these 3 used to route to a standalone "lease agreement" name
+    # that has no entry in data/canonical_doc_specs.json (a dead end that
+    # silently skipped apply_guideline_canonicalization() and let the LLM's
+    # freeform specs through unchecked). "Lease Agreement" and "Rental
+    # Agreement" are the same real-world document -- _DOCTYPE_ALIASES
+    # already folds plain "lease" into "rental agreement" too, so route
+    # these there instead to actually get the deterministic spec library.
+    "executed lease agreement": "rental agreement",
+    "executed lease": "rental agreement",
+    "lease": "rental agreement",
     "rent loss insurance evidence": "rent loss insurance",
     "evidence of rent loss insurance": "rent loss insurance",
     "hazard insurance declaration page": "hazard insurance",
     "hazard insurance": "hazard insurance",
     "property insurance": "hazard insurance",
     "property insurance / hazard insurance": "hazard insurance",
-    "flood determination / flood certificate": "flood determination",
-    "flood certificate": "flood determination",
-    "flood cert": "flood determination",
+    # Same dead-end problem as lease agreement above: "flood determination"
+    # has no canonical_doc_specs.json entry, but "Flood Determination" and
+    # "Flood Hazard Determination" are the same document (the alias group
+    # below even lists "flood determination" as a raw variant of the
+    # covered name) -- route these 3 raw forms straight to the covered name.
+    "flood determination / flood certificate": "flood hazard determination",
+    "flood certificate": "flood hazard determination",
+    "flood cert": "flood hazard determination",
     "mortgage payment history": "mortgage payment history",
     "verification of mortgage": "verification of mortgage",
     "verification of mortgage (vom)": "verification of mortgage",
@@ -306,19 +463,43 @@ _CANONICAL_NAMES: dict[str, str] = {
     "government id": "government id",
     "drivers license": "government id",
     "passport": "government id",
-    "borrower authorization form": "borrower authorization",
-    "borrower authorization": "borrower authorization",
-    # normalize.py's masterlist canonicalization renames this to the
-    # plural "Borrowers Authorization" (matching doctype_masterlist.json's
-    # curated entry) BEFORE merge_document_requests ever sees an
-    # LLM-generated doc — without this entry, that plural form fails to
-    # collapse onto doc_rules.py's mandatory_docs() floor doc (which uses
-    # the singular "Borrower Authorization"), producing two separate,
+    # Same dead-end problem: these 2 raw forms used to fall through to the
+    # uncovered "government-issued photo id" name instead of the covered
+    # "government id" name (which every other variant in this group
+    # already resolves to).
+    "photo id": "government id",
+    "identification": "government id",
+    # 2026-10-13: canonical key flipped from singular to plural. Originally
+    # both forms collapsed onto the singular "borrower authorization"
+    # because, at the time, doc_rules.py's mandatory_docs() floor doc used
+    # that singular wording and normalize.py's masterlist canonicalization
+    # independently renamed LLM-generated docs to the plural — without a
+    # shared canonical key, those two sources produced two separate,
     # undeduped documents in the final output instead of one.
-    "borrowers authorization": "borrower authorization",
-    "occupancy certification / investor certification": "occupancy certification",
-    "occupancy certification": "occupancy certification",
-    "investor certification": "occupancy certification",
+    #
+    # doc_rules.py's floor doc now uses the plural "Borrowers Authorization"
+    # (matching data/doctype_masterlist.json's curated entry, id 237), so
+    # the canonical key is flipped to match. This also fixes category_ids
+    # resolution for the (common) case where an LLM module independently
+    # drafts its own singular-worded request from guideline/checklist text
+    # and wins the merge before the floor doc is even injected — that
+    # singular-raw-text request now canonicalizes to the SAME plural key
+    # the masterlist name-lookup fallback actually has an entry for, so it
+    # resolves to 237 instead of silently coming up empty. (Live-verified
+    # gap: a real dev rerun had this exact LLM-drafted-singular case end up
+    # with correct category_ids ONLY because its required_documents_json
+    # checklist item happened to already carry category_ids=["237"] of its
+    # own — a loan without that checklist coverage would have gotten zero.)
+    "borrower authorization form": "borrowers authorization",
+    "borrower authorization": "borrowers authorization",
+    "borrowers authorization": "borrowers authorization",
+    # Same dead-end problem: these 3 raw forms used to fall through to the
+    # uncovered standalone "occupancy certification" name instead of the
+    # covered "owner occupancy certification" name (the alias group below
+    # already lists bare "occupancy certification" as a variant of it).
+    "occupancy certification / investor certification": "owner occupancy certification",
+    "occupancy certification": "owner occupancy certification",
+    "investor certification": "owner occupancy certification",
 }
 
 
@@ -342,6 +523,71 @@ def _canonical_doc_type(name: str) -> str:
     if key in _ALIAS_TO_CANONICAL:
         return _ALIAS_TO_CANONICAL[key]
     return key
+
+
+_DOCTYPE_ID_BY_NAME: dict[str, str] | None = None
+
+
+def _doctype_id_by_name() -> dict[str, str]:
+    """
+    Lazily load data/doctype_masterlist.json into a {lowercase document_type:
+    doctype_id} lookup. This is the 3rd (last-resort) source for
+    document_requests.category_ids: after (a) doc-extraction matches and (b)
+    required_documents_json checklist ids have both been applied, any
+    document_request still missing category_ids gets one final shot at
+    resolving an id by matching its own document_type name directly against
+    the masterlist -- covering requests the LLM drafted deterministically
+    (e.g. from doc_rules.py floors) that were never satisfied by an actual
+    uploaded file and weren't present on the borrower's checklist either.
+
+    This intentionally reads the full masterlist (not just the NQM-relevant
+    subset cached on scenario_summary["_doctype_masterlist"] by
+    load_doctype_masterlist), since it must work even when that tool wasn't
+    called this run, and loads once per process via a module-level cache.
+    """
+    global _DOCTYPE_ID_BY_NAME
+    if _DOCTYPE_ID_BY_NAME is None:
+        from pathlib import Path
+
+        _DOCTYPE_ID_BY_NAME = {}
+        masterlist_path = Path(__file__).parent.parent / "data" / "doctype_masterlist.json"
+        if masterlist_path.exists():
+            import json as _json
+
+            with open(masterlist_path, encoding="utf-8") as f:
+                all_types = _json.load(f)
+            for t in all_types:
+                doctype_id = t.get("doctype_id")
+                document_type = (t.get("document_type") or "").strip().lower()
+                if doctype_id is not None and document_type:
+                    _DOCTYPE_ID_BY_NAME.setdefault(document_type, str(doctype_id))
+    return _DOCTYPE_ID_BY_NAME
+
+
+# Explicitly-curated "always also include this id" list, separate from (and
+# deliberately NOT derived from) _DOCTYPE_ALIASES/_get_aliases(). Those alias
+# groups mix true "same document, different name" variants (safe to merge)
+# with pure satisfaction/evidence aliases that represent genuinely DIFFERENT
+# real documents (e.g. "Prequal Response Form"'s aliases include several
+# state-specific rate-lock disclosures -- merging THEIR ids in would be
+# wrong), so blanket-merging every alias's id was rejected as unsafe. This
+# dict is a small, hand-reviewed allowlist instead: canonical document_type
+# -> extra name variant(s) whose masterlist id should always ride along,
+# because we've deliberately decided they're the same requirement.
+#
+# "LLC Member List" is a real, distinct eligibility-engine checklist
+# category (see tools.doc_rules's "llc member list" entry), but per an
+# earlier product decision its content (owners/ownership %, managing member)
+# is folded into "Operating Or Partnership Agreement" rather than shown as
+# its own document -- so its id should surface as an extra category_id on
+# the Operating Agreement request instead of being dropped. NOTE: as of
+# 2026-10-13 neither "Borrower Authorization to Sign" nor "LLC Member List"
+# exist yet in data/doctype_masterlist.json / eligibility-engine's
+# schema.txt (proposed ids 5001/5002) -- this entry is a no-op (by_name
+# lookup returns None) until the masterlist is updated to include it.
+_ALWAYS_MERGE_ALIAS_NAMES: dict[str, set[str]] = {
+    "operating or partnership agreement": {"llc member list"},
+}
 
 
 def _merge_key(dr: dict) -> str:
@@ -506,6 +752,65 @@ def _merge_two(base: dict, other: dict) -> dict:
     return merged
 
 
+def _collapse_duplicate_canonical_types(docs: list[dict]) -> list[dict]:
+    """Collapse any remaining document_requests that share the same
+    canonical document_type into one, merging their content via
+    _merge_two.
+
+    Ticket 4274 acceptance criterion ("no condition name appears twice" on
+    a two-borrower, large file) and "what's asked" item ("one condition
+    per document per run"). _merge_key (see module comment above
+    merge_document_requests) already groups same document_type +
+    document_context together, but when the SAME real-world document need
+    gets proposed by multiple per-module LLM steps with inconsistently
+    populated document_context (one proposal carries
+    {"borrower": "Jane Doe"}, another for the identical need leaves
+    document_context empty/absent), they land in two different
+    merge-key groups and both survive to the final output under the same
+    display name with different (sometimes contradictory) content --
+    exactly the 17 Nov 2026 accuracy report's loan-512 symptom ("34
+    conditions, 13 repeated another by name with a different result").
+
+    This runs AFTER the document_context-aware merge above, as a second,
+    coarser pass keyed on canonical document_type ALONE -- deliberately
+    discarding context-based differentiation for same-type duplicates,
+    consistent with how every other multi-copy scenario in this codebase
+    is represented (one document_request carrying multiple document_ids /
+    a merged period range, e.g. ticket 4276's paystub/bank-statement
+    merge and government-ID-per-borrower handling), not multiple
+    document_request rows for the same canonical type. The one sanctioned
+    exception -- one row per PARTY for borrower-specific types on a
+    multi-borrower loan -- is applied later, in tools/coborrower.py's
+    per-party split, which runs after this and re-derives its own rows
+    from the (now deduped) canonical set; it is not affected by this
+    collapse.
+
+    Order-preserving: the first occurrence's position in the output list
+    is kept; later duplicates are merged into it in encounter order.
+    """
+    out: list[dict] = []
+    index_by_canon: dict[str, int] = {}
+    for dr in docs:
+        raw_type = dr.get("document_type") or dr.get("document_name") or ""
+        canon = _canonical_doc_type(raw_type)
+        if not canon:
+            out.append(dr)
+            continue
+        if canon in index_by_canon:
+            i = index_by_canon[canon]
+            base = out[i]
+            merged_corrob = sorted(
+                set(base.get("_corroborating_modules") or [])
+                | set(dr.get("_corroborating_modules") or [])
+            )
+            out[i] = _merge_two(base, dr)
+            out[i]["_corroborating_modules"] = merged_corrob
+        else:
+            index_by_canon[canon] = len(out)
+            out.append(dr)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Image/document-quality specs are never spawned at all.
 #
@@ -611,14 +916,40 @@ def merge_document_requests(
         all_requests.extend(requests)
 
     groups: dict[str, dict] = {}
+    # Tracks which distinct source_module values proposed each merge-key
+    # group -- an independent-corroboration confidence signal consumed by
+    # tools.merger_tools.compute_document_confidence (see
+    # _CONFIDENCE_CORROBORATION_BONUS): two separate modules reasoning over
+    # different scenario facts/guideline sections and both independently
+    # proposing the same document is stronger evidence it's genuinely
+    # needed than any single module's unilateral call.
+    corroborating_modules: dict[str, set[str]] = {}
     for dr in all_requests:
         key = _merge_key(dr)
+        corroborating_modules.setdefault(key, set()).add(dr.get("source_module") or "")
         if key in groups:
             groups[key] = _merge_two(groups[key], dr)
         else:
             groups[key] = dict(dr)
 
+    for key, dr in groups.items():
+        dr["_corroborating_modules"] = sorted(corroborating_modules.get(key, set()))
+
     merged = list(groups.values())
+    # Ticket 4274 ("no condition name appears twice" / "one condition per
+    # document per run" -- the 17 Nov accuracy report's loan 512: 34
+    # conditions, 13 repeating another by name with a different result).
+    # _merge_key above already groups same document_type + document_context
+    # together, but when document_context is populated inconsistently
+    # across the 7 per-module LLM proposals for what's really the SAME
+    # real-world document need (e.g. one module tags
+    # document_context={"borrower": "..."} and another leaves it empty for
+    # the identical request), two separate groups survive under the same
+    # canonical document_type with genuinely different content. This final
+    # pass collapses any such remaining same-canonical-type duplicates into
+    # one, BEFORE the deterministic floor/gates run -- see
+    # _collapse_duplicate_canonical_types' docstring.
+    merged = _collapse_duplicate_canonical_types(merged)
     llm_count = len(merged)
 
     # ------------------------------------------------------------------
@@ -656,7 +987,7 @@ def merge_document_requests(
     # to fully replace (not just rewrite-match) what the LLM generated:
     # same wording AND same (correct, flag-branched) content on every
     # rerun.
-    canonicalized_count = apply_guideline_canonicalization(
+    canonicalized_count, uncovered_doc_types = apply_guideline_canonicalization(
         merged, scenario_summary, canonical_fn=_canonical_doc_type,
     )
     # Rewrite-only fallback for any doc type NOT covered by the guideline-
@@ -686,6 +1017,12 @@ def merge_document_requests(
         msg += f" Injected {injected_count} deterministic doc(s) ({', '.join(det_stats['injected'])})."
     if canonicalized_count:
         msg += f" Applied guideline-sourced deterministic specs to {canonicalized_count} document request(s)."
+    if uncovered_doc_types:
+        msg += (
+            f" NOTE: {len(uncovered_doc_types)} doc type(s) have NO entry in "
+            f"data/canonical_doc_specs.json and are left on raw LLM-generated "
+            f"(non-deterministic) specifications: {', '.join(uncovered_doc_types)}."
+        )
     if other_canonicalized_count:
         msg += f" Canonicalized specs on {other_canonicalized_count} other document request(s)."
     if stripped_quality_specs:
@@ -736,6 +1073,367 @@ def assign_statuses(document_requests: list[dict], inventory: list[dict]) -> Non
             dr["status"] = "satisfied_but_review_required"
         else:
             dr["status"] = "needed"
+
+
+# ---------------------------------------------------------------------------
+# Confidence scoring
+#
+# Deterministic (no extra LLM call) per-document confidence, 0.0-1.0.
+# "Confidence" here means: how confident the pipeline is that (a) this
+# document requirement genuinely applies to this loan and (b) its
+# satisfied/needed status assessment is correct -- it is NOT a prediction of
+# whether the borrower will actually produce the document. Chosen over an
+# LLM-self-reported score because (1) it needs zero new LLM calls/latency,
+# (2) it's fully explainable/debuggable from fields already on the dict,
+# and (3) it avoids the well-known tendency of LLM-reported confidence
+# values to cluster unreliably high (e.g. everything 0.85-0.95) absent
+# careful, hard-to-maintain calibration across the 7+ separate prompts that
+# can create a document_request.
+# ---------------------------------------------------------------------------
+
+# Base score by provenance: how much interpretive/LLM judgment went into
+# deciding this document applies at all, vs. a fixed, guideline-backed rule.
+_CONFIDENCE_BASE_BY_SOURCE: dict[str, float] = {
+    # doc_rules.py's canonical_doc_specs.json-driven rules engine, and
+    # required_documents_json checklist-floor items: a fixed rule/table
+    # decided this applies, not an LLM reading guideline text and judging
+    # relevance -- least interpretive risk.
+    "deterministic": 0.95,
+    # STEP_01 cross-cutting module: largely boilerplate compliance/ID/
+    # authorization documents that apply to nearly every loan regardless of
+    # scenario specifics -- low interpretive risk even though an LLM drafted
+    # the request.
+    "01": 0.90,
+}
+# Any other numeric step module ("02"-"07"): an LLM reasoned over guideline
+# text plus scenario-specific facts (income type, property, credit, title,
+# etc.) to decide this document applies -- genuine interpretive judgment
+# went into the requirement itself. Split into two tiers rather than one
+# flat value, using a signal already computed upstream and otherwise
+# discarded: whether doc_rules.apply_guideline_canonicalization replaced
+# this request's `specifications` with vetted, guideline-sourced text
+# (dr["_guideline_grounded"], set there) rather than leaving the LLM's own
+# generated wording in place. Either way the LLM still had to decide this
+# document type applies to THIS scenario, but when the requirement TEXT
+# itself is separately vetted/canonical (not improvised), there's
+# meaningfully less room for the request to be substantively wrong, even
+# if the applicability call could still be mistaken.
+#
+# "Grounded" is graded, not flat, within [_CONFIDENCE_BASE_LLM_GROUNDED_MIN,
+# _CONFIDENCE_BASE_LLM_GROUNDED_MAX] -- see _grounded_llm_base() -- using two
+# more signals doc_rules.apply_guideline_canonicalization also stamps:
+# dr["_guideline_spec_count"] (how many canonical specs actually resolved
+# for this scenario -- a thin, generic canonical entry is less thoroughly
+# specified than one with a dozen resolved items) and
+# dr["_guideline_specificity_ratio"] (what fraction of those were gated by
+# a real, scenario-specific condition rather than applying unconditionally
+# -- more of this document's requirement text was actually tailored to THIS
+# scenario's facts, not generic boilerplate for the doc_type).
+_CONFIDENCE_BASE_LLM_GROUNDED_MIN = 0.80
+_CONFIDENCE_BASE_LLM_GROUNDED_MAX = 0.90
+# Resolved spec count at/above which thoroughness is considered "maxed
+# out" for grading purposes -- chosen from observed canonical_doc_specs.json
+# entries, which commonly range from 1-2 items (thin) to 15-30+ (thorough,
+# e.g. Hazard Insurance, Non-QM Bank Statement Analysis Worksheet).
+_GROUNDING_SPEC_COUNT_SATURATION = 10
+_CONFIDENCE_BASE_LLM_UNGROUNDED = 0.65
+# Missing/unrecognized source_module -- conservative fallback.
+_CONFIDENCE_BASE_UNKNOWN = 0.60
+
+# Bonus when >=2 distinct modules independently proposed this same document
+# before merging (dr["_corroborating_modules"], set by
+# merge_document_requests) -- two separate reasoning passes over different
+# scenario facts/guideline sections landing on the same document
+# independently is stronger evidence it's genuinely needed than any single
+# module's unilateral call. Only meaningful for LLM-authored requests (a
+# "deterministic" or "01" request's base score already reflects low
+# interpretive risk regardless of how many modules also happened to ask for
+# it), so this is only applied in the LLM-tier branch below.
+_CONFIDENCE_CORROBORATION_BONUS = 0.05
+_CONFIDENCE_CORROBORATION_MIN_MODULES = 2
+
+# Maximum boost applied on top of the base score when every evaluated spec
+# was confirmed satisfied against a real submitted document this run (see
+# compute_document_confidence) -- scaled down proportionally when only some
+# specs are satisfied, and not applied at all when none are (zero satisfied
+# specs is the normal "not yet submitted" state, not evidence of anything
+# wrong with the requirement).
+_CONFIDENCE_EVIDENCE_WEIGHT = 0.15
+# Flat bump when this request was actually matched to an uploaded document
+# this run (document_ids non-empty) -- direct evidence the requirement is
+# real and correctly identified, not a pure prediction of what might be
+# needed. Still the ONLY signal used when exactly one document matched (see
+# _multi_document_match_adjustment) -- there's nothing to corroborate/
+# attribute against with just one document.
+_CONFIDENCE_DOCUMENT_MATCH_BONUS = 0.05
+# When MULTIPLE documents matched this same document_type (e.g. two Hazard
+# Insurance declarations) and run_satisfaction_pass's per-spec attribution
+# (_attribute_satisfied_specs) shows a satisfied spec was backed by more
+# than one of them, that's independent corroboration -- stronger evidence
+# than either document alone. Scales from 0 (every satisfied spec backed by
+# exactly 1 document -- same as the flat bonus, no corroboration) up to this
+# max (every satisfied spec backed by 2+ documents on average) on top of
+# the base _CONFIDENCE_DOCUMENT_MATCH_BONUS below.
+_CONFIDENCE_MULTI_DOC_CORROBORATION_BONUS = 0.05
+# Counterweight to the above: a matched document that never backs ANY
+# satisfied spec (per the same attribution) contributed nothing verifiable
+# -- a signal the alias/type match itself may be spurious, not something to
+# credit the same as a document that actually proved something. Scaled by
+# the fraction of matched documents that ended up unused.
+_CONFIDENCE_MULTI_DOC_UNUSED_PENALTY = 0.05
+
+# Adjustment from dr["cross_document_checks"] (set by cross_check_satisfaction
+# from tools.doc_rules.guideline_cross_reference_map's per-spec cross-
+# reference requirements -- e.g. Balance Sheet's "must be consistent with
+# the YTD Profit and Loss period" can only genuinely be confirmed by
+# comparing THIS document's data against another document type's data).
+# Unlike the plain satisfied_specifications evidence boost above (which is
+# deliberately boost-only because zero satisfied specs just means "not
+# submitted yet"), a cross-document check that actually ran against a real
+# sibling document and came back anything other than "consistent" IS
+# genuine negative evidence -- the sibling document exists and either
+# doesn't line up ("inconsistent") or couldn't be automatically confirmed
+# to line up ("needs_review"), unlike simply not having evidence yet. This
+# is the first penalty-capable signal in the formula for exactly that
+# reason: it's evidence-based, not absence-based.
+#
+# "missing_sibling_document" (the referenced document type was never even
+# submitted this run, so there was nothing to check against) gets NO
+# adjustment either way -- same absence-of-evidence reasoning as zero
+# satisfied_specifications.
+#
+# Weights are per-check-status ratios (status_count / total_checks on this
+# document), not flat per-document bonuses/penalties, so a document with
+# many cross-reference specs isn't swung to the max by a single check.
+_CONFIDENCE_CROSS_DOC_CONSISTENT_WEIGHT = 0.05
+_CONFIDENCE_CROSS_DOC_NEEDS_REVIEW_PENALTY = 0.10
+# "inconsistent" isn't produced by cross_check_satisfaction today (see its
+# docstring), but is a documented possible status (tools/shared/normalize.py
+# _CANONICAL_FIELDS' cross_document_checks comment) for future confirmed-
+# mismatch detection -- handled here defensively so this formula doesn't
+# need to change again once that lands. Weighted more heavily than
+# "needs_review" since it represents a CONFIRMED mismatch, not merely an
+# unconfirmed one.
+_CONFIDENCE_CROSS_DOC_INCONSISTENT_PENALTY = 0.20
+
+
+def _grounded_llm_base(dr: dict) -> float:
+    """Graded base score for a guideline-grounded LLM-authored request
+    (``dr["_guideline_grounded"]`` is truthy), within
+    [_CONFIDENCE_BASE_LLM_GROUNDED_MIN, _CONFIDENCE_BASE_LLM_GROUNDED_MAX].
+
+    Blends two signals doc_rules.apply_guideline_canonicalization stamps
+    alongside ``_guideline_grounded`` (equal weight, averaged 0-1 each):
+
+    - thoroughness: ``_guideline_spec_count`` scaled by
+      ``_GROUNDING_SPEC_COUNT_SATURATION`` -- a doc_type with many resolved
+      canonical specs for this scenario is more thoroughly specified than
+      one with just one or two.
+    - specificity: ``_guideline_specificity_ratio`` as-is (already 0-1) --
+      what fraction of those specs were gated by a real, scenario-specific
+      condition rather than applying unconditionally to every scenario.
+
+    Falls back to the midpoint of the grounded range if either field is
+    missing (e.g. a hand-built dict, or state captured before this grading
+    was added) -- same intent as the old flat 0.85 constant, just as a
+    graceful degradation rather than the normal path.
+    """
+    spec_count = dr.get("_guideline_spec_count")
+    specificity_ratio = dr.get("_guideline_specificity_ratio")
+    if spec_count is None or specificity_ratio is None:
+        return (_CONFIDENCE_BASE_LLM_GROUNDED_MIN + _CONFIDENCE_BASE_LLM_GROUNDED_MAX) / 2
+
+    thoroughness = min(spec_count / _GROUNDING_SPEC_COUNT_SATURATION, 1.0)
+    quality = (thoroughness + specificity_ratio) / 2
+    span = _CONFIDENCE_BASE_LLM_GROUNDED_MAX - _CONFIDENCE_BASE_LLM_GROUNDED_MIN
+    return _CONFIDENCE_BASE_LLM_GROUNDED_MIN + quality * span
+
+
+def _cross_document_adjustment(dr: dict) -> float:
+    """Net confidence adjustment (can be negative) from this document's
+    ``cross_document_checks`` (see ``_CONFIDENCE_CROSS_DOC_*`` constants for
+    the reasoning). Returns 0.0 if there are no cross-document checks on
+    this document at all -- most documents never have any (only specs with
+    a ``cross_references`` flag in canonical_doc_specs.json get checked).
+
+    Each check's status contributes a ratio-weighted term
+    (status_count / total_checks), so a single flagged spec on a document
+    with many cross-reference specs doesn't swing the result to the max
+    bonus/penalty on its own.
+    """
+    checks = dr.get("cross_document_checks") or []
+    if not checks:
+        return 0.0
+
+    total = len(checks)
+    consistent = sum(1 for c in checks if c.get("status") == "consistent")
+    needs_review = sum(1 for c in checks if c.get("status") == "needs_review")
+    inconsistent = sum(1 for c in checks if c.get("status") == "inconsistent")
+
+    return (
+        (consistent / total) * _CONFIDENCE_CROSS_DOC_CONSISTENT_WEIGHT
+        - (needs_review / total) * _CONFIDENCE_CROSS_DOC_NEEDS_REVIEW_PENALTY
+        - (inconsistent / total) * _CONFIDENCE_CROSS_DOC_INCONSISTENT_PENALTY
+    )
+
+
+def _multi_document_match_adjustment(dr: dict) -> float:
+    """Replaces the flat ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` with a graded
+    signal when MULTIPLE physical documents matched this document_type
+    (e.g. two Hazard Insurance declarations, two W-2s) -- built from the
+    per-spec document attribution run_satisfaction_pass's
+    ``_attribute_satisfied_specs`` stamps onto each
+    ``satisfied_specifications`` entry (``satisfied_by_document_ids``).
+
+    A flat "document_ids is non-empty" bonus can't distinguish a match
+    where every submitted document independently helped confirm the
+    requirement from one where half the "matched" documents were actually
+    irrelevant (a bad alias hit that happened to satisfy nothing). This
+    does, in two directions:
+
+    - Corroboration (bonus): specs confirmed by MORE than one of the
+      matched documents are stronger evidence than specs confirmed by only
+      one -- e.g. two Hazard Insurance docs A and B where A alone backs
+      spec "a", B alone backs spec "c"/"d", and BOTH back spec "b" together
+      corroborate "b" specifically. Scaled by how far the average number of
+      documents-per-satisfied-spec is above 1.0 (no corroboration at all).
+    - Utilization (penalty): a matched document that never backs ANY
+      satisfied spec contributed nothing verifiable to this request --
+      scaled by the fraction of matched documents left unused.
+
+    Falls back to the plain flat bonus when only one document matched
+    (nothing to corroborate/attribute against), or when multiple documents
+    matched but none of the satisfied specs carry usable attribution (e.g.
+    zero satisfied specs, or a run that predates this feature) -- same
+    "we know *a* match exists" signal as before, just not graded further.
+    """
+    doc_ids = dr.get("document_ids") or []
+    if len(doc_ids) <= 1:
+        return _CONFIDENCE_DOCUMENT_MATCH_BONUS if doc_ids else 0.0
+
+    satisfied = dr.get("satisfied_specifications") or []
+    attributed = [
+        s for s in satisfied
+        if isinstance(s.get("satisfied_by_document_ids"), list) and s["satisfied_by_document_ids"]
+    ]
+    if not attributed:
+        return _CONFIDENCE_DOCUMENT_MATCH_BONUS
+
+    avg_docs_per_spec = sum(len(s["satisfied_by_document_ids"]) for s in attributed) / len(attributed)
+    corroboration_ratio = max(min(avg_docs_per_spec - 1.0, 1.0), 0.0)
+    corroboration_component = corroboration_ratio * _CONFIDENCE_MULTI_DOC_CORROBORATION_BONUS
+
+    contributing_ids: set[str] = set()
+    for s in attributed:
+        contributing_ids.update(s["satisfied_by_document_ids"])
+    unused_count = sum(1 for d in doc_ids if d not in contributing_ids)
+    utilization_penalty = (unused_count / len(doc_ids)) * _CONFIDENCE_MULTI_DOC_UNUSED_PENALTY
+
+    return _CONFIDENCE_DOCUMENT_MATCH_BONUS + corroboration_component - utilization_penalty
+
+
+def compute_document_confidence(dr: dict) -> float:
+    """Deterministic confidence score (0.0-1.0) for a single document_request.
+
+    1. Start from a base score keyed by ``source_module``:
+       - ``"deterministic"`` / ``"01"``: fixed value from
+         ``_CONFIDENCE_BASE_BY_SOURCE`` (low interpretive risk regardless of
+         anything else).
+       - any other truthy ``source_module`` ("02"-"07", an LLM-authored
+         request): if ``dr["_guideline_grounded"]`` is set (specifications
+         were replaced with vetted, guideline-sourced text -- see
+         ``doc_rules.apply_guideline_canonicalization``), a GRADED score
+         from ``_grounded_llm_base()`` reflecting how thoroughly/
+         specifically that canonical coverage applies to this scenario;
+         else the flat ``_CONFIDENCE_BASE_LLM_UNGROUNDED`` (nothing to
+         grade against -- the doc_type isn't in the canonical library at
+         all). Then, if ``dr["_corroborating_modules"]`` (set by
+         ``merge_document_requests``) has >= 2 distinct entries, add
+         ``_CONFIDENCE_CORROBORATION_BONUS`` -- independent agreement across
+         modules is evidence the applicability call itself is more likely
+         correct.
+       - missing/falsy: ``_CONFIDENCE_BASE_UNKNOWN``.
+    2. If at least one specification was actually confirmed satisfied
+       against a real submitted document this run, boost the base score
+       toward the ceiling by up to ``_CONFIDENCE_EVIDENCE_WEIGHT``,
+       proportional to ``len(satisfied_specifications) / total_evaluated``
+       -- real confirming evidence makes us MORE sure this requirement is
+       correct. Deliberately one-directional (boost only, never a penalty):
+       a document with zero satisfied specs is the normal, expected state
+       for anything the borrower simply hasn't submitted yet, which says
+       nothing about whether the requirement itself is correct -- it must
+       stay at its base score, not be read as "uncertain".
+    3. Add/subtract ``_cross_document_adjustment(dr)`` based on
+       ``cross_document_checks`` (see its docstring and the
+       ``_CONFIDENCE_CROSS_DOC_*`` constants). THIS CAN BE NEGATIVE -- unlike
+       step 2, a cross-document check that actually ran against a real
+       sibling document and came back "needs_review" or "inconsistent" is
+       genuine negative evidence, not merely an absence of evidence, so
+       it's the one place this formula allows a penalty.
+    4. Add ``_multi_document_match_adjustment(dr)`` (see its docstring) --
+       the flat ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` when 0 or 1 document
+       matched this request, or a graded corroboration/utilization signal
+       built from per-spec document attribution when multiple documents
+       matched.
+    5. Clamp to [0.05, 0.99] -- never exactly 0 or 1, so downstream
+       consumers always read this as "high/low confidence" rather than a
+       hard guarantee in either direction.
+
+    NOTE: ``_guideline_grounded``, ``_guideline_spec_count``,
+    ``_guideline_specificity_ratio``, and ``_corroborating_modules`` are all
+    internal-only fields (never reach final output -- dropped by
+    tools.shared.normalize.normalize_document_structure's field allow-list
+    like every other underscore-prefixed key). Callers MUST run this
+    (via assign_confidence_scores) BEFORE normalize_document_structure, or
+    these signals will already be gone. See generate_final_output and
+    coborrower.build_party_document_requests for the correct call order.
+    ``cross_document_checks`` itself is NOT internal-only (it's a real
+    output field, in _CANONICAL_FIELDS), so step 3 above works regardless
+    of call order.
+    """
+    source_module = dr.get("source_module") or ""
+    base = _CONFIDENCE_BASE_BY_SOURCE.get(source_module)
+    if base is None:
+        if source_module:
+            base = (
+                _grounded_llm_base(dr)
+                if dr.get("_guideline_grounded")
+                else _CONFIDENCE_BASE_LLM_UNGROUNDED
+            )
+            if len(dr.get("_corroborating_modules") or []) >= _CONFIDENCE_CORROBORATION_MIN_MODULES:
+                base += _CONFIDENCE_CORROBORATION_BONUS
+        else:
+            base = _CONFIDENCE_BASE_UNKNOWN
+
+    specs = dr.get("specifications") or []
+    satisfied = dr.get("satisfied_specifications") or []
+    score = base
+    if satisfied:
+        total_evaluated = len(specs) + len(satisfied)
+        satisfied_ratio = len(satisfied) / total_evaluated
+        score = base + satisfied_ratio * _CONFIDENCE_EVIDENCE_WEIGHT
+
+    score += _cross_document_adjustment(dr)
+    score += _multi_document_match_adjustment(dr)
+
+    return round(min(0.99, max(0.05, score)), 2)
+
+
+def assign_confidence_scores(document_requests: list[dict]) -> None:
+    """Set ``confidence`` on every document request via
+    ``compute_document_confidence``. Mutates in place.
+
+    Call this AFTER satisfaction checking (``run_satisfaction_pass``) and
+    status assignment (``assign_statuses``) have both run against the
+    correct document set for the current scope -- generate_final_output
+    calls it for the whole-manifest output, and
+    coborrower.build_party_document_requests calls it again per party,
+    since satisfied_specifications (and therefore the score) legitimately
+    differs once each party is scored against only its own submitted
+    documents.
+    """
+    for dr in document_requests:
+        dr["confidence"] = compute_document_confidence(dr)
 
 
 @tool
@@ -1165,7 +1863,7 @@ def _is_all_null(val: Any) -> bool:
 # recent 90 days") — a null-stub inquiries entry has no dates in it, so on
 # its own it cannot confirm there were no inquiries IN THAT WINDOW
 # specifically (vs. the extractor simply failing to parse a real inquiry).
-# Instead, the satisfaction prompt (_SATISFACTION_PROMPT below) satisfies
+# Instead, the satisfaction prompt (_SATISFACTION_INSTRUCTIONS below) satisfies
 # inquiry specs off the credit report's `reportIssued` date — the same
 # evidence used for "must be dated within allowable recency window" — since
 # a recently-issued report's inquiry section reliably reflects the most
@@ -1174,7 +1872,13 @@ _CONFIRMED_NONE_FIELDS = {
     "publicrecords", "public_records", "collectionaccounts", "collections",
     "derogatoryaccounts", "derogatorysummary", "charge_offs", "disputes",
     "disputed_accounts", "mortgagesummary", "mortgage_history", "housing_history",
-    "credittradelines", "trade_lines", "tradelines",
+    # "credittradelines"/"trade_lines"/"tradelines" intentionally removed —
+    # see _apply_tradeline_mortgage_backstop's docstring (same rationale
+    # applies here): every real credit report has at least some tradeline
+    # data, so an empty/null-stub tradelines field means extraction likely
+    # failed, not that the report is confirmed clean. Treating it as
+    # "confirmed none" was a false positive (engine accuracy report, 17 Nov
+    # 2026, PC-12).
 }
 
 
@@ -1236,8 +1940,53 @@ def _check_spec_satisfied(
 # LLM-based spec satisfaction check
 # ---------------------------------------------------------------------------
 
-_SATISFACTION_PROMPT = """\
-You are a mortgage document reviewer. A borrower has submitted a "{doc_type}" document.
+_CACHE_CONTROL = {"type": "ephemeral"}
+
+
+def _with_cache_breakpoint(message):
+    """Return a copy of *message* with an Anthropic prompt-caching breakpoint
+    on its last content block (``cache_control: {"type": "ephemeral"}``).
+
+    Added 2026-11-12, mirroring the identical helper already proven in
+    agent.py's main orchestrator (~43% cost reduction there -- see its
+    docstring for the full rationale/measurement). This is a SEPARATE copy
+    rather than an import from agent.py to avoid a circular import (agent.py
+    imports ALL_TOOLS, which pulls in this module). Applied to
+    _llm_check_specs below, whose static ~6,000-token instructional prompt
+    (_SATISFACTION_INSTRUCTIONS) was previously being resent at FULL PRICE
+    on every single call -- and this function runs once PER document_request
+    (20-30+ times in a typical run, x2 for the co-borrower pass), making it
+    the single largest untouched source of repeated-boilerplate cost in the
+    pipeline. Harmless no-op for the gpt-5-mini/OpenAI branch (unrecognized
+    dict key passed through unchanged, not honored) -- only the Claude
+    branches (direct Anthropic and OpenRouter->Claude) actually cache it.
+    """
+    content = message.content
+    if isinstance(content, str):
+        if not content:
+            return message
+        new_content: list = [{"type": "text", "text": content, "cache_control": _CACHE_CONTROL}]
+    elif isinstance(content, list) and content:
+        new_content = list(content)
+        last = new_content[-1]
+        if isinstance(last, dict):
+            new_content[-1] = {**last, "cache_control": _CACHE_CONTROL}
+        else:
+            new_content[-1] = {"type": "text", "text": str(last), "cache_control": _CACHE_CONTROL}
+    else:
+        return message
+    return message.model_copy(update={"content": new_content})
+
+
+# Static rubric/instructions for _llm_check_specs -- IDENTICAL on every call,
+# every run (no .format() placeholders at all). Split out from the per-call
+# variable content (doc type, extracted fields, reference block, specs) in
+# _SATISFACTION_VARIABLE_TEMPLATE below specifically so it can be sent as its
+# own SystemMessage with a cache_control breakpoint -- see
+# _with_cache_breakpoint's docstring above for why this matters.
+_SATISFACTION_INSTRUCTIONS = """\
+You are a mortgage document reviewer. A borrower has submitted a mortgage-related
+document (its type is given below, under "Document Type").
 Below are the extracted fields from that document, and a list of specifications that
 the document must satisfy.
 
@@ -1246,6 +1995,23 @@ requirement is met. A spec is "satisfied" if the extracted data confirms the req
 is present — even partially. Be reasonably lenient: if the document type matches and
 relevant fields exist (even with limited data), the requirement to OBTAIN/PROVIDE
 the document itself is satisfied.
+
+Apply this leniency DELIBERATELY, not just by default, on Appraisal Report, Flood
+Hazard Determination, and Title Commitment specifically (ticket 4277): these three
+document types have repeatedly ended up with almost every one of their specs left
+unsatisfied even when a real, data-rich copy of the document was submitted and
+linked — do not let the sheer number or legalistic phrasing of their specs push you
+toward leaving them unsatisfied by default. Before marking any of their specs
+unsatisfied, actively look across ALL of the extracted fields you were given (not
+just an exact-name field match) for data that plainly answers it — e.g. an address
+field anywhere in the extraction can satisfy a "property address must be shown"
+spec, a value/amount field can satisfy a "must state the appraised value"/"must
+state the loan amount" spec, a names/parties field can satisfy a "must name the
+insured/borrower" spec, a dates field can satisfy an "effective/issue date" spec —
+even if the field's own key name doesn't literally match the spec's wording. Only
+leave a spec on one of these three document types unsatisfied when you genuinely
+cannot find ANY field, under any reasonable reading of the extraction, that speaks
+to it.
 
 However, do NOT mark a spec as satisfied if:
 - The relevant extracted field is completely MISSING/absent from the extracted fields
@@ -1520,6 +2286,44 @@ companion is present among the extracted fields, leave the spec unsatisfied
 own fields (e.g. purchase price, closing date) as a substitute, since they
 have no bearing on a bank-statement requirement.
 
+PERIOD-COVERAGE specs (ticket 4276) — specs that require a CONTINUOUS span of
+time to be covered by multiple documents of the same type (e.g. "Most recent
+30 days of paystubs must be provided", "12 consecutive months of bank
+statements must be provided"):
+- A merged Paystub entry's extracted fields may carry `pay_periods` (a list
+  of each contributing stub's own {from, to} dates) and `coverage_gaps` (a
+  list of {gap_start, gap_end, gap_days} entries already computed
+  deterministically from those same dates — see
+  tools.shared.manifest_parser._merge_paystubs). If `coverage_gaps` is
+  present and non-empty, the 30-day/period-coverage spec is NOT satisfied
+  regardless of the merged entry's overall from/to span — a span that LOOKS
+  like it covers 30+ days can still have a real gap in the middle where no
+  paystub exists. Leave the spec unsatisfied and, in your overall reasoning
+  for this document, name the specific missing date range (e.g. "missing
+  coverage from 2026-01-16 to 2026-02-09") rather than a generic "incomplete"
+  note — do not invent a different spec for this; the existing spec simply
+  stays in the unsatisfied/open set.
+- For bank-statement period specs ("12 consecutive months", "most recent N
+  months"), each separate submitted Bank Statement's own extracted fields
+  now carry a deterministic `_coverage_summary` string (plus
+  `_coverage_gaps`/`has_coverage_gap`) already computed from that
+  statement's real statementPeriodFrom/To against every OTHER statement
+  sharing the same account number — see
+  tools.shared.manifest_parser._annotate_bank_statement_coverage. Use
+  `_coverage_summary`/`_coverage_gaps` directly rather than recomputing the
+  date math yourself: if `has_coverage_gap` is true on the statements you
+  were given, the spec is NOT satisfied — quote the exact missing date
+  range straight from `_coverage_gaps` (e.g. "missing coverage from
+  2026-03-01 to 2026-03-14") in your reasoning. If `has_coverage_gap` is
+  false, the statements you have ARE continuous over the span
+  `_coverage_summary` states — still confirm that span is long enough for
+  the specific spec's own number of required months (12 vs 24, etc.;
+  `_coverage_summary`/`_coverage_gaps` only answer "is it continuous", not
+  "is it enough") before marking satisfied. If a statement lacks
+  `_coverage_summary` entirely (no parseable period or no account number
+  was extracted), fall back to the manual date comparison described
+  above for that statement only.
+
 PREQUAL RESPONSE FORM (LoanNex Product & Pricing Results) specs — e.g. "LoanNex product and pricing
 results matching the loan program, rate, and price reflected in the loan
 file", or "If LoanNex results are unavailable, the completed Submission Form
@@ -1572,20 +2376,38 @@ to read. Mark such a spec satisfied in that case, with a reason like
 successfully read from the submitted image." Only leave it unsatisfied if
 the extracted fields are sparse, empty, or clearly placeholder/garbled.
 
+## Response Format
+Return a JSON array of objects for ONLY the satisfied specs:
+[
+  {{"specification": "<exact spec text>", "reason": "<brief reason why satisfied>", "satisfied_by": [<0-based index/indices>]}}
+]
+
+"satisfied_by" is ONLY meaningful when the Extracted Fields below is a JSON
+ARRAY (multiple separate documents) rather than a single object — list every
+0-based index (position in that array) of a document that contributes
+evidence for this specification. If a single document at index 2 fully
+confirms the spec on its own, use [2]. If it genuinely takes two documents
+together, use both, e.g. [0, 1]. If the Extracted Fields below is a single
+object (not an array), omit "satisfied_by" entirely (or leave it empty).
+
+If none are satisfied, return an empty array: []
+Return ONLY valid JSON, no other text.
+"""
+
+# Per-call variable content for _llm_check_specs (doc type, extracted fields,
+# reference block, specs) -- everything that actually changes between calls,
+# kept deliberately separate from _SATISFACTION_INSTRUCTIONS above so the
+# static rubric can be cached while only this small part is sent fresh/
+# uncached each time.
+_SATISFACTION_VARIABLE_TEMPLATE = """\
+## Document Type
+{doc_type}
+
 ## Extracted Fields
 {extracted_fields_json}
 {reference_block}
 ## Specifications to Check
 {specs_json}
-
-## Response Format
-Return a JSON array of objects for ONLY the satisfied specs:
-[
-  {{"specification": "<exact spec text>", "reason": "<brief reason why satisfied>"}}
-]
-
-If none are satisfied, return an empty array: []
-Return ONLY valid JSON, no other text.
 """
 
 
@@ -1617,6 +2439,13 @@ Rules:
   reporting as mismatched, unmatched, or "not listed" is by definition not
   satisfied and must be OMITTED from the response, never added to it with a
   discrepancy explanation as the reason.
+- `closing_date_estimated`, when present, is a PROJECTION, not an actual closing
+  or Note date — the loan has not closed yet at this stage of the file. Do NOT
+  use it for precise day-count math on document-freshness specs (e.g. "dated
+  within 30 days of closing", "VVOE within 10 business days of closing").
+  Those specs require the loan's actual closing date, which does not exist yet
+  — treat them as needs-review rather than computing a hard pass/fail against
+  this estimate.
 {reference_json}
 """
 
@@ -1835,7 +2664,11 @@ def _reconcile_satisfied_specs(raw_items: list[dict], specs_text: list[str]) -> 
         if original in seen_originals:
             continue
         seen_originals.add(original)
-        reconciled.append({"specification": original, "reason": item.get("reason", "")})
+        reconciled.append({
+            "specification": original,
+            "reason": item.get("reason", ""),
+            "satisfied_by_indices": item.get("satisfied_by_indices", []),
+        })
     return reconciled
 
 
@@ -1863,8 +2696,6 @@ def _llm_check_specs(
     import logging
     import os
 
-    from langchain_anthropic import ChatAnthropic
-
     specs_text = [_spec_text(s) for s in _as_list(specifications)]
     if not specs_text:
         return []
@@ -1878,11 +2709,18 @@ def _llm_check_specs(
             f"\nNote: {len(ef_summary)} separate submitted documents of this "
             "type are shown below as a JSON array — one object per physical "
             "document (e.g. different tax years, different pay periods, "
-            "different statement months). A specification that spans "
-            "multiple documents (e.g. \"most recent 2 years\", \"last 2 "
-            "months\") is satisfied if the array COLLECTIVELY covers it (e.g. "
-            "two distinct tax years present across the array), even though "
-            "no single document in the array covers it alone.\n"
+            "different statement months, or two separate policies/filings of "
+            "the same type). A specification that spans multiple documents "
+            "(e.g. \"most recent 2 years\", \"last 2 months\") is satisfied if "
+            "the array COLLECTIVELY covers it (e.g. two distinct tax years "
+            "present across the array), even though no single document in "
+            "the array covers it alone — in that case, \"satisfied_by\" must "
+            "list every index that contributed. For a spec confirmed by only "
+            "ONE of the documents in the array, \"satisfied_by\" must list "
+            "ONLY that one index, even when other documents in the array are "
+            "also present — do not list an index just because that document "
+            "exists; only list it if it genuinely provides evidence for THIS "
+            "specific specification.\n"
         )
     else:
         ef_summary = _summarize_fields(extracted_fields)
@@ -1893,25 +2731,163 @@ def _llm_check_specs(
             reference_json=json.dumps(reference_context, indent=2, default=str),
         )
 
-    prompt = _SATISFACTION_PROMPT.format(
+    variable_content = _SATISFACTION_VARIABLE_TEMPLATE.format(
         doc_type=doc_type,
         extracted_fields_json=multi_doc_note + json.dumps(ef_summary, indent=2, default=str),
         reference_block=reference_block,
         specs_json=json.dumps(specs_text, indent=2),
     )
+    # Static instructions as their own SystemMessage with a cache-control
+    # breakpoint (see _with_cache_breakpoint docstring) + the per-call
+    # variable content as a plain HumanMessage -- this is the only change
+    # from the old single-string prompt; the rubric text itself is
+    # untouched.
+    prompt = [
+        _with_cache_breakpoint(SystemMessage(content=_SATISFACTION_INSTRUCTIONS)),
+        HumanMessage(content=variable_content),
+    ]
 
-    model = os.environ.get("SATISFACTION_CHECK_MODEL", "claude-haiku-4-5")
     logger = logging.getLogger(__name__)
 
+    # Same PRIMARY_PROVIDER override as agent.py's main orchestrator LLM
+    # (see agent.py _USE_OPENAI_PRIMARY) -- without this, this satisfaction
+    # checker silently fell back to ChatAnthropic even when the orchestrator
+    # itself had been switched to OpenAI (e.g. because ANTHROPIC_API_KEY is
+    # invalid/missing), making every call here raise and get swallowed by
+    # the except below. The caller (run_satisfaction_pass) then treats EVERY
+    # spec as "not yet satisfied" -- not a crash, but a silent correctness
+    # regression: conditions already met by submitted documents keep
+    # showing up as still-needed. Discovered 2026-10-05 when Anthropic's key
+    # was invalid during dev testing on an OpenAI-primary override.
+    #
+    # PRIMARY_PROVIDER=openrouter mirrors agent.py's _USE_OPENROUTER_PRIMARY
+    # (added 2026-11-07). Without this branch, an openrouter override hit
+    # the `else` (direct ChatAnthropic) branch below whenever
+    # ANTHROPIC_API_KEY happened to be *set but invalid* -- the
+    # `not os.environ.get("ANTHROPIC_API_KEY")` check only catches a
+    # missing/empty key, not an invalid one, so this call quietly 401'd for
+    # every single document request (swallowed by the except below) even
+    # though the main orchestrator was successfully running via OpenRouter.
+    _primary_provider = os.environ.get("PRIMARY_PROVIDER", "").strip().lower()
+    _use_openrouter = _primary_provider == "openrouter"
+    _use_openai = not _use_openrouter and (
+        _primary_provider == "openai" or (
+            not os.environ.get("ANTHROPIC_API_KEY") and _primary_provider != "anthropic"
+        )
+    )
+
+    # Per-call budget for this satisfaction check. Unlike agent.py's main
+    # orchestrator LLM, this client previously had NO timeout at all -- same
+    # unbounded-hang risk class as the bug fixed in agent.py today (2026-10-07),
+    # just in this file instead. run_satisfaction_pass calls this once PER
+    # document request (x2 for the co-borrower pass), so a single hung call
+    # here blocks the entire satisfaction stage with no recovery. timeout=
+    # kwarg alone isn't fully trustworthy (see agent.py's
+    # _invoke_with_hard_deadline docstring -- the underlying SDK's own
+    # internal timeout/retry plumbing can silently outlast it), so this also
+    # bounds the call with our own wall-clock deadline via a background
+    # thread, exactly like agent.py's fix.
+    _timeout_s = float(os.environ.get("SATISFACTION_CHECK_TIMEOUT_SECONDS", "60"))
+
     try:
-        llm = ChatAnthropic(model=model, max_tokens=4096, max_retries=2)
-        response = llm.invoke(prompt)
+        if _use_openrouter:
+            from langchain_openai import ChatOpenAI
+
+            # No cheap Haiku-class model was available under the OpenRouter
+            # workspace guardrail active as of 2026-11-07 (only
+            # anthropic/claude-sonnet-5.5 was unblocked) -- reuse the main
+            # OPENROUTER_MODEL rather than hardcoding a model ID that may be
+            # blocked. Revisit once a cheaper tier is allowlisted.
+            model = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5")
+            or_kwargs: dict = {
+                "model": model,
+                "base_url": "https://openrouter.ai/api/v1",
+                "api_key": os.environ.get("OPENROUTER_API_KEY"),
+                # Explicit cap -- same bug class as agent.py's primary
+                # OpenRouter client (see OPENROUTER_MAX_TOKENS comment
+                # there): leaving max_tokens unset here defaults to the
+                # model's theoretical max (65536), which can trip
+                # OpenRouter's per-request affordability check with a 402
+                # once enough of the weekly budget is spent, even though
+                # this call's actual output (a small JSON list) never needs
+                # anywhere near that. Confirmed 2026-11-19.
+                "max_tokens": 4096,
+                "max_retries": 2,
+                "timeout": _timeout_s,
+            }
+            # Same mandatory-reasoning cost issue as agent.py's primary LLM
+            # (see its OPENROUTER_REASONING_EFFORT comment) -- this call runs
+            # once per document request (x2 for co-borrower), so an unset
+            # "high" default here is a major per-run cost multiplier. Unlike
+            # the main orchestrator, this task is a bounded rubric
+            # application (not open-ended multi-step tool orchestration), so
+            # it's lower-risk to run at "low" effort -- deliberately a
+            # SEPARATE env var from the main OPENROUTER_REASONING_EFFORT
+            # (mirrors the existing OPENAI_REASONING_EFFORT vs.
+            # SATISFACTION_CHECK_OPENAI_REASONING_EFFORT split above) so
+            # tuning one doesn't silently affect the other.
+            or_effort = os.environ.get("SATISFACTION_CHECK_OPENROUTER_REASONING_EFFORT", "low")
+            if or_effort:
+                or_kwargs["reasoning_effort"] = or_effort
+            llm = ChatOpenAI(**or_kwargs)
+        elif _use_openai:
+            from langchain_openai import ChatOpenAI
+
+            model = os.environ.get("SATISFACTION_CHECK_OPENAI_MODEL", "gpt-5-mini")
+            oai_kwargs: dict = {"model": model, "max_retries": 2, "timeout": _timeout_s}
+            # "minimal" (not "low") -- this check's job is applying an
+            # explicit, already-fully-written rubric (_SATISFACTION_INSTRUCTIONS)
+            # to extracted field data, not open-ended reasoning from scratch.
+            # Lowered 2026-10-07 after finding this per-document call (run
+            # once per document request, x2 for co-borrower) was a major
+            # contributor to total run time -- see agent.py's hard-deadline
+            # fix changelog for the full investigation. Reversible via this
+            # env var alone if accuracy regresses; no code change needed.
+            effort = os.environ.get("SATISFACTION_CHECK_OPENAI_REASONING_EFFORT", "minimal")
+            if effort:
+                oai_kwargs["reasoning_effort"] = effort
+            llm = ChatOpenAI(**oai_kwargs)
+        else:
+            from langchain_anthropic import ChatAnthropic
+
+            model = os.environ.get("SATISFACTION_CHECK_MODEL", "claude-haiku-4-5")
+            llm = ChatAnthropic(model=model, max_tokens=4096, max_retries=2, timeout=_timeout_s)
+
+        import queue
+        import threading
+
+        _result_q: queue.Queue = queue.Queue(maxsize=1)
+
+        def _worker() -> None:
+            try:
+                _result_q.put(("ok", llm.invoke(prompt)))
+            except Exception as _e:  # noqa: BLE001 — forwarded below
+                _result_q.put(("error", _e))
+
+        threading.Thread(target=_worker, daemon=True).start()
+        try:
+            _kind, _payload = _result_q.get(timeout=_timeout_s)
+        except queue.Empty:
+            raise TimeoutError(
+                f"Satisfaction check exceeded hard deadline of {_timeout_s:.0f}s "
+                f"for doc_type={doc_type!r}"
+            ) from None
+        if _kind == "error":
+            raise _payload
+        response = _payload
         content = response.content if hasattr(response, "content") else str(response)
 
         if "```json" in content:
             content = content.split("```json")[1].split("```")[0]
         elif "```" in content:
             content = content.split("```")[1].split("```")[0]
+
+        # Only meaningful when multiple physical documents were shown as an
+        # array (see multi_doc_note above) -- bounds which "satisfied_by"
+        # indices the model returns are even possible to trust. A single-
+        # document call has nothing to attribute (there's only ever one
+        # candidate), so indices are ignored entirely in that case.
+        _n_docs = len(extracted_fields) if isinstance(extracted_fields, list) else 0
 
         result = json.loads(content.strip())
         if isinstance(result, list):
@@ -1929,9 +2905,30 @@ def _llm_check_specs(
                             doc_type, item.get("specification"), reason,
                         )
                         continue
+                    # Per-document attribution (which specific document(s) in
+                    # the array back this spec) -- see run_satisfaction_pass,
+                    # which resolves these positional indices to real
+                    # document_ids immediately after this call returns, and
+                    # compute_document_confidence, which uses that
+                    # attribution to score multi-document matches instead of
+                    # a flat "a match exists" bonus. Silently dropped (left
+                    # as []) when out of range or absent -- run_satisfaction_
+                    # pass falls back to attributing the WHOLE matched set
+                    # when no usable attribution comes back, same as before
+                    # this feature existed.
+                    raw_indices = item.get("satisfied_by")
+                    indices: list[int] = []
+                    if _n_docs and isinstance(raw_indices, list):
+                        for idx in raw_indices:
+                            if isinstance(idx, bool):
+                                continue
+                            if isinstance(idx, int) and 0 <= idx < _n_docs:
+                                if idx not in indices:
+                                    indices.append(idx)
                     valid.append({
                         "specification": item["specification"],
                         "reason": reason,
+                        "satisfied_by_indices": indices,
                     })
             return _reconcile_satisfied_specs(valid, specs_text)
     except Exception as e:
@@ -2198,7 +3195,7 @@ def _find_bank_statement_companion_fields(submitted_docs: list[dict]) -> list[tu
     rather than silently checking it against the wrong document's fields
     (a purchase contract's own buyer/seller/price data has nothing to say
     about bank statements) — see run_satisfaction_pass and the MISPLACED
-    BANK-STATEMENT SPECS guidance in _SATISFACTION_PROMPT.
+    BANK-STATEMENT SPECS guidance in _SATISFACTION_INSTRUCTIONS.
     """
     companions: list[tuple[dict, str]] = []
     for sdoc in submitted_docs:
@@ -2266,7 +3263,7 @@ def _spec_text_already_satisfied(text: str, satisfied_specs: list[dict]) -> bool
 # ---------------------------------------------------------------------------
 #
 # The LLM-based confirmed-clean/empty-data exception added to
-# _SATISFACTION_PROMPT for mortgageSummary/creditTradeLines is not applied
+# _SATISFACTION_INSTRUCTIONS for mortgageSummary/creditTradeLines is not applied
 # consistently — across reruns of the SAME document, and even across
 # borrower vs. co-borrower copies of the SAME request in the SAME run, the
 # LLM sometimes rewords these two spec families together into a single
@@ -2299,7 +3296,7 @@ _MORTGAGE_HISTORY_SPEC_KEYWORDS = ("mortgage history",)
 # backstop, since they genuinely require real (non-null) data to compare
 # against (e.g. matching named liability holders from the 1003 against the
 # credit report's own tradeline lender names), not an empty-data
-# confirmation. See CREDIT REFERENCES guidance in _SATISFACTION_PROMPT.
+# confirmation. See CREDIT REFERENCES guidance in _SATISFACTION_INSTRUCTIONS.
 _TRADELINE_BACKSTOP_EXCLUDE_KEYWORDS = ("credit reference", "declared", "liability holder")
 
 
@@ -2326,13 +3323,25 @@ def _apply_tradeline_mortgage_backstop(
     all_fields: list[dict],
 ) -> None:
     """Force-satisfy any remaining Credit Report spec that is clearly about
-    itemized tradeline detail or mortgage history (not about verifying
-    specific named credit references) whenever creditTradeLines/
-    mortgageSummary is null-stub or empty on this document's own extracted
-    fields — regardless of which exact wording variant the LLM generated
-    this run, and regardless of whether it already satisfied an
+    mortgage history (not about verifying specific named credit references)
+    whenever mortgageSummary is null-stub or empty on this document's own
+    extracted fields — regardless of which exact wording variant the LLM
+    generated this run, and regardless of whether it already satisfied an
     equivalent-meaning spec for the other party. Mutates satisfied_specs in
     place.
+
+    NOTE: this used to ALSO force-satisfy tradeline-detail specs the same
+    way whenever creditTradeLines was null-stub/empty ("Confirmed clean —
+    the creditTradeLines field is present with empty data, indicating none
+    were found"). Removed per a real-loan accuracy audit (engine accuracy
+    report, 17 Nov 2026, PC-12): every borrower has at least some tradeline
+    data on a real credit report, so an empty/null-stub creditTradeLines
+    field is overwhelmingly more likely to be an extraction failure than a
+    genuinely empty report — auto-satisfying on it was a false positive,
+    not a confirmed-clean result. mortgageSummary is left as-is: a renter
+    or first-time buyer genuinely having zero mortgage tradelines is a
+    common, plausible real outcome, unlike a credit report with literally
+    no tradelines at all.
     """
     if _canonical_doc_type(doc_type) != "credit report":
         return
@@ -2344,21 +3353,75 @@ def _apply_tradeline_mortgage_backstop(
         lower = text.lower()
         if any(kw in lower for kw in _TRADELINE_BACKSTOP_EXCLUDE_KEYWORDS):
             continue
-        is_tradeline = any(kw in lower for kw in _TRADELINE_SPEC_KEYWORDS)
+        # Tradeline-detail specs (_TRADELINE_SPEC_KEYWORDS) are intentionally
+        # NOT handled by this backstop anymore — see the "NOTE" above.
         is_mortgage_history = any(kw in lower for kw in _MORTGAGE_HISTORY_SPEC_KEYWORDS)
-        if not (is_tradeline or is_mortgage_history):
+        if not is_mortgage_history:
             continue
-        field_names = ("creditTradeLines",) if is_tradeline else ("mortgageSummary",)
-        if not any(_field_is_null_stub_or_empty(f, *field_names) for f in all_fields):
+        if not any(_field_is_null_stub_or_empty(f, "mortgageSummary") for f in all_fields):
             continue
         satisfied_specs.append({
             "specification": text,
             "reason": (
-                f"Confirmed clean — the {field_names[0]} field is present with "
-                f"empty data, indicating none were found on this credit report."
+                "Confirmed clean — the mortgageSummary field is present with "
+                "empty data, indicating no mortgage history was found on this "
+                "credit report."
             ),
         })
         already.add(text)
+
+
+def _apply_tradeline_not_verified_wording(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    all_fields: list[dict],
+) -> None:
+    """Ticket 4277 acceptance criterion: "Credit report with empty
+    tradelines -> tradeline requirements 'not verified'." PC-12 already
+    stopped auto-SATISFYING tradeline-detail specs on a null-stub/empty
+    creditTradeLines field (that was a false positive — see
+    _apply_tradeline_mortgage_backstop's docstring above), so these specs
+    correctly stay in the open `specifications` list rather than falsely
+    passing. This rewrites their displayed text IN PLACE (same list object
+    as dr["specifications"] — see run_satisfaction_pass' call site) to
+    explicitly say "Not verified" instead of generic requirement wording,
+    so a broker reading the open list can tell "the data needed to check
+    this wasn't extracted" from "this document/evidence is missing
+    entirely" at a glance, per the ticket's own distinction. Deliberately
+    does NOT move these into satisfied_specs — "not verified" is not the
+    same claim as "confirmed satisfied".
+    """
+    if _canonical_doc_type(doc_type) != "credit report":
+        return
+    if not any(_field_is_null_stub_or_empty(f, "creditTradeLines") for f in all_fields):
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+    for i, spec in enumerate(specifications):
+        text = _spec_text(spec)
+        if text in already or text.lower().startswith("not verified"):
+            continue
+        lower = text.lower()
+        if any(kw in lower for kw in _TRADELINE_BACKSTOP_EXCLUDE_KEYWORDS):
+            continue
+        if not any(kw in lower for kw in _TRADELINE_SPEC_KEYWORDS):
+            continue
+        new_text = (
+            f"Not verified: {text} (the credit report's tradeline data field "
+            "was empty/unavailable, so this could not be checked against "
+            "actual tradeline detail)"
+        )
+        if isinstance(spec, dict):
+            updated = dict(spec)
+            if "text" in updated:
+                updated["text"] = new_text
+            elif "specification" in updated:
+                updated["specification"] = new_text
+            else:
+                updated["description"] = new_text
+            specifications[i] = updated
+        else:
+            specifications[i] = new_text
 
 
 # ---------------------------------------------------------------------------
@@ -2440,6 +3503,492 @@ def _apply_tri_merge_backstop(
             satisfied_specs.append({
                 "specification": text,
                 "reason": f"Credit scores from all three bureaus are present: {detail}.",
+            })
+            already.add(text)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic backstop for cross-document NAME-MATCH specs (e.g. "Name on
+# the ID must match the name on the loan application, credit report, and
+# title documents")
+# ---------------------------------------------------------------------------
+#
+# Discovered live on a Government-Issued Photo ID (Passport) request for
+# Leonardo Miguel Saavedra Cabrera: the cross-referenced Credit Report was
+# submitted, but the LLM-based satisfaction check left the spec at
+# "needs_review" anyway. Root cause — NOT "not enough cross-reference docs
+# present" (cross_ref_map entries are already OR'd: finding just one of the
+# three referenced doc types is structurally enough, see the
+# cross_document_checks loop below) but a genuine data inconsistency WITHIN
+# the single document that WAS found: this credit report's own extraction
+# splits the same two-given-name/two-surname person two different ways in
+# two different sections —
+#   applicant1: firstName="Leonardo Miguel ", lastName="Saavedra Cabrera"
+#     (matches the passport exactly)
+#   scores[].applicant / alerts[].applicant: firstName="Leonardo Saavedra",
+#     lastName="Cabrera" (drops "Miguel", splits differently)
+# The LLM, given the whole extracted_fields blob, reasonably stayed
+# cautious rather than picking one field over the other. This backstop
+# removes that ambiguity deterministically: it recursively collects EVERY
+# name-shaped field (firstName/middleName/lastName triplets, and single
+# joined-name strings like "owner"/"customer") found ANYWHERE in the
+# companion document's extracted_fields, and treats a full-token-subset
+# match against ANY ONE of them as sufficient — exactly mirroring how a
+# human reviewer would scan the whole document for a matching name rather
+# than fixating on whichever field happens to come first.
+# ---------------------------------------------------------------------------
+
+_NAME_MATCH_SPEC_RE = re.compile(
+    r"name.{0,60}match.{0,60}(loan application|credit report|title|vesting|"
+    r"entity name|1003)",
+    re.IGNORECASE,
+)
+# Deliberately excludes the "account holder name" family (handled by the
+# existing _ACCOUNT_HOLDER_NAME_SPEC_RE/ownership_companion_found backstop
+# above — a different evidence source, business ownership docs, not a
+# cross-referenced sibling document).
+_NAME_MATCH_SPEC_EXCLUDE_RE = re.compile(r"account\s*(holder|owner)", re.IGNORECASE)
+
+
+def _normalize_name_tokens(name: str) -> set[str]:
+    """Lowercase, strip punctuation/suffixes, split into a token set for
+    lenient subset comparison. Mirrors the NAME-MATCHING leniency already
+    described in _SATISFACTION_INSTRUCTIONS (case/punctuation/suffix differences
+    never count as a mismatch) but as a deterministic token-set check
+    instead of an LLM judgment call."""
+    cleaned = re.sub(r"[^a-z0-9\s]", " ", name.lower())
+    tokens = {t for t in cleaned.split() if t}
+    return tokens - {"jr", "sr", "ii", "iii", "iv"}
+
+
+def _collect_name_candidates(obj: Any, _depth: int = 0) -> list[str]:
+    """Recursively walk a nested dict/list structure and return every
+    plausible full-name string found anywhere — reconstructed from
+    firstName/middleName/lastName triplets wherever they're nested, plus
+    single already-joined string fields that read as names (owner/customer/
+    name/applicant-style keys holding a non-placeholder string). Caps
+    recursion depth defensively; real extracted_fields trees are shallow."""
+    if _depth > 8:
+        return []
+    candidates: list[str] = []
+    if isinstance(obj, dict):
+        lower_keys = {k.lower(): k for k in obj}
+        first = obj.get(lower_keys.get("firstname", ""), "")
+        last = obj.get(lower_keys.get("lastname", ""), "")
+        if isinstance(first, str) and isinstance(last, str) and first.strip() and last.strip():
+            middle = obj.get(lower_keys.get("middlename", ""), "") or ""
+            parts = [first.strip(), str(middle).strip(), last.strip()]
+            candidates.append(" ".join(p for p in parts if p))
+        for key in ("owner", "customer", "name", "borrowername"):
+            val = obj.get(lower_keys.get(key, ""))
+            if isinstance(val, str) and val.strip():
+                candidates.append(val.strip())
+        for v in obj.values():
+            candidates.extend(_collect_name_candidates(v, _depth + 1))
+    elif isinstance(obj, list):
+        for item in obj:
+            candidates.extend(_collect_name_candidates(item, _depth + 1))
+    return candidates
+
+
+def _apply_name_cross_reference_backstop(
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    subject_fields: dict,
+    cross_ref_companions: list[tuple[dict, str]],
+) -> None:
+    """Force-satisfy a cross-document name-match spec when the subject
+    document's own name is, in full, a token-subset of ANY name-shaped
+    field found anywhere within a companion document's extracted_fields —
+    see module comment above. Mutates satisfied_specs in place."""
+    if not cross_ref_companions:
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+    pending = [
+        spec for spec in specifications
+        if _spec_text(spec) not in already
+        and _NAME_MATCH_SPEC_RE.search(_spec_text(spec))
+        and not _NAME_MATCH_SPEC_EXCLUDE_RE.search(_spec_text(spec))
+    ]
+    if not pending:
+        return
+
+    subject_names = _collect_name_candidates(subject_fields)
+    if not subject_names:
+        return
+    # The longest candidate is the most complete representation of the
+    # subject's name (e.g. prefers "LEONARDO MIGUEL SAAVEDRA CABRERA" over
+    # a shorter partial/duplicate found elsewhere in the same document).
+    subject_name = max(subject_names, key=len)
+    subject_tokens = _normalize_name_tokens(subject_name)
+    if len(subject_tokens) < 2:
+        return  # too thin (e.g. a single token) to safely assert a match
+
+    for companion_fields, companion_label in cross_ref_companions:
+        for candidate_name in _collect_name_candidates(companion_fields):
+            candidate_tokens = _normalize_name_tokens(candidate_name)
+            if subject_tokens and subject_tokens <= candidate_tokens:
+                for spec in pending:
+                    text = _spec_text(spec)
+                    if text in already:
+                        continue
+                    satisfied_specs.append({
+                        "specification": text,
+                        "reason": (
+                            f"Name match confirmed deterministically — every name token "
+                            f"from this document ('{subject_name.strip()}') is present in the "
+                            f"name recorded on the {companion_label} "
+                            f"('{candidate_name.strip()}')."
+                        ),
+                    })
+                    already.add(text)
+                return  # all pending name-match specs satisfied by one hit
+
+
+# ---------------------------------------------------------------------------
+# Deterministic backstop: "Government ID must verify the borrower's address"
+# does not apply to a Passport
+# ---------------------------------------------------------------------------
+#
+# A Passport, by design, carries no residential address field — unlike a
+# Driver's License or State ID. Leaving this spec perpetually unsatisfied/
+# "needs review" whenever a borrower submits a Passport is a false
+# negative: there is no document a borrower could ever submit (a valid,
+# unexpired Passport is itself an acceptable Government-Issued Photo ID
+# form per `acceptable_types`) that would satisfy it on THIS document.
+# Deterministically mark it not-applicable (using the same "Not applicable"
+# satisfied-with-reason convention already used elsewhere in this module,
+# e.g. the UCDP SSR score-threshold spec) whenever the submitted ID's
+# classified form is a Passport, rather than requiring manual review every
+# single time.
+# ---------------------------------------------------------------------------
+
+_GOVERNMENT_ID_ADDRESS_SPEC_RE = re.compile(r"government\s*id.{0,40}address", re.IGNORECASE)
+
+
+def _apply_passport_no_address_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    primary_label: str,
+) -> None:
+    """Force-satisfy (as not-applicable) the Government ID address-
+    verification spec when the submitted ID is classified as a Passport.
+    Mutates satisfied_specs in place."""
+    if _canonical_doc_type(doc_type) != "government id":
+        return
+    if "passport" not in (primary_label or "").lower():
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        if text in already:
+            continue
+        if _GOVERNMENT_ID_ADDRESS_SPEC_RE.search(text):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Not applicable — submitted document is classified as a Passport, "
+                    "which does not contain a residential address field (unlike a "
+                    "Driver's License or State ID)."
+                ),
+            })
+            already.add(text)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic backstop for two real, field-backed Appraisal Report specs
+# (ticket 4277 AC9 / PC-05)
+# ---------------------------------------------------------------------------
+#
+# PC-05 ("linked document, nothing marked met") named Appraisal Report as
+# one of 3 document types that stay mostly-open even when the right
+# document IS linked. The original fix (tickets 4275-4278) left this as
+# prompt-reinforcement only, explicitly because no local fixture had real
+# Appraisal Report extraction data to build a safe, targeted backstop
+# against — the same way PC-12 built one for Credit Report's
+# creditTradeLines/mortgageSummary. That data now exists
+# (compiled_inputs/aubrey's real Tasktile extraction: appraiser.name/
+# appraiser.license, and a non-empty comps[] list with real salePrice/
+# adjustedValue/distanceMiles/status per comp), confirmed against
+# data/canonical_doc_specs.json's "appraisal report" entries:
+#   - "Appraiser must provide his or her license or certification on the
+#     appraisal report"
+#   - "Appraisal report must include a completed Sales Comparison Approach
+#     section... where there are comparable used..."
+#
+# Deliberately narrow: most of this doc type's ~35 conditioned specs
+# (photos, sketches, maps, narrative commentary, limiting-conditions
+# certification text, unfavorable-conditions analysis) still have NO
+# corresponding field anywhere in any local fixture, so this does NOT
+# close AC9 for Appraisal Report — it only stops these 2 specific,
+# directly-verifiable specs from staying open by default. Flood Hazard
+# Determination and Title Commitment (the other 2 document types PC-05/
+# AC9 names) had ZERO real extraction samples in any local fixture as of
+# 24 Nov 2026 (neither document type appears in any
+# compiled_inputs/*/manifest.json).
+#
+# 25 Nov 2026 update: audited 94 real historical dev-deployment runs
+# (DynamoDB/S3, not local fixtures — see docs/
+# tickets-4275-4278-acceptance-criteria-proof.md) and confirmed real
+# extraction samples for both. Flood Hazard Determination's real samples
+# (49 across 38 "Flood Certification" + 11 "Flood Hazard Determination"
+# category instances) carry ONLY date/lender/borrowers — NEVER a
+# flood-zone-result field (no specialFloodHazardArea/isInFloodZone/
+# floodZone/etc. anywhere), confirming tools/doc_rules.py's
+# _flood_required_from_submitted_doc field-key guesses can never fire on
+# real data. One spec is still safely backstoppable from pure presence
+# (see _apply_flood_hazard_determination_backstop below). Title
+# Commitment's real samples (address/vestedIn/loanAmount/vestedPersons)
+# don't back ANY of its 13 canonical specs deterministically — those are
+# all title-insurer/history/encroachment judgment calls with no
+# corresponding extracted field — so no backstop is attempted for Title
+# Commitment; guessing at field names for it risks the FALSE POSITIVE
+# failure mode PC-05's own analysis flagged as worse than today's
+# over-cautious "mostly open". A live cloud run against real production
+# data (run 78dbae09, 25 Nov 2026) confirmed Title Commitment currently
+# gets ZERO specs credited by the LLM pass either, so this stays fully
+# open and in need of a real backstop later, once a field genuinely
+# exists to build one from.
+# ---------------------------------------------------------------------------
+
+_APPRAISER_LICENSE_SPEC_KEYWORDS = (
+    "license or certification", "licensed or certified",
+)
+# Deliberately NARROW to "sales comparison approach" only. Broader phrases
+# like "comparable sales"/"comparable used" were tried first but caused a
+# real, live-confirmed false positive: both also appear inside the totally
+# unrelated "must contain a street map showing... all comparable used" spec
+# (no evidence of a street map exists anywhere) and the "unfavorable
+# conditions... comparable sales" commentary spec (no evidence of that
+# commentary exists either) — confirmed via data/canonical_doc_specs.json's
+# "appraisal report" entry, where "sales comparison approach" as a phrase
+# appears in exactly one spec, the one comps[] actually backs.
+_SALES_COMPARISON_SPEC_KEYWORDS = (
+    "sales comparison approach",
+)
+
+
+def _apply_appraisal_report_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    all_fields: list[dict],
+) -> None:
+    """Force-satisfy the appraiser-license spec and the sales-comparison/
+    comps spec deterministically off the real appraiser.license /
+    comps[] fields — see module comment above for why only these 2 of
+    this doc type's many conditioned specs get a backstop. Mutates
+    satisfied_specs in place."""
+    if _canonical_doc_type(doc_type) != "appraisal report":
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+
+    has_appraiser_license = False
+    has_comps = False
+    for fields in all_fields:
+        if not isinstance(fields, dict):
+            continue
+        appraiser = fields.get("appraiser")
+        if isinstance(appraiser, dict) and str(appraiser.get("license") or "").strip():
+            has_appraiser_license = True
+        comps = fields.get("comps")
+        if isinstance(comps, list) and any(
+            isinstance(c, dict) and (c.get("salePrice") or c.get("adjustedValue"))
+            for c in comps
+        ):
+            has_comps = True
+
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        if text in already:
+            continue
+        lower = text.lower()
+        if has_appraiser_license and any(
+            kw in lower for kw in _APPRAISER_LICENSE_SPEC_KEYWORDS
+        ):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Confirmed from the appraisal report's own extracted data — "
+                    "the appraiser field includes a license/certification number."
+                ),
+            })
+            already.add(text)
+        elif has_comps and any(
+            kw in lower for kw in _SALES_COMPARISON_SPEC_KEYWORDS
+        ):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Confirmed from the appraisal report's own extracted data — "
+                    "the comps field lists one or more comparable sales with "
+                    "sale/adjusted price data."
+                ),
+            })
+            already.add(text)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic backstop for the ONE real-field-backed Flood Hazard
+# Determination spec (ticket 4277 AC1/AC9/PC-05) — see the module comment
+# above _apply_appraisal_report_backstop for the full 25 Nov 2026
+# real-production-data audit this is based on.
+# ---------------------------------------------------------------------------
+
+# Deliberately just the base presence spec's own distinctive opening
+# phrase. Unlike the appraiser-license/sales-comparison specs above, this
+# one needs no field-content check at all — "a Flood Certificate was
+# provided" IS satisfied by the flood hazard determination document
+# itself being on file (its own category match is the evidence), so
+# there's no false-positive risk the way guessing at a flood-zone-result
+# field would carry.
+_FLOOD_CERTIFICATE_BASE_SPEC_KEYWORDS = (
+    "flood certificate must be provided",
+)
+
+
+def _apply_flood_hazard_determination_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    all_fields: list[dict],
+) -> None:
+    """Force-satisfy the Flood Hazard Determination base spec ("Flood
+    Certificate must be provided by the Federal Emergency Management
+    Agency (FEMA)") whenever a real flood hazard determination document
+    was actually submitted and extracted. This is the ONE spec of this
+    doc type's 19 conditioned specs that's pure presence rather than a
+    field-content claim — every other spec (names/address/policy number/
+    coverage amount/expiration/etc.) requires the SFHA flood_insurance_
+    required=true evidence-of-insurance fields that no real production
+    sample (49 checked, 25 Nov 2026) has ever carried for this document
+    type, so none of those get a backstop. Mutates satisfied_specs in
+    place."""
+    if _canonical_doc_type(doc_type) != "flood hazard determination":
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+
+    has_flood_doc = any(isinstance(f, dict) and f for f in all_fields)
+    if not has_flood_doc:
+        return
+
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        if text in already:
+            continue
+        lower = text.lower()
+        if any(kw in lower for kw in _FLOOD_CERTIFICATE_BASE_SPEC_KEYWORDS):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "A Flood Hazard Determination / Flood Certificate "
+                    "document is on file for this property."
+                ),
+            })
+            already.add(text)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic backstop for 2 real-field-backed Bank Statement specs
+# (ticket 4276 AC3/AC4 follow-up, 25 Nov 2026) — built on top of
+# _annotate_bank_statement_coverage's _coverage_span_days/_coverage_gaps/
+# has_coverage_gap fields (tools/shared/manifest_parser.py), confirmed
+# real on compiled_inputs/{montes,niccum,nyarko}.
+#
+# data/canonical_doc_specs.json's "bank statement" entry phrases its
+# duration spec as "12 OR 24 consecutive months" — which program applies
+# depends on the loan's own documentation-type selection, and there is no
+# existing derive_flags() flag distinguishing the two (confirmed via
+# tools/doc_rules.py). Rather than guess which applies, this backstop is
+# deliberately conservative: it only force-satisfies the duration spec
+# when the computed, gap-free coverage span safely covers the LARGER of
+# the two possible thresholds (24 months) — correct regardless of which
+# program the loan is actually on. A span between 12 and 24 months stays
+# open for the LLM to judge using the real documentation-type context it
+# has and this code doesn't. AC4 ("gap correctly left open") falls out of
+# this by construction: has_coverage_gap=True never gets credited, no
+# matter how wide the overall span looks.
+#
+# The "must be from the same account" spec is different in kind — not a
+# duration claim at all, just "do all these statements share one account
+# number," which the real `accounts[].accountNumber` field answers
+# directly and unambiguously.
+# ---------------------------------------------------------------------------
+
+_BANK_STATEMENT_DURATION_SPEC_KEYWORDS = (
+    "12 or 24 consecutive months",
+)
+_BANK_STATEMENT_SAME_ACCOUNT_SPEC_KEYWORDS = (
+    "must be from the same account",
+)
+# Conservative (not exact-calendar-math) threshold for "24 consecutive
+# months" — chosen to always be safely within a genuine 24-month span
+# rather than risk crediting a span that's actually a bit short of it.
+_BANK_STATEMENT_FULL_COVERAGE_SPAN_DAYS = 730
+
+
+def _apply_bank_statement_coverage_backstop(
+    doc_type: str,
+    specifications: list[Any],
+    satisfied_specs: list[dict],
+    all_fields: list[dict],
+) -> None:
+    """Force-satisfy the 2 Bank Statement specs backed by real
+    _annotate_bank_statement_coverage output (see module comment above).
+    Every entry sharing an account group carries the SAME
+    _coverage_span_days/has_coverage_gap values (that function's own
+    design), so it's enough to find ANY one gap-free, long-enough group
+    among all_fields — that one account alone is sufficient real evidence
+    the file has the required continuous record. Mutates satisfied_specs
+    in place."""
+    if _canonical_doc_type(doc_type) != "bank statement":
+        return
+    already = {s.get("specification") for s in satisfied_specs}
+
+    has_full_gap_free_coverage = False
+    account_numbers: set[str] = set()
+    for fields in all_fields:
+        if not isinstance(fields, dict):
+            continue
+        span_days = fields.get("_coverage_span_days")
+        has_gap = fields.get("has_coverage_gap")
+        if (
+            isinstance(span_days, int)
+            and has_gap is False
+            and span_days >= _BANK_STATEMENT_FULL_COVERAGE_SPAN_DAYS
+        ):
+            has_full_gap_free_coverage = True
+        acct_no = _bank_statement_account_number(fields)
+        if acct_no:
+            account_numbers.add(acct_no)
+    same_account_only = len(account_numbers) == 1
+
+    for spec in list(specifications):
+        text = _spec_text(spec)
+        if text in already:
+            continue
+        lower = text.lower()
+        if has_full_gap_free_coverage and any(
+            kw in lower for kw in _BANK_STATEMENT_DURATION_SPEC_KEYWORDS
+        ):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Confirmed from the bank statements' own computed coverage — "
+                    "continuous, gap-free coverage of at least 24 months is on file."
+                ),
+            })
+            already.add(text)
+        elif same_account_only and any(
+            kw in lower for kw in _BANK_STATEMENT_SAME_ACCOUNT_SPEC_KEYWORDS
+        ):
+            satisfied_specs.append({
+                "specification": text,
+                "reason": (
+                    "Confirmed from the bank statements' own extracted account "
+                    "numbers — every statement on file is from the same account."
+                ),
             })
             already.add(text)
 
@@ -2563,6 +4112,18 @@ def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict])
         if val not in (None, "", [], "unknown"):
             loan_facts[key] = val
 
+    # Named "_estimated" (not "closing_date") deliberately — the loan hasn't
+    # closed yet at this stage, so this is at best a projection (the XML's
+    # LoanEstimatedClosingDate tag, when present at all), never an actual
+    # Note/closing date. Same reasoning as the 1099 "90 days from Note Date"
+    # spec above, which explicitly refuses to substitute any other date as a
+    # stand-in for a date that doesn't exist yet. Do NOT use this for precise
+    # day-count math against document-freshness specs ("within 30 days of
+    # closing", etc.) — see the reference-block prompt's caveat on this key.
+    closing_date_val = ss.get("closing_date")
+    if closing_date_val not in (None, "", [], "unknown"):
+        loan_facts["closing_date_estimated"] = closing_date_val
+
     prop = ss.get("property", {}) or {}
     prop_clean = {
         k: v for k, v in prop.items()
@@ -2627,7 +4188,7 @@ def _build_reference_context(scenario_summary: dict, submitted_docs: list[dict])
 #     NOT required to contain data. A section with an isSectionXX flag set
 #     true but every leaf value null is the exact same "flag/content
 #     mismatch" pattern as a credit report's null-stub adverse-item field
-#     (see the confirmed-clean/empty-data exception in _SATISFACTION_PROMPT)
+#     (see the confirmed-clean/empty-data exception in _SATISFACTION_INSTRUCTIONS)
 #     or a Purchase Contract's absent assignment clause — the extractor
 #     couldn't map real content to the field, and there's no reliable way to
 #     tell that apart from a genuine "does not apply" from the structured
@@ -2835,6 +4396,158 @@ def _check_1003_specs(
     return satisfied
 
 
+def _attribute_satisfied_specs(
+    satisfied_specs: list[dict],
+    all_field_doc_ids: list[list[str]],
+    all_field_labels: list[str],
+    matched_ids: list[str],
+) -> None:
+    """Resolve each satisfied spec's document attribution in place.
+
+    _llm_check_specs (when given multiple documents as an array — see its
+    ``multi_doc_note``) returns a positional ``satisfied_by_indices`` list on
+    each satisfied item: which entries of the array it was actually shown
+    provided evidence for that specific spec. This resolves those positions
+    back to real document UUID(s)/label(s) via ``all_field_doc_ids``/
+    ``all_field_labels`` (built in lockstep in run_satisfaction_pass), and
+    stamps the result as ``satisfied_by_document_ids``/``satisfied_by_labels``
+    on each spec — e.g. for two Hazard Insurance documents A and B where A
+    alone backs spec "a", and both A and B back spec "b", spec "a" ends up
+    with ``satisfied_by_document_ids == [A's id]`` and spec "b" with
+    ``[A's id, B's id]``.
+
+    This is what compute_document_confidence's multi-document corroboration
+    signal is built from (see ``_multi_document_match_adjustment``) — specs
+    backed by MORE than one of the matched documents are stronger evidence
+    than specs backed by only one, and a matched document that never backs
+    ANY satisfied spec is a signal the match may be spurious.
+
+    Entries with no usable per-spec attribution — deterministic backstops
+    that append directly to ``satisfied_specs`` (tradeline/tri-merge/name-
+    cross-reference/passport/addenda), the 1003 check, the ownership-
+    companion force-satisfy block, or an LLM response that omitted/
+    mis-indexed ``satisfied_by`` — fall back to the WHOLE matched-document
+    set. That's the same "we know *a* match exists, just not which part of
+    it" information the old flat ``_CONFIDENCE_DOCUMENT_MATCH_BONUS`` relied
+    on exclusively; here it's just the fallback, not the only signal.
+    """
+    for spec in satisfied_specs:
+        if spec.get("satisfied_by_document_ids"):
+            # Already attributed (blanket-alias branch stamps this directly
+            # and never calls this function, but defensive regardless).
+            continue
+        indices = spec.pop("satisfied_by_indices", None) or []
+        doc_ids: list[str] = []
+        labels: list[str] = []
+        for idx in indices:
+            if 0 <= idx < len(all_field_doc_ids):
+                for did in all_field_doc_ids[idx]:
+                    if did not in doc_ids:
+                        doc_ids.append(did)
+                label = all_field_labels[idx] if idx < len(all_field_labels) else ""
+                if label and label not in labels:
+                    labels.append(label)
+        if not doc_ids:
+            doc_ids = list(matched_ids)
+        if doc_ids:
+            spec["satisfied_by_document_ids"] = doc_ids
+        if labels:
+            spec["satisfied_by_labels"] = labels
+
+
+# Ticket 4276 ("Link the Right Copy of Each Document"): canonical types
+# where a submitted document legitimately carries a DIFFERENT property's
+# address (an other-properties folder on a multi-REO borrower) that must
+# not be linked to the SUBJECT property's own condition -- Hazard
+# Insurance linked to an expired policy from another property, or a Lease
+# for another property linked to Current Lease Agreement, were both
+# confirmed on loan 513.
+_PROPERTY_SCOPED_TYPES = {
+    "hazard insurance", "flood hazard determination", "rental agreement",
+}
+
+# Ticket 4277 ("Keep Each Condition's Requirements to What Applies"):
+# cross-reference target names (see data/canonical_doc_specs.json's
+# "cross_references" entries, e.g. Appraisal Report's "dated within 365
+# days of the Note date" spec) that only exist once the loan has actually
+# closed -- same closing-stage reasoning as doc_rules.py's
+# _CLOSING_STAGE_SUPPRESSED set. A cross-document check against one of
+# these can never resolve on a pre-closing file, on ANY loan, so it must
+# not be reported as a "missing_sibling_document" gap (which reads to a
+# broker as something wrong with THIS file) -- see the
+# "not_yet_available_pre_closing" status in run_satisfaction_pass' cross-
+# document-checks loop below.
+_CLOSING_ONLY_CROSS_REF_TYPES = {
+    "mortgage note", "promissory note", "note", "deed of trust",
+    "security instrument", "grant deed",
+}
+# Candidate metadata/extracted-field keys that might carry a submitted
+# document's own property address -- checked in order. Broad on purpose;
+# no local fixture has a multi-property Hazard/Flood/Lease manifest to
+# confirm the exact real-world key against.
+_DOC_PROPERTY_ADDRESS_KEYS = (
+    "propertyAddress", "property_address", "insuredPropertyAddress",
+    "statementAddress", "address",
+)
+
+
+def _address_key(addr: object) -> str:
+    """Loose normalization for comparing two property addresses that may
+    be formatted differently (unit numbers, abbreviations, casing) --
+    keeps only the leading street-number + first street-name token, which
+    is stable enough to tell two genuinely different properties apart
+    without false-negative-ing on formatting noise. Returns "" for
+    anything unusable (never used to positively match, only to compare
+    two non-empty keys)."""
+    if isinstance(addr, dict):
+        addr = " ".join(str(v) for v in addr.values() if isinstance(v, (str, int)))
+    s = str(addr or "").strip().lower()
+    if not s:
+        return ""
+    tokens = [t for t in "".join(c if c.isalnum() or c.isspace() else " " for c in s).split()]
+    return " ".join(tokens[:3])
+
+
+def _is_subject_property_doc(sdoc: dict, subject_address: str) -> bool:
+    """True unless this submitted doc clearly carries a DIFFERENT
+    property's address than the subject property -- defaults to True
+    (include) whenever either side's address is missing/unparseable,
+    since under-filtering (missing a real address mismatch) is far safer
+    than over-filtering (dropping a legitimate subject-property document
+    just because this doc type doesn't happen to carry an address field).
+    """
+    subject_key = _address_key(subject_address)
+    if not subject_key:
+        return True
+    fields = sdoc.get("extracted_fields") or {}
+    for key in _DOC_PROPERTY_ADDRESS_KEYS:
+        doc_key = _address_key(fields.get(key))
+        if doc_key:
+            return doc_key == subject_key
+    return True
+
+
+def _filter_to_subject_property(
+    matches: list[dict], doc_type_canonical: str, scenario_summary: dict,
+) -> list[dict]:
+    """Drop submitted docs for a different property than the subject
+    property, for the canonical doc_types in _PROPERTY_SCOPED_TYPES only.
+    See that set's docstring (ticket 4276)."""
+    if doc_type_canonical.strip().lower() not in _PROPERTY_SCOPED_TYPES:
+        return matches
+    subject_address = (scenario_summary.get("property") or {}).get("address") or ""
+    # Deliberately NOT falling back to the unfiltered set when this zeros
+    # out every match -- that's the entire point of the ticket (513's
+    # Hazard Insurance case: a policy for a different property existed,
+    # the subject property's own policies did not, and the condition
+    # should correctly show "not in file" rather than linking the wrong
+    # property's document just because it was the only candidate).
+    # _is_subject_property_doc itself already defaults to True (include)
+    # whenever either address is missing/unparseable, which is the real
+    # safety net against over-filtering on bad data.
+    return [m for m in matches if _is_subject_property_doc(m, subject_address)]
+
+
 def run_satisfaction_pass(
     document_requests: list[dict],
     submitted_docs: list[dict],
@@ -2860,6 +4573,8 @@ def run_satisfaction_pass(
     for dr in document_requests:
         doc_type = dr.get("document_type") or ""
         primary_matches, fallback_matches = _split_primary_fallback_docs(doc_type, submitted_docs)
+        primary_matches = _filter_to_subject_property(primary_matches, doc_type, scenario_summary)
+        fallback_matches = _filter_to_subject_property(fallback_matches, doc_type, scenario_summary)
         matches = primary_matches or fallback_matches
         # True when the ONLY thing standing in for this document_type is an
         # addendum/amendment/counter-offer (no genuine primary document was
@@ -2927,6 +4642,13 @@ def run_satisfaction_pass(
                         f"Satisfied — equivalent document '{sdoc.get('name', '')}' "
                         f"is present in the manifest"
                     ),
+                    # Trivial attribution: a blanket alias means the single
+                    # equivalent document satisfies everything on its own —
+                    # see _attribute_satisfied_specs' docstring for why every
+                    # other branch needs real per-spec resolution but this
+                    # one doesn't.
+                    "satisfied_by_document_ids": list(matched_ids),
+                    "satisfied_by_labels": [sdoc.get("name", "")] if sdoc.get("name") else [],
                 }
                 for spec in _as_list(dr.get("specifications", []))
             ]
@@ -2947,13 +4669,24 @@ def run_satisfaction_pass(
         # "Acceptable forms: Driver's License, Passport, State ID, Military
         # ID" has no way to be confirmed even when the classification layer
         # already knows exactly which form was submitted.
+        # Physical document UUID(s) backing each entry of all_fields, in
+        # lockstep with all_fields/all_field_labels -- lets
+        # _attribute_satisfied_specs (below) resolve the positional
+        # "satisfied_by" indices _llm_check_specs returns back to real
+        # document_ids. Only the genuine same-type matches (appended in
+        # this loop) carry real ids; every companion appended further down
+        # (K1/ownership/bank-statement/cross-reference) gets [] here since
+        # those are supporting evidence from a DIFFERENT document_type, not
+        # one of the physical documents actually satisfying THIS request.
         all_fields: list[dict] = []
         all_field_labels: list[str] = []
+        all_field_doc_ids: list[list[str]] = []
         for m in matches:
             ef = m.get("extracted_fields")
             if ef:
                 all_fields.append(ef)
                 all_field_labels.append(m.get("name") or "")
+                all_field_doc_ids.append(_submitted_doc_ids(m))
         if not all_fields:
             dr["satisfied_specifications"] = []
             continue
@@ -2972,6 +4705,7 @@ def run_satisfaction_pass(
                     if companion not in all_fields:
                         all_fields.append(companion)
                         all_field_labels.append("Schedule K-1")
+                        all_field_doc_ids.append([])
 
         # Business bank statement requests commonly carry ownership specs
         # ("Must verify borrower has minimum 25% ownership of business",
@@ -2993,6 +4727,7 @@ def run_satisfaction_pass(
                 if companion_ef not in all_fields:
                     all_fields.append(companion_ef)
                     all_field_labels.append(companion_name)
+                    all_field_doc_ids.append([])
 
         # Defensive backstop for spec-to-document misclassification: a
         # bank-statement-worded spec (e.g. "Must provide 12 consecutive
@@ -3005,7 +4740,7 @@ def run_satisfaction_pass(
         # would either wrongly stay unsatisfied forever (evidence exists,
         # just never looked at) or get hallucinated as satisfied by the LLM
         # with no real basis. See _find_bank_statement_companion_fields and
-        # the MISPLACED BANK-STATEMENT SPECS guidance in _SATISFACTION_PROMPT.
+        # the MISPLACED BANK-STATEMENT SPECS guidance in _SATISFACTION_INSTRUCTIONS.
         if (
             _canonical_doc_type(doc_type) != "bank statement"
             and "bank statement" in spec_blob
@@ -3014,6 +4749,7 @@ def run_satisfaction_pass(
                 if companion_ef not in all_fields:
                     all_fields.append(companion_ef)
                     all_field_labels.append(companion_name)
+                    all_field_doc_ids.append([])
 
         # Generic cross-document consistency checks (see
         # tools.doc_rules.guideline_cross_reference_map) — e.g. Balance
@@ -3027,6 +4763,14 @@ def run_satisfaction_pass(
         # document isn't in this run's submission set".
         cross_ref_map: dict[str, list[str]] = dr.get("_cross_reference_map") or {}
         cross_ref_found_types: set[str] = set()
+        # Parallel (fields, label) list for the name cross-reference
+        # backstop below — kept separate from all_fields/all_field_labels
+        # (which also mixes in K1/ownership/bank-statement companions) so
+        # that backstop only ever compares against the specific sibling
+        # doc types (1003/credit report/title/etc.) this spec actually
+        # references, never an unrelated companion pulled in for a
+        # different spec family on the same document request.
+        cross_ref_companions: list[tuple[dict, str]] = []
         if cross_ref_map:
             referenced_types: set[str] = set()
             for refs in cross_ref_map.values():
@@ -3036,9 +4780,11 @@ def run_satisfaction_pass(
                     ref_type, submitted_docs,
                 ):
                     cross_ref_found_types.add(ref_type)
+                    cross_ref_companions.append((companion_ef, companion_name))
                     if companion_ef not in all_fields:
                         all_fields.append(companion_ef)
                         all_field_labels.append(companion_name)
+                        all_field_doc_ids.append([])
 
         extracted: dict | list[dict] = all_fields[0] if len(all_fields) == 1 else all_fields
 
@@ -3077,12 +4823,63 @@ def run_satisfaction_pass(
         _apply_tradeline_mortgage_backstop(
             doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
         )
+        # Ticket 4277: explicit "not verified" wording for tradeline-detail
+        # specs left open by the backstop above — see
+        # _apply_tradeline_not_verified_wording's docstring. Must run AFTER
+        # the backstop above so `already` correctly excludes anything that
+        # backstop (or the LLM) genuinely satisfied.
+        _apply_tradeline_not_verified_wording(
+            doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
         # Deterministic backstop for the tri-merge/3-bureau spec — see
         # _apply_tri_merge_backstop for why this can't be left to the LLM
         # alone (the _SPEC_FIELD_MAP mapping that looked like it covered
         # this was dead code, never actually invoked).
         _apply_tri_merge_backstop(
             doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
+        # Deterministic backstop for 2 real, field-backed Appraisal Report
+        # specs (appraiser license, sales-comparison/comps) — see
+        # _apply_appraisal_report_backstop for why only these 2 of this
+        # doc type's many conditioned specs get one (ticket 4277 AC9/PC-05).
+        _apply_appraisal_report_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
+        # Deterministic backstop for the 1 real-field-backed Flood Hazard
+        # Determination spec (base presence only) — see
+        # _apply_flood_hazard_determination_backstop for why only this 1
+        # of this doc type's 19 conditioned specs gets one (ticket 4277
+        # AC1/AC9/PC-05).
+        _apply_flood_hazard_determination_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
+        # Deterministic backstop for 2 real-field-backed Bank Statement
+        # specs (duration + same-account) — see
+        # _apply_bank_statement_coverage_backstop for why only these 2 of
+        # this doc type's 10 conditioned specs get one (ticket 4276
+        # AC3/AC4 follow-up).
+        _apply_bank_statement_coverage_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs, all_fields,
+        )
+        # Deterministic backstop for cross-document NAME-MATCH specs — see
+        # _apply_name_cross_reference_backstop for why this can't be left
+        # to the LLM alone (a genuine within-document name-split
+        # inconsistency on the companion doc, not a missing-document issue
+        # — cross_ref_map is already OR'd, see the cross_document_checks
+        # loop below). all_fields[0] is always the subject document's OWN
+        # extracted_fields (the first entries appended, before any K1/
+        # ownership/bank-statement/cross-reference companions).
+        _apply_name_cross_reference_backstop(
+            dr.get("specifications", []), satisfied_specs, all_fields[0], cross_ref_companions,
+        )
+        # Deterministic backstop: Government ID address-verification spec
+        # does not apply to a Passport — see
+        # _apply_passport_no_address_backstop. all_field_labels[0] is the
+        # primary submitted document's classified form name (e.g.
+        # "Passport", "Drivers License"), parallel to all_fields[0].
+        _apply_passport_no_address_backstop(
+            doc_type, dr.get("specifications", []), satisfied_specs,
+            all_field_labels[0] if all_field_labels else "",
         )
         # Deterministic backstop for the addenda/amendments/counter-offers
         # Purchase Contract spec — see _apply_addenda_presence_backstop for
@@ -3095,7 +4892,7 @@ def run_satisfaction_pass(
         )
         # Deterministic backstop for the "account must be shown in the
         # borrower's own name" spec family (see BUSINESS-OWNERSHIP / CPA
-        # LETTER guidance in _SATISFACTION_PROMPT above). The LLM applies
+        # LETTER guidance in _SATISFACTION_INSTRUCTIONS above). The LLM applies
         # this leniency inconsistently across near-duplicate phrasings and
         # across borrower vs. co-borrower copies of the SAME request (e.g.
         # satisfying "must show account holder name matching borrower or
@@ -3121,6 +4918,13 @@ def run_satisfaction_pass(
                             "show the account in the borrower's name/ownership."
                         ),
                     })
+
+        # Resolve per-spec document attribution (positional indices from
+        # _llm_check_specs -> real document_ids/labels) now that every
+        # deterministic backstop and the ownership force-satisfy block
+        # above have had their chance to append to satisfied_specs — see
+        # _attribute_satisfied_specs' docstring.
+        _attribute_satisfied_specs(satisfied_specs, all_field_doc_ids, all_field_labels, matched_ids)
 
         satisfied_spec_texts = {s["specification"] for s in satisfied_specs}
         remaining_specs = [
@@ -3157,13 +4961,34 @@ def run_satisfaction_pass(
                 found_refs = [r for r in refs if r in cross_ref_found_types]
                 missing_refs = [r for r in refs if r not in cross_ref_found_types]
                 if not found_refs:
-                    status = "missing_sibling_document"
-                    note = (
-                        f"Requires cross-checking against "
-                        f"{' or '.join(r.title() for r in refs)}, but no "
-                        "such document was found in this run's submitted "
-                        "document set — cannot verify."
-                    )
+                    # Ticket 4277 acceptance criterion: "Before closing with
+                    # appraisal -> no check against the Note shows missing."
+                    # The Note/security instrument is only EXECUTED at
+                    # closing (same closing-stage reasoning as doc_rules.py's
+                    # _CLOSING_STAGE_SUPPRESSED set for Deed of Trust/Grant
+                    # Deed/Owner Occupancy Certification) — a cross-check
+                    # against it genuinely cannot resolve before closing on
+                    # ANY file, so "missing_sibling_document" (which reads as
+                    # a real gap to a broker) is the wrong verdict. Use a
+                    # distinct, explicitly non-alarming status instead.
+                    if refs and all(r in _CLOSING_ONLY_CROSS_REF_TYPES for r in refs):
+                        status = "not_yet_available_pre_closing"
+                        note = (
+                            f"Cross-checks against "
+                            f"{' or '.join(r.title() for r in refs)} — this "
+                            "document is only executed at closing and does "
+                            "not exist yet on a file at this stage; this "
+                            "check will become available once the loan "
+                            "closes."
+                        )
+                    else:
+                        status = "missing_sibling_document"
+                        note = (
+                            f"Requires cross-checking against "
+                            f"{' or '.join(r.title() for r in refs)}, but no "
+                            "such document was found in this run's submitted "
+                            "document set — cannot verify."
+                        )
                 elif spec_text in satisfied_spec_texts:
                     status = "consistent"
                     note = f"Verified consistent against {', '.join(r.title() for r in found_refs)}."
@@ -3225,6 +5050,96 @@ def cross_check_satisfaction(
     })
 
 
+def enrich_category_ids(
+    document_requests: list[dict],
+    document_inventory: list,
+) -> None:
+    """Populate category_ids on every document request in place: the
+    manifest's own upstream classifier category_id(s) (e.g. "117" = Credit
+    Report), merged from three sources, in priority order —
+      (a) the manifest documents that ended up satisfying this request
+          (dr["document_ids"], the physical file UUIDs) looked up against
+          document_inventory's doc_id (its category_id),
+      (b) required_documents_json's per-item category_ids, already
+          carried on the dict by tools.doc_rules.required_documents_floor
+          when this request came from that checklist, and
+      (c) last resort: the request's own document_type name, canonicalized
+          and matched directly against data/doctype_masterlist.json. This
+          covers deterministic/LLM-drafted requests that have no matching
+          uploaded document and weren't on the borrower's checklist either
+          -- the goal is that every returned document_request ends up with
+          at least one category_id where the masterlist has one to give.
+    De-duplicated; (c) only runs if (a)+(b) produced nothing.
+
+    Expects CANONICAL (pre-rename) document_type values -- call this
+    before any apply_output_display_name() pass, same as
+    generate_final_output does.
+
+    Callable a second time against a different document_requests list with
+    the SAME document_inventory -- e.g. tools.coborrower's per-party split
+    builds each party's own document_requests (with document_ids rescoped
+    to only that party's assigned documents) from the raw, pre-enrichment
+    module_outputs["08"] list, and must re-run this exact enrichment itself
+    rather than reusing generate_final_output's already-computed result,
+    since (a) depends on which document_ids are actually on each dict.
+    """
+    category_id_by_document_id: dict[str, str] = {}
+    for inv in _as_list(document_inventory):
+        cat_id = inv.get("doc_id")
+        if not cat_id:
+            continue
+        for uuid in _as_list(inv.get("document_ids", [])):
+            if uuid:
+                category_id_by_document_id[str(uuid)] = str(cat_id)
+
+    for dr in document_requests:
+        merged_ids: list[str] = []
+        seen_ids: set[str] = set()
+        for uuid in dr.get("document_ids") or []:
+            cat_id = category_id_by_document_id.get(str(uuid))
+            if cat_id and cat_id not in seen_ids:
+                merged_ids.append(cat_id)
+                seen_ids.add(cat_id)
+        for cat_id in dr.get("category_ids") or []:
+            cat_id = str(cat_id)
+            if cat_id not in seen_ids:
+                merged_ids.append(cat_id)
+                seen_ids.add(cat_id)
+        if not merged_ids:
+            doc_type = dr.get("document_type") or ""
+            canon_name = _canonical_doc_type(doc_type)
+            by_name = _doctype_id_by_name()
+            fallback_id = by_name.get(canon_name) or by_name.get(doc_type.strip().lower())
+            if fallback_id:
+                merged_ids.append(fallback_id)
+            else:
+                # Multi-form document types have no single masterlist row of
+                # their own -- e.g. "Government-Issued Photo ID" is an
+                # umbrella that can be satisfied by a Drivers License (323),
+                # Passport (845), etc., each a distinct real document in the
+                # masterlist. _get_aliases() already knows every name variant
+                # that counts as "the same requirement" (see _DOCTYPE_ALIASES
+                # above); resolve each one against the masterlist and return
+                # the full set so downstream consumers know every id that
+                # would satisfy this request, instead of leaving it empty
+                # just because no single umbrella id exists.
+                for variant in sorted(_get_aliases(doc_type)):
+                    variant_id = by_name.get(variant)
+                    if variant_id and variant_id not in merged_ids:
+                        merged_ids.append(variant_id)
+        # (d) Explicitly-curated extras (_ALWAYS_MERGE_ALIAS_NAMES) -- applies
+        # unconditionally, regardless of whether (a)/(b)/(c) already resolved
+        # something, since these represent a deliberately-folded-together
+        # requirement (e.g. "LLC Member List" riding along on every Operating
+        # Agreement request), not a fallback for an empty result.
+        canon_name = _canonical_doc_type(dr.get("document_type") or "")
+        for extra_name in _ALWAYS_MERGE_ALIAS_NAMES.get(canon_name, ()):
+            extra_id = _doctype_id_by_name().get(extra_name)
+            if extra_id and extra_id not in merged_ids:
+                merged_ids.append(extra_id)
+        dr["category_ids"] = merged_ids
+
+
 @tool
 def generate_final_output(
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -3245,8 +5160,20 @@ def generate_final_output(
             mo.get("08", {}).get("merged_document_requests", [])
         )
 
+    # Deterministic per-document confidence score -- must run (a) after
+    # satisfaction checking/status assignment (both already done upstream in
+    # STEP_08's cross_check_satisfaction/rank_document_requests tools) so it
+    # can see the real satisfied_specifications split, AND (b) BEFORE
+    # normalize_document_structure below, since compute_document_confidence
+    # reads the internal-only _guideline_grounded/_corroborating_modules
+    # fields that normalize_document_structure's field allow-list strips.
+    # See assign_confidence_scores's docstring for the scoring rules.
+    assign_confidence_scores(document_requests)
+
     # Enforce consistent field schema on every document request
     document_requests = [normalize_document_structure(dr) for dr in document_requests]
+
+    enrich_category_ids(document_requests, s.get("document_inventory", []))
 
     scenario_summary = s.get("scenario_summary", {})
 
@@ -3315,3 +5242,116 @@ def generate_final_output(
         "current_step": "STEP_08",
         "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
     })
+
+
+# ---------------------------------------------------------------------------
+# STEP_08 pipeline consolidation
+# ---------------------------------------------------------------------------
+#
+# merge_document_requests -> rank_document_requests -> cross_check_satisfaction
+# -> generate_final_output form a strict data-dependency chain (each reads,
+# via InjectedState, the module_outputs["08"] key the previous one just
+# wrote) with ZERO LLM judgment in between -- the model's only job calling
+# each was to invoke it with empty arguments to advance the pipeline, 4
+# separate orchestrator turns (4x the mandatory reasoning/tool-call-
+# generation overhead) for what is, start to finish, a single deterministic
+# Python computation. They were kept as 4 separate LLM-issued tool calls
+# (see step_loader._gate_step_08_tools, which exposes only ONE at a time)
+# because LangGraph's ToolNode dispatches every tool call in a single
+# AIMessage CONCURRENTLY against one shared state snapshot -- if the model
+# ever batched two of these into the same turn, the later one would read
+# pre-update state (confirmed live: a batched merge+rank produced "Ranked
+# 0"). Gating to one-at-a-time closed that race but still pays for 4 full
+# turns every run.
+#
+# run_document_merger_pipeline below eliminates the race at its root
+# instead of just avoiding it: it calls all 4 underlying functions as
+# plain sequential Python calls within ONE tool invocation -- there is no
+# concurrent dispatch possible inside a single Python call, so the race
+# cannot occur here regardless of model behavior. _apply_command_update
+# replicates the exact reducer semantics PredictiveConditionsState uses in
+# agent.py for every key these 4 functions can write (module_outputs:
+# recursive dict merge via _merge_dicts_deep, duplicated from agent.py's
+# identical _merge_dicts for the same reason _with_cache_breakpoint is
+# duplicated elsewhere in this file -- avoiding a circular import, since
+# agent.py imports ALL_TOOLS which pulls in this module; final_output/
+# current_step: last-value-wins) so the combined tool's single Command.update
+# is structurally identical to what 4 separate graph turns would have
+# produced. Verified via a parity test that runs both paths on identical
+# input and asserts byte-identical final state (module_outputs["08"],
+# final_output) -- see tests/test_step08_pipeline_consolidation.py.
+#
+# The original 4 tools are left fully intact and individually callable
+# (agent_fast.py's experimental pipeline and existing tests call them
+# directly) -- this only adds a 5th, equivalent option; step_loader.py
+# decides which one the orchestrator actually sees.
+
+
+def _merge_dicts_deep(old: dict, new: dict) -> dict:
+    """Recursive dict merge -- duplicated from agent.py's _merge_dicts
+    (the real reducer PredictiveConditionsState uses for module_outputs)."""
+    merged = dict(old)
+    for k, v in new.items():
+        if k in merged and isinstance(merged[k], dict) and isinstance(v, dict):
+            merged[k] = _merge_dicts_deep(merged[k], v)
+        else:
+            merged[k] = v
+    return merged
+
+
+def _apply_command_update(state: dict, update: dict) -> dict:
+    """Apply one Command.update dict onto a plain state dict, using the same
+    reducer semantics the real graph uses for every key the STEP_08 chain
+    tools can write. Skips "messages" -- callers of this helper build one
+    combined ToolMessage separately rather than threading each tool's
+    individual message through the simulated intermediate state (none of
+    the 4 functions below ever read state["messages"], so this has no
+    effect on their behavior).
+    """
+    new_state = dict(state)
+    for k, v in update.items():
+        if k == "messages":
+            continue
+        if k == "module_outputs" and isinstance(v, dict) and isinstance(new_state.get("module_outputs"), dict):
+            new_state["module_outputs"] = _merge_dicts_deep(new_state["module_outputs"], v)
+        else:
+            new_state[k] = v
+    return new_state
+
+
+@tool
+def run_document_merger_pipeline(
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
+) -> Command:
+    """
+    Run the full STEP_08 pipeline in ONE call: merge_document_requests,
+    then rank_document_requests, then cross_check_satisfaction, then
+    generate_final_output, in that exact order. Equivalent to calling all
+    four individually and in sequence, but as a single tool call.
+
+    Call this once, with no arguments, to complete all of STEP_08's
+    document-merging/ranking/satisfaction-checking/finalization work in one
+    step, then call save_step_report.
+    """
+    s = dict(state or {})
+    chain = (
+        merge_document_requests, rank_document_requests,
+        cross_check_satisfaction, generate_final_output,
+    )
+    updates: list[dict] = []
+    for fn in chain:
+        result = fn.func(tool_call_id=tool_call_id, state=s)
+        update = result.update or {}
+        updates.append(update)
+        s = _apply_command_update(s, update)
+
+    combined_text = "\n".join(
+        m.content for upd in updates for m in upd.get("messages", []) if hasattr(m, "content")
+    )
+    final_update: dict = {}
+    for upd in updates:
+        final_update = _apply_command_update(final_update, upd)
+    final_update["messages"] = [ToolMessage(combined_text, tool_call_id=tool_call_id)]
+
+    return Command(update=final_update)

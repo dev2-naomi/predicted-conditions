@@ -10,7 +10,7 @@
     },
     "FINALIZATION": {
       "order": 3,
-      "steps": [8]
+      "steps": [8, 9]
     }
   },
   "steps": {
@@ -22,6 +22,7 @@
         { "id": "0.1", "name": "Parse MISMO XML loan file", "tools": ["parse_loan_file"] },
         { "id": "0.2", "name": "Parse manifest documents", "tools": ["parse_manifest_documents"] },
         { "id": "0.3", "name": "Parse eligibility engine output", "tools": ["parse_eligibility_output"] },
+        { "id": "0.35", "name": "Parse Submission Requirements checklist (required_documents_json)", "tools": ["parse_required_documents"] },
         { "id": "0.4", "name": "Load doctype masterlist", "tools": ["load_doctype_masterlist"] },
         { "id": "0.5", "name": "Build scenario summary and detect contradictions", "tools": ["build_scenario_summary", "detect_contradictions"] },
         { "id": "0.6", "name": "Route docs and overlays to facets", "tools": ["route_to_facets"] },
@@ -124,7 +125,8 @@
   "general_tools": [
     "write_todo",
     "get_workflow_status",
-    "save_step_report"
+    "save_step_report",
+    "inspect_raw_xml_data"
   ],
   "middleware": {
     "summarization": { "enabled": true },

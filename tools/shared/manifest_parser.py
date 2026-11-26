@@ -92,6 +92,14 @@ CATEGORY_ID_TO_DOC_TYPE: dict[int, str] = {
 
     # Assets / Bank
     502:  "bank_statement",
+    827:  "bank_statement",  # Other Asset (brokerage/investment/trust account
+                             # statements -- confirmed via real payload:
+                             # shows institution, owner, account number,
+                             # balance, same evidence shape as a bank
+                             # statement; routing it here gets it into the
+                             # "assets" facet and lets it satisfy Bank
+                             # Statement / Asset document requests instead
+                             # of silently falling into "other")
     1080: "emd",
     210:  "other",          # Wire Transfer
 
@@ -303,7 +311,16 @@ def _person_signature(metadata: dict) -> str:
             return f"{first.strip()} {last.strip()}"
         return None
 
-    for key in ("owner", "customer"):
+    # "owner"/"customer" first (most common for IDs/income docs); "name"/
+    # "fullName" added as additional single-string fallbacks — a Passport's
+    # extraction doesn't always populate "owner" the way a Driver's License
+    # does, which could otherwise leave two different borrowers' passports
+    # unsplit (both falling back to the generic "no identifiable person"
+    # bucket and colliding on the latest-indexed one) — confirmed as a real
+    # gap on a 2-borrower UAT test loan (engine accuracy report, 17 Nov
+    # 2026, PC-10). Purely additive: only adds a way to DETECT a name,
+    # never removes any existing match.
+    for key in ("owner", "customer", "name", "fullName"):
         val = metadata.get(key)
         if isinstance(val, dict):
             nm = _name_from(val)
@@ -441,6 +458,83 @@ def _merge_1003_borrower_lists(borrower_lists: list[list[dict]]) -> list[dict]:
     return [best[k] for k in order]
 
 
+def _is_signed(metadata: dict) -> bool:
+    """True when this document's metadata shows evidence of being a signed
+    copy — a flat ``signed`` flag, or any borrower entry (``borrowers``/
+    ``new1003Borrowers``) carrying a non-empty ``dateSigned``.
+
+    Used by _doc_rank below to prefer a signed copy over an unsigned one
+    when several copies of the same form (1003, 4506-C, Borrowers
+    Authorization, ...) land in the same dedup bucket — previously dedup
+    picked whichever copy had the latest INDEXING timestamp with no regard
+    for signed status at all, which could (and on real UAT test loans,
+    did) keep an unsigned copy over a signed one in the same file (engine
+    accuracy report, 17 Nov 2026, PC-08).
+    """
+    if metadata.get("signed") is True:
+        return True
+    for key in ("borrowers", "new1003Borrowers"):
+        entries = metadata.get(key)
+        if isinstance(entries, list):
+            for b in entries:
+                if isinstance(b, dict) and b.get("dateSigned"):
+                    return True
+    return False
+
+
+
+# Candidate metadata keys carrying a document's own content date (as
+# opposed to `ts`, which is Task Tile's upload/indexing order) -- checked
+# in order, first parseable value wins. Covers the doc types ticket 4276
+# calls out by name (payoff statement, bank statement) plus common
+# variants for others; kept broad since no local fixture happens to carry
+# every one of these doc types to confirm every exact key against.
+_DOC_RANK_DATE_KEYS = (
+    "statementPeriodTo", "periodEndDate", "statementDate", "payoffDate",
+    "quoteDate", "goodThroughDate", "effectiveDate", "issueDate",
+    "documentDate", "date",
+)
+
+
+def _doc_content_date(metadata: dict) -> date | None:
+    """Best-effort extraction of a submitted document's OWN content date
+    (statement period end, payoff quote date, policy effective date,
+    etc.) from its metadata -- see _DOC_RANK_DATE_KEYS."""
+    for key in _DOC_RANK_DATE_KEYS:
+        d = _parse_date(metadata.get(key))
+        if d is not None:
+            return d
+    return None
+
+
+def _doc_rank(metadata: dict, ts: int) -> tuple:
+    """Ordering key used to pick which copy wins within a dedup bucket:
+    prefer a signed copy over an unsigned one; among same-signed-status
+    copies, prefer the NEWER one by the document's own content date (not
+    Task Tile's upload order) when a parseable date exists on the
+    metadata; use extraction confidence as the tiebreaker when dates are
+    equal or unavailable; and fall back to the indexing timestamp as the
+    final tiebreaker.
+
+    Ticket 4276 ("Link the Right Copy of Each Document") states this
+    ordering explicitly: "Duplicates: use the newer copy; same date →
+    higher Task Tile confidence." Dates missing entirely on both sides
+    (common for scanned/less-structured doc types) falls straight through
+    to the confidence+timestamp comparison PC-08 already covered -- this
+    is a strict refinement, not a replacement, of that fix: a missing
+    content date on both candidates compares as date-equal (via the
+    `date.min` floor below), so confidence still decides exactly as
+    before. Compared via plain tuple ordering, so signed always beats
+    unsigned regardless of date/confidence/timestamp.
+    """
+    try:
+        confidence = float(metadata.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    content_date = _doc_content_date(metadata) or date.min
+    return (1 if _is_signed(metadata) else 0, content_date, confidence, ts)
+
+
 def _merge_1003_documents(entries: list[dict]) -> dict:
     """Merge a bucket of raw manifest documents that all represent the same
     joint 1003/URLA application into ONE synthetic document whose
@@ -481,6 +575,21 @@ def _merge_1003_documents(entries: list[dict]) -> dict:
     return merged_doc
 
 
+# Ticket 4276 ("Link the Right Copy of Each Document") acceptance criterion:
+# "Paystubs with a gap in 30 days -> 30-day requirement open." A merged
+# period can SPAN >= target_days (earliest-to-latest) while still having a
+# real hole in the middle where no paystub exists at all (e.g. a stub for
+# Jan 1-15 and another for Feb 10-24 span 55 days end-to-end but miss
+# Jan 16 - Feb 9 entirely) -- _merge_paystubs' pre-4276 behavior only
+# checked the overall span, not contiguity between consecutive periods, so
+# a gap like that was invisible. Any silence longer than this threshold
+# between one selected period's end and the next one's start counts as a
+# genuine missing-coverage gap, not just normal pay-period boundary noise
+# (paydays landing a few days after the prior period's end date are common
+# and not a real gap).
+_PAYSTUB_GAP_THRESHOLD_DAYS = 3
+
+
 def _merge_paystubs(
     paystub_entries: list[dict],
     target_days: int = 30,
@@ -504,6 +613,16 @@ def _merge_paystubs(
         * hours_total        — sum of hoursWorked across the window
         * pay_periods        — list of individual period summaries (for
                                traceability)
+        * coverage_gaps      — list of {gap_start, gap_end, gap_days} for
+                               any real hole between consecutive selected
+                               periods (ticket 4276) -- empty when the
+                               window is genuinely contiguous. See
+                               _SATISFACTION_INSTRUCTIONS' PERIOD-COVERAGE
+                               guidance (tools/merger_tools.py) for how
+                               this is used to keep the 30-day requirement
+                               open and name the missing dates instead of
+                               being fooled by a span that merely LOOKS
+                               wide enough.
         * all other fields   — taken from the most recent stub
     - Entries that have no parseable dates are returned unchanged.
 
@@ -586,6 +705,19 @@ def _merge_paystubs(
     latest_to = selected[-1][1]
     span_days = (latest_to - earliest_from).days + 1
 
+    # Ticket 4276: detect real coverage gaps between consecutive selected
+    # periods (not just whether the overall span is wide enough) -- see
+    # _PAYSTUB_GAP_THRESHOLD_DAYS and the docstring above.
+    coverage_gaps: list[dict] = []
+    for (_, prev_to, _), (next_from, _, _) in zip(selected, selected[1:]):
+        gap_days = (next_from - prev_to).days - 1
+        if gap_days > _PAYSTUB_GAP_THRESHOLD_DAYS:
+            coverage_gaps.append({
+                "gap_start": (prev_to + timedelta(days=1)).isoformat(),
+                "gap_end": (next_from - timedelta(days=1)).isoformat(),
+                "gap_days": gap_days,
+            })
+
     # Build merged extracted_fields on top of the most-recent stub's fields
     merged_fields = dict(most_recent_fields)
     merged_fields.update({
@@ -596,6 +728,8 @@ def _merge_paystubs(
         "hours_total": hours_total,
         "YTD": ytd if ytd else most_recent_fields.get("YTD"),
         "pay_periods": pay_periods,
+        "coverage_gaps": coverage_gaps,
+        "has_coverage_gap": bool(coverage_gaps),
     })
 
     merged_entry = dict(most_recent_entry)
@@ -605,14 +739,137 @@ def _merge_paystubs(
     merged_ids = [e.get("document_id") for _, _, e in selected if e.get("document_id")]
     if merged_ids:
         merged_entry["document_ids"] = merged_ids
-    merged_entry["name"] = (
-        f"Paystub ({earliest_from.isoformat()} – {latest_to.isoformat()}, "
-        f"{len(selected)} period{'s' if len(selected) != 1 else ''}, "
-        f"{span_days} days)"
-    )
+    if coverage_gaps:
+        gap_desc = "; ".join(
+            f"missing {g['gap_start']} to {g['gap_end']}" for g in coverage_gaps
+        )
+        merged_entry["name"] = (
+            f"Paystub ({earliest_from.isoformat()} – {latest_to.isoformat()}, "
+            f"{len(selected)} period{'s' if len(selected) != 1 else ''}, "
+            f"{span_days} days — COVERAGE GAP: {gap_desc})"
+        )
+    else:
+        merged_entry["name"] = (
+            f"Paystub ({earliest_from.isoformat()} – {latest_to.isoformat()}, "
+            f"{len(selected)} period{'s' if len(selected) != 1 else ''}, "
+            f"{span_days} days)"
+        )
 
     # Return the single merged entry plus any undated stubs
     return [merged_entry] + undated
+
+
+# Ticket 4276 ACs 3/4: "Needs 12 months bank statements, all 12 in file ->
+# all 12 linked, requirement met" / "one month missing -> requirement
+# open, names the missing month." Unlike paystubs (_merge_paystubs above),
+# bank statements must stay as SEPARATE entries -- AC3 explicitly says
+# "all 12 linked", i.e. each physical statement keeps its own
+# document_id/link, not one merged summary row. What was previously
+# missing is any DETERMINISTIC signal about whether a set of statements
+# for the same account is actually continuous: the satisfaction LLM had
+# to do its own date math across however many raw statement entries exist
+# in the file, with no pre-computed gap data to lean on (unlike paystubs,
+# which get `coverage_gaps` for free via the merge above).
+#
+# data/canonical_doc_specs.json's "bank statement" entry: "12 or 24
+# complete months must be from the same account" / "Statements must be
+# consecutive" -- confirms grouping by account number (not merging
+# different accounts together) is the right key, same spirit as
+# _merge_paystubs grouping by the implicit single-employee period series.
+#
+# Real field names (statementPeriodFrom/statementPeriodTo/accounts[].
+# accountNumber) confirmed against actual Tasktile extractions in
+# compiled_inputs/{montes,niccum,nyarko}/manifest.json -- not guessed.
+_BANK_STATEMENT_GAP_THRESHOLD_DAYS = 5  # statement cycles are monthly, not
+# biweekly like paystubs (_PAYSTUB_GAP_THRESHOLD_DAYS=3) -- a few days'
+# slack between one statement's cycle-end and the next one's cycle-start
+# is normal billing-cycle noise, not a real missing-coverage gap.
+
+
+def _bank_statement_account_number(fields: dict) -> str:
+    """Best-effort account number for grouping bank statement entries that
+    belong to the SAME account -- see _annotate_bank_statement_coverage.
+    Falls back to "" (its own ungrouped bucket) when no account number is
+    extracted, same "don't guess, don't crash" posture as every other
+    best-effort helper in this module."""
+    accounts = fields.get("accounts")
+    if isinstance(accounts, list):
+        for acct in accounts:
+            if isinstance(acct, dict) and acct.get("accountNumber"):
+                return str(acct["accountNumber"]).strip()
+    return ""
+
+
+def _annotate_bank_statement_coverage(entries: list[dict]) -> None:
+    """Mutates each Bank Statement entry's extracted_fields in place to add
+    a deterministic `_coverage_summary` (plus `_coverage_gaps` and
+    `_coverage_span_days`) describing the continuous date range and any
+    real gaps among every OTHER bank statement entry sharing the same
+    account number. Entries are NOT merged or removed -- each keeps its
+    own document_id so it still links individually (AC3's "all 12
+    linked"); this only attaches pre-computed date-math so the
+    satisfaction LLM doesn't have to recompute it itself across however
+    many raw statement entries are in the file, and so a real gap gets
+    named with exact dates (AC4) instead of being missed because the
+    overall earliest-to-latest span merely LOOKS wide enough (the same
+    false-"span is enough" failure mode _merge_paystubs' coverage_gaps
+    fix already caught for paystubs).
+
+    Entries with no parseable statementPeriodFrom/To, or no identifiable
+    account number, are left untouched (grouped into their own "" bucket
+    below, which still gets a summary for however many of them share no
+    account number at all -- better than silently skipping them)."""
+    by_account: dict[str, list[tuple[date, date, dict]]] = {}
+    for entry in entries:
+        fields = entry.get("extracted_fields") or {}
+        from_dt = _parse_date(fields.get("statementPeriodFrom"))
+        to_dt = _parse_date(fields.get("statementPeriodTo"))
+        if from_dt is None or to_dt is None:
+            continue
+        acct_no = _bank_statement_account_number(fields)
+        by_account.setdefault(acct_no, []).append((from_dt, to_dt, entry))
+
+    for acct_no, dated in by_account.items():
+        dated.sort(key=lambda x: (x[0], x[1]))
+
+        coverage_gaps: list[dict] = []
+        for (_, prev_to, _), (next_from, _, _) in zip(dated, dated[1:]):
+            gap_days = (next_from - prev_to).days - 1
+            if gap_days > _BANK_STATEMENT_GAP_THRESHOLD_DAYS:
+                coverage_gaps.append({
+                    "gap_start": (prev_to + timedelta(days=1)).isoformat(),
+                    "gap_end": (next_from - timedelta(days=1)).isoformat(),
+                    "gap_days": gap_days,
+                })
+
+        earliest = dated[0][0]
+        latest = dated[-1][1]
+        span_days = (latest - earliest).days + 1
+        acct_label = f"account ending {acct_no[-4:]}" if acct_no else "this account"
+
+        if coverage_gaps:
+            gap_desc = "; ".join(
+                f"missing {g['gap_start']} to {g['gap_end']}" for g in coverage_gaps
+            )
+            summary = (
+                f"{len(dated)} statement(s) for {acct_label} span "
+                f"{earliest.isoformat()} to {latest.isoformat()} ({span_days} days) "
+                f"but have a COVERAGE GAP: {gap_desc}."
+            )
+        else:
+            summary = (
+                f"{len(dated)} statement(s) for {acct_label} provide continuous "
+                f"coverage from {earliest.isoformat()} to {latest.isoformat()} "
+                f"({span_days} days), no gaps."
+            )
+
+        for _, _, entry in dated:
+            fields = dict(entry.get("extracted_fields") or {})
+            fields["_coverage_summary"] = summary
+            fields["_coverage_gaps"] = coverage_gaps
+            fields["_coverage_span_days"] = span_days
+            fields["has_coverage_gap"] = bool(coverage_gaps)
+            entry["extracted_fields"] = fields
 
 
 def parse_manifest(manifest_path: Union[str, Path]) -> list[dict]:
@@ -733,15 +990,21 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
         key = (category_id, group_name, specific_type, person_sig)
         doc_id = doc.get("id", "")
         ts = task_index.get(doc_id, 0)
+        rank = _doc_rank(metadata, ts)
 
         existing = groups.get(key)
-        if existing is None or ts > existing[1]:
-            groups[key] = (doc, ts)
+        if existing is None or rank > existing[1]:
+            groups[key] = (doc, rank)
 
     # Build output — one entry per unique (category_id, group_name, specific_type)
     # Collect paystubs separately so they can be merged into a 30-day window.
+    # Collect bank statements separately too so they can be annotated with
+    # deterministic coverage-gap data (see _annotate_bank_statement_coverage)
+    # -- unlike paystubs, these stay as separate entries in `result`, just
+    # each gets the summary attached.
     result: list[dict] = []
     paystub_entries: list[dict] = []
+    bank_statement_entries: list[dict] = []
 
     for (category_id, _group_name, _specific_type, _person_sig), (doc, _ts) in sorted(
         groups.items(), key=lambda x: (x[0][0], x[0][1], x[0][2], x[0][3])
@@ -778,12 +1041,21 @@ def _parse_manifest_dict(manifest: dict) -> list[dict]:
 
         if doc_type == "paystub":
             paystub_entries.append(entry)
+        elif doc_type == "bank_statement":
+            bank_statement_entries.append(entry)
+            result.append(entry)
         else:
             result.append(entry)
 
     # Merge paystubs into a combined 30-day window entry
     if paystub_entries:
         result.extend(_merge_paystubs(paystub_entries, target_days=30))
+
+    # Annotate (not merge) bank statements with deterministic per-account
+    # coverage-gap data -- see _annotate_bank_statement_coverage. Mutates
+    # the entries already appended to `result` above in place.
+    if bank_statement_entries:
+        _annotate_bank_statement_coverage(bank_statement_entries)
 
     return result
 

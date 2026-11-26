@@ -155,11 +155,20 @@ Body fields, per `api/platform/models.py::RunCreate`:
   "input": {
     "loan_file_xml": "<raw XML string>",
     "manifest_json": "<raw JSON string>",
-    "eligibility_json": "<raw JSON string>"
+    "eligibility_json": "<raw JSON string>",
+    "current_program": "DSCR Supreme"
   },
   "config": { "recursion_limit": 250 }
 }
 ```
+
+`current_program` is **optional** — a plain string naming the loan's
+current, already-assigned program (e.g. from the LOS). When supplied, it is
+the single highest-priority source for `scenario_summary.program`: it
+overrides both the MISMO-XML-inferred program and the eligibility engine's
+`eligible_programs` list (see `tools/scenario_tools.py::build_scenario_summary`).
+Omitting it (or sending `""`) is a no-op — the engine falls back to its
+existing eligibility/XML-derived program resolution exactly as before.
 
 ```bash
 curl -sS -X POST "$BASE_URL/threads/$THREAD_ID/runs" \

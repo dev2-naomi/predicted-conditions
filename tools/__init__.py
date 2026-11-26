@@ -14,6 +14,7 @@ from tools.general import (
 from tools.scenario_tools import (
     build_scenario_summary,
     detect_contradictions,
+    inspect_raw_xml_data,
     load_doctype_masterlist,
     parse_eligibility_output,
     parse_loan_file,
@@ -36,14 +37,16 @@ from tools.merger_tools import (
     generate_final_output,
     merge_document_requests,
     rank_document_requests,
+    run_document_merger_pipeline,
 )
-from tools.presentation_tools import style_document_requests
+from tools.presentation_tools import get_final_document_requests, style_document_requests
 
 # General tools — always available regardless of step
 GENERAL_TOOLS = [
     write_todo,
     save_step_report,
     get_workflow_status,
+    inspect_raw_xml_data,
 ]
 
 # Per-step tool lists (mirrors registry.py)
@@ -88,12 +91,14 @@ STEP_TOOLS = {
         generate_compliance_document_requests,
     ],
     "STEP_08": [
+        run_document_merger_pipeline,
         merge_document_requests,
         rank_document_requests,
         cross_check_satisfaction,
         generate_final_output,
     ],
     "STEP_09": [
+        get_final_document_requests,
         style_document_requests,
     ],
 }

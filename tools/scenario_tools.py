@@ -490,6 +490,25 @@ _ELIGIBILITY_FIELD_MAP: dict[str, str] = {
     "LoanType": "loan_type",
 }
 
+# Field pairs where EITHER member being present satisfies the bare-minimum
+# requirement for that pair (the other, if also present, is just additional
+# supporting info -- it is never required on its own). Per explicit design
+# decision 2026-10-12:
+#   - LTV/CLTV: two measures of the same leverage concept (CLTV folds in
+#     subordinate financing on top of LTV); knowing either one is enough to
+#     proceed, only fail if NEITHER is known.
+#   - State/County: two granularities of the same location concept; knowing
+#     either one is enough, only fail if NEITHER is known.
+# This only changes the bare-minimum FAILURE GATE's behavior -- it does not
+# change how LTV/CLTV or State/County are stored, merged, or surfaced
+# elsewhere (each still flows into its own independent metadata key/summary
+# field, with no cross-validation between the two members of a pair).
+_ELIGIBILITY_EITHER_OF_PAIRS: tuple[tuple[str, str], ...] = (
+    ("LTV", "CLTV"),
+    ("State", "County"),
+)
+_PAIRED_ELIGIBILITY_KEYS: set[str] = {k for pair in _ELIGIBILITY_EITHER_OF_PAIRS for k in pair}
+
 
 def _mine_fico_from_passed_programs(
     program_results: dict[str, Any],
@@ -642,8 +661,11 @@ def parse_eligibility_output(
     Parse the eligibility engine output JSON and enrich the loan profile.
 
     Extracts:
-      - application_data: authoritative loan fields (FICO, LTV, CLTV, DTI,
-        reserves, property type, etc.) that override XML-derived values.
+      - application_data: loan fields (FICO, LTV, CLTV, DTI, reserves,
+        property type, etc.) that fill in any fields the loan XML didn't
+        supply. When the loan XML also provides a value for one of these
+        fields, the XML value wins (see build_scenario_summary's re-apply
+        step) -- eligibility data only fills genuine gaps.
       - eligible_programs: list of programs that passed eligibility.
       - program_results: per-program pass/fail details.
 
@@ -810,17 +832,32 @@ def parse_eligibility_output(
     if extra_fields:
         summary_msg += f" Extra fields: {list(extra_fields.keys())}"
 
+    # NOTE: intentionally NOT writing meta_overlay into scenario_summary's
+    # _loan_profile here (unlike earlier versions of this tool). Doing so
+    # would let eligibility values silently clobber XML-derived values in
+    # state (via agent.py's _merge_dicts reducer, "last writer wins")
+    # whenever this tool happens to run after parse_loan_file -- before
+    # build_scenario_summary ever gets a chance to apply the intended
+    # precedence. Instead, stash the fully-resolved eligibility metadata
+    # (meta_overlay, which already incorporates the entity-level/FICO-mining
+    # fallbacks above) under _eligibility_data.resolved_metadata, where
+    # build_scenario_summary's single, authoritative re-apply step (below)
+    # can compare it against the untouched XML metadata and decide
+    # precedence explicitly -- XML wins when both are present (2026-10-12
+    # design decision: eligibility output can be an earlier snapshot run
+    # before final loan terms were locked in the closing package), and
+    # eligibility only fills genuine gaps.
     return Command(update={
         "scenario_summary": {
             "_eligibility_data": {
                 "application_data": app_data,
+                "resolved_metadata": meta_overlay,
                 "extra_fields": extra_fields,
                 "eligible_programs": eligible,
                 "ineligible_programs": ineligible,
                 "program_detail": program_detail,
                 "required_doc_categories": required_doc_categories,
             },
-            "_loan_profile": {"metadata": meta_overlay} if meta_overlay else {},
         },
         "messages": [ToolMessage(summary_msg, tool_call_id=tool_call_id)],
     })
@@ -930,28 +967,52 @@ def build_scenario_summary(
     supplemental: dict = ss.get("_xml_supplemental", {}) or profile.get("_xml_supplemental", {})
     submitted_docs: list[dict] = ss.get("_submitted_docs", [])
 
-    # Re-apply eligibility engine data (highest priority for numeric fields)
+    # Re-apply eligibility engine data -- fills gaps the XML didn't supply.
+    #
+    # 2026-10-12 design decision: when BOTH the loan XML and the eligibility
+    # engine output supply a value for the same field, the loan XML wins
+    # (it's the more current/authoritative source -- the eligibility engine
+    # can run on an earlier snapshot, before final loan terms are locked in
+    # the closing package's XML). Eligibility data is only used to fill
+    # fields the XML left genuinely blank; it never overrides an XML value
+    # that's already present. (Previously eligibility always won on
+    # conflict -- see git history if that behavior is ever needed again.)
     eligibility_data = ss.get("_eligibility_data", {})
-
     elig_app = eligibility_data.get("application_data", {})
-    if elig_app:
-        elig_meta: dict[str, Any] = {}
-        for elig_key, meta_key in _ELIGIBILITY_FIELD_MAP.items():
-            val = elig_app.get(elig_key)
-            if val is not None:
-                elig_meta[meta_key] = val
-        if elig_meta:
+    elig_resolved_meta = eligibility_data.get("resolved_metadata", {})
+    if not elig_resolved_meta and elig_app:
+        # Backward-compat fallback for any caller (e.g. tests) that passes
+        # application_data directly without going through
+        # parse_eligibility_output's resolved_metadata.
+        elig_resolved_meta = {
+            meta_key: val
+            for elig_key, meta_key in _ELIGIBILITY_FIELD_MAP.items()
+            if (val := elig_app.get(elig_key)) is not None
+        }
+    if elig_resolved_meta:
+        xml_meta = profile.get("metadata", {})
+        elig_fill_ins = {
+            meta_key: val
+            for meta_key, val in elig_resolved_meta.items()
+            if xml_meta.get(meta_key) in (None, "", "unknown")
+        }
+        if elig_fill_ins:
             profile = dict(profile)
-            profile["metadata"] = _deep_merge(profile.get("metadata", {}), elig_meta)
+            profile["metadata"] = _deep_merge(xml_meta, elig_fill_ins)
 
     meta = profile.get("metadata", {})
     loan_program = meta.get("loan_program", {})
 
-    doc_types = [d.get("doc_type") for d in submitted_docs if d.get("doc_type")]
-
-    # Determine income types.
+    # Determine income types. Moved ahead of the bare-minimum-fields gate
+    # below (it used to live further down, right before `program =
+    # _infer_program(...)`) so the gate's DSCR/DTI substitution can use the
+    # same income_types-derived DSCR signal as the advisory-only
+    # `missing_core_variables` check further down this function (see "2026-
+    # 11-25: bare-minimum gate DSCR fallback" comment below for why).
+    #
     # When the eligibility engine provides an authoritative income_doc,
     # use ONLY that -- do not infer additional types from document presence.
+    doc_types = [d.get("doc_type") for d in submitted_docs if d.get("doc_type")]
     income_doc_label = meta.get("income_doc") or ""
     primary_income_from_label = _map_income_doc_label(income_doc_label) if income_doc_label else "unknown"
 
@@ -979,6 +1040,83 @@ def build_scenario_summary(
 
     if not income_types:
         income_types = ["unknown"]
+
+    # --- Bare-minimum-fields failure gate -----------------------------------
+    # Empirically confirmed across all 16 local sample loan files: when NO
+    # eligibility_json is provided at all, the MISMO XML alone NEVER supplies
+    # FicoScore, IncomeDocType, Channel, or BorrowerType, and almost never
+    # supplies DTI -- these are genuinely eligibility-engine-exclusive data,
+    # not a parsing gap (see tests/ and the live field-coverage check run
+    # 2026-10-09). Rather than silently generating a full document-request
+    # set reasoned off a loan file missing these fundamental inputs, fail the
+    # run deterministically here and let agent.py's route_after_tools /
+    # fail_fast_node skip STEP_01-08 entirely instead of trusting the
+    # orchestrator LLM to notice and stop on its own (c.f. the softer
+    # advisory-only `missing_core_variables` below, which the LLM can ignore).
+    #
+    # LTV/CLTV and State/County are each treated as an "either-of" pair
+    # (see _ELIGIBILITY_EITHER_OF_PAIRS) rather than two independently
+    # required fields: either member being known is sufficient, and the
+    # other (if also present) is just additional supporting info -- only
+    # fail the pair if NEITHER member is known.
+    critical_failure: dict[str, Any] | None = None
+    if not s.get("eligibility_json"):
+        missing_bare_minimum = [
+            elig_key for elig_key, meta_key in _ELIGIBILITY_FIELD_MAP.items()
+            if elig_key not in _PAIRED_ELIGIBILITY_KEYS
+            and meta.get(meta_key) in (None, "", "unknown")
+        ]
+        # Either-of pairs (LTV/CLTV, State/County): only missing if BOTH
+        # members of the pair are unknown -- see _ELIGIBILITY_EITHER_OF_PAIRS.
+        for key_a, key_b in _ELIGIBILITY_EITHER_OF_PAIRS:
+            a_present = meta.get(_ELIGIBILITY_FIELD_MAP[key_a]) not in (None, "", "unknown")
+            b_present = meta.get(_ELIGIBILITY_FIELD_MAP[key_b]) not in (None, "", "unknown")
+            if not a_present and not b_present:
+                missing_bare_minimum.extend([key_a, key_b])
+
+        # 2026-11-03: DTI/DSCR substitution -- a DSCR-qualified primary
+        # borrower (borrower_type == "DSCR", from loan_file_xml's "Incomes"
+        # array / legacy BorrowerType field) never carries a DTI; a DSCR
+        # tier value (metadata["dscr"], sourced from loan_file_xml's
+        # top-level "DSCR" field -- see xml_parser.py) satisfies this
+        # bare-minimum requirement in DTI's place instead. Without this,
+        # every eligibility_json-less DSCR loan would permanently fail
+        # this gate on a field (DTI) that DSCR borrowers structurally never
+        # have. Mirrors the advisory-only DTI/DSCR swap further down in
+        # this function (missing_core_variables / _REQUIRED_FIELDS).
+        #
+        # 2026-11-25: this used to check ONLY borrower_type == "DSCR", with
+        # no fallback -- unlike the advisory-only check below, which ALSO
+        # falls back to income_types when borrower_type doesn't cleanly say
+        # "DSCR" (e.g. a DSCR-program loan with blank/missing income data,
+        # where the upstream loan-file source derives BorrowerType from
+        # income data rather than the loan program itself). Without this
+        # fallback, that exact case would CRITICALLY FAIL the whole run on
+        # "missing DTI" for a loan that structurally never has one, instead
+        # of correctly substituting DSCR. Now mirrors the advisory check's
+        # fallback exactly (see `is_dscr` below) so both paths agree.
+        if "DTI" in missing_bare_minimum:
+            is_dscr_bare_minimum = (
+                str(meta.get("borrower_type") or "").strip().lower() == "dscr"
+                or any(t in ("DSCR", "dscr") for t in income_types)
+            )
+            if is_dscr_bare_minimum:
+                missing_bare_minimum.remove("DTI")
+                if meta.get("dscr") in (None, "", "unknown"):
+                    missing_bare_minimum.append("DSCR")
+
+        if missing_bare_minimum:
+            critical_failure = {
+                "reason": "missing_bare_minimum_fields",
+                "message": (
+                    "No eligibility_json was provided, and the loan_file_xml "
+                    "input (MISMO XML or flat loan-data JSON) alone does not "
+                    "supply all fields required to "
+                    "generate reliable document conditions. Missing: "
+                    + ", ".join(missing_bare_minimum)
+                ),
+                "missing_fields": missing_bare_minimum,
+            }
 
     program = _infer_program(profile, submitted_docs)
     # Override program from eligibility engine if available
@@ -1085,6 +1223,12 @@ def build_scenario_summary(
 
     summary: dict[str, Any] = {
         "program": program,
+        # Caller-supplied "current" program assignment from the input
+        # payload (see the current_program override block below, which
+        # overwrites both this and "program" above when current_program is
+        # provided). None when the caller didn't send it (or sent only
+        # whitespace).
+        "current_program": (s.get("current_program") or "").strip() or None,
         "product_variant": loan_program.get("type", "unknown"),
         "purpose": purpose,
         "occupancy": meta.get("occupancy") or "unknown",
@@ -1098,6 +1242,16 @@ def build_scenario_summary(
             "property_type": property_type,
             "year_built": supplemental.get("year_built"),
             "rural_property": meta.get("rural_property", False),
+            # Sourced from the loan XML's own FLOOD_DETERMINATION_DETAIL /
+            # PROPERTY_DETAIL fields (tools/shared/xml_parser.py) when
+            # present — used by doc_rules.py's derive_flags to resolve the
+            # "flood_insurance_required" canonical-spec condition against
+            # this loan's actual flood determination instead of a hardcoded
+            # always-true default (engine accuracy report, 17 Nov 2026,
+            # PC-06). None when the XML has no flood determination section
+            # at all (unknown, not "no").
+            "special_flood_hazard": meta.get("special_flood_hazard"),
+            "flood_insurance_required": meta.get("flood_insurance_required"),
         },
         "numbers": {
             "loan_amount": loan_amount,
@@ -1155,6 +1309,15 @@ def build_scenario_summary(
         "doc_profile": list(set(doc_types)),
         "housing_expenses": housing_expenses,
         "cash_out_amount": supplemental.get("cash_out_amount"),
+        # Pre-closing snapshot caveat (same reasoning as Note Date — see
+        # merger_tools.py's 1099 "90 days from Note Date" handling): the loan
+        # hasn't closed yet at this stage, so this is always, at best, an
+        # ESTIMATED closing date (the XML's own LoanEstimatedClosingDate tag
+        # in the one sample file that has this field at all). Exposed to the
+        # satisfaction-check LLM as loan_facts["closing_date_estimated"] (see
+        # merger_tools.py:_build_reference_context) — never treated as a firm
+        # anchor for precise day-count math on document-freshness specs.
+        "closing_date": supplemental.get("closing_date"),
         "channel": meta.get("channel", "unknown"),
         "loan_number": meta.get("loan_number"),
         "dscr_label": meta.get("dscr"),
@@ -1241,9 +1404,30 @@ def build_scenario_summary(
             "Loan Application (1003) / Loan Scenario Summary",
         ),
     ]
-    # DTI is required for non-DSCR loans only
-    is_dscr = any(t in ("DSCR", "dscr") for t in income_types)
-    if not is_dscr:
+    # DTI is required for non-DSCR loans only. The authoritative signal is
+    # the PRIMARY BORROWER's borrower_type (from loan_file_xml's "Incomes"
+    # array -- income_tier == "Primary" AND is_primary_borrower == True --
+    # or the legacy flat "BorrowerType" field / eligibility_json) being
+    # exactly "DSCR"; the income_types-derived check (income_doc label
+    # text / submitted-document inference) is kept only as a fallback for
+    # inputs that never populate borrower_type at all.
+    #
+    # 2026-11-03: for DSCR borrowers, DTI is replaced -- not just dropped --
+    # by a required DSCR tier value instead, sourced from loan_file_xml's
+    # top-level "DSCR" field (see xml_parser.py metadata["dscr"] /
+    # summary["dscr_label"]). Possible values: "DSCR No Ratio",
+    # "DSCR < 1%", "DSCR 1-1.14%", "DSCR > 1.15%".
+    primary_borrower_type = str(meta.get("borrower_type") or "").strip().lower()
+    is_dscr = primary_borrower_type == "dscr" or any(t in ("DSCR", "dscr") for t in income_types)
+    if is_dscr:
+        _REQUIRED_FIELDS.append((
+            "DSCR",
+            summary["dscr_label"],
+            "DSCR (debt service coverage ratio) tier replaces DTI for DSCR-qualified "
+            "borrowers; cannot validate program eligibility without it.",
+            "loan_file_xml 'DSCR' field / Eligibility Engine Output",
+        ))
+    else:
         _REQUIRED_FIELDS.append((
             "DTI",
             summary["numbers"]["DTI"],
@@ -1292,7 +1476,12 @@ def build_scenario_summary(
             "doc_id": doc.get("doc_id", ""),
             "document_ids": document_ids,
             "detected_document_type": detected_type,
-            "doctype_id": None,
+            # The manifest's own classifier category_id (e.g. "117" = Credit
+            # Report) — same value as "doc_id" above, exposed under this key
+            # too since downstream consumers (e.g. data/doctype_masterlist.json
+            # lookups) expect a "doctype_id" field. This used to be hardcoded
+            # to None and never populated.
+            "doctype_id": doc.get("doc_id") or None,
             "category": doc.get("category_name", "") or doc.get("doc_type", ""),
             "available": True,
             "completeness_signals": [],
@@ -1304,9 +1493,17 @@ def build_scenario_summary(
         ", ".join(m["field"] for m in missing) if missing else "none"
     )
 
-    # --- Eligibility Override Validation (Scenario Lock) ---
-    # When eligibility engine data is available, it is AUTHORITATIVE.
-    # Emit an explicit lock message so downstream steps cannot deviate.
+    # --- Eligibility/XML Consistency Check (Scenario Lock) ---
+    # 2026-10-12 design decision: occupancy/loan_amount/LTV/income_doc are
+    # each already resolved with "XML wins when both present" semantics by
+    # the re-apply step above (meta already reflects that precedence by the
+    # time `summary` was built from it). So when this check finds a
+    # discrepancy here, it means XML had a value AND eligibility disagreed --
+    # that's surfaced as an informational note only; the already-resolved
+    # (XML-priority) value in `summary` is kept, NOT overridden back to
+    # eligibility. `program` has no XML equivalent (XML never names a
+    # retail loan program), so it's the one field still force-set from
+    # eligibility's eligible_programs list.
     override_warnings: list[str] = []
     if elig_app:
         _LOCK_FIELDS = {
@@ -1320,6 +1517,11 @@ def build_scenario_summary(
         elig_programs = eligibility_data.get("eligible_programs", [])
         if elig_programs:
             _LOCK_FIELDS["program"] = ("Program", elig_programs[0])
+
+        # Fields with a genuine XML source where XML must win on conflict
+        # (c.f. _ELIGIBILITY_FIELD_MAP) -- "program" is NOT in this set, so
+        # it keeps the old force-override behavior below.
+        _XML_PRIORITY_FIELDS = {"occupancy", "numbers.loan_amount", "numbers.LTV", "income_profile.income_doc_label"}
 
         for field_path, (label, elig_val) in _LOCK_FIELDS.items():
             if elig_val is None:
@@ -1336,20 +1538,41 @@ def build_scenario_summary(
             curr_norm = str(current_val).strip().lower() if current_val else ""
 
             if curr_norm and elig_norm and curr_norm != elig_norm:
+                if field_path in _XML_PRIORITY_FIELDS:
+                    override_warnings.append(
+                        f"NOTE: {label} is '{current_val}' per the loan XML, but the eligibility "
+                        f"engine says '{elig_val}' -- keeping the XML value (XML takes priority "
+                        f"over eligibility engine data when both are present)."
+                    )
+                    continue
                 override_warnings.append(
                     f"OVERRIDE: {label} was '{current_val}' but eligibility engine says '{elig_val}' — using eligibility value"
                 )
-                # Force the override
-                if field_path == "occupancy":
-                    summary["occupancy"] = str(elig_val)
-                elif field_path == "program":
+                # Force the override (program only -- no XML source to prioritize)
+                if field_path == "program":
                     summary["program"] = str(elig_val)
-                elif field_path == "numbers.loan_amount":
-                    summary["numbers"]["loan_amount"] = elig_val
-                elif field_path == "numbers.LTV":
-                    summary["numbers"]["LTV"] = elig_val
-                elif field_path == "income_profile.income_doc_label":
-                    summary["income_profile"]["income_doc_label"] = str(elig_val)
+
+    # --- current_program (new top-level input field) ---------------------
+    # The caller can optionally pass `current_program` — a plain string
+    # naming the loan's CURRENT, already-assigned program (e.g. from the
+    # LOS/origination system). When present, this is the single most
+    # authoritative program source available: it outranks both the
+    # XML-inferred program AND the eligibility engine's eligible_programs
+    # list (handled just above) — those are both derived/inferred, whereas
+    # current_program is an explicit, already-decided assignment. Optional:
+    # absent/blank is a no-op, falling through entirely to the existing
+    # eligibility/XML-derived `program` resolution above.
+    current_program = s.get("current_program")
+    if isinstance(current_program, str) and current_program.strip():
+        current_program = current_program.strip()
+        if summary["program"] not in (current_program, None, "", "unknown"):
+            override_warnings.append(
+                f"OVERRIDE: Program resolved to '{summary['program']}' from eligibility/XML data, "
+                f"but current_program='{current_program}' was explicitly provided in the input "
+                "payload -- using current_program (highest-priority authoritative source)."
+            )
+        summary["program"] = current_program
+        summary["current_program"] = current_program
 
     lock_msg = (
         f"\n\n*** SCENARIO LOCK (AUTHORITATIVE — DO NOT DEVIATE) ***\n"
@@ -1361,17 +1584,58 @@ def build_scenario_summary(
         f"  Income Type: {summary['income_profile']['primary_income_type']}\n"
         f"  Property Type: {summary['property']['property_type']} in {summary['property']['state']}\n"
         f"  Loan Amount: {summary['numbers']['loan_amount']}\n"
-        f"{'  Source: Eligibility Engine (overrides XML/manifest if conflicting)' if elig_app else '  Source: XML/Manifest (no eligibility engine data available)'}\n"
+        f"{'  Source: XML/Manifest, with Eligibility Engine filling any gaps (XML takes priority if both are present)' if elig_app else '  Source: XML/Manifest (no eligibility engine data available)'}\n"
+        f"{'  Program Source Override: current_program input field (highest priority, overrides eligibility/XML program resolution above)' if summary.get('current_program') else ''}\n"
         f"*** ALL SUBSEQUENT STEPS MUST USE THESE VALUES ***"
     )
     if override_warnings:
         lock_msg += "\n  WARNINGS:\n    " + "\n    ".join(override_warnings)
+
+    # Curated XML-supplemental facts that otherwise never reach the model's
+    # context anywhere (no later tool message surfaces them either) — e.g.
+    # declarations (bankruptcy/foreclosure/undisclosed-mortgage/etc),
+    # liabilities, owned properties, housing expenses, employers/residences,
+    # and credit scores. Without this, STEP_02-07's document-request
+    # generation is reasoning blind to all of it even though it's fully
+    # parsed and sitting in scenario_summary -- confirmed live missing for
+    # closing_date before it was added here; same gap applied to everything
+    # below. Deliberately EXCLUDES borrower_ssns/borrower_dobs (PII with no
+    # bearing on which documents to request) and raw_sections (the full
+    # generic MISMO dump — too large to always include; available on-demand
+    # via inspect_raw_xml_data instead).
+    _SUPPLEMENTAL_CONTEXT_KEYS = (
+        "declarations", "liabilities", "owned_properties", "housing_expenses",
+        "credit_scores", "assets", "employers", "residences", "income_sources",
+        "loan_terms", "closing_date",
+    )
+    supplemental_context = {
+        key: supplemental[key]
+        for key in _SUPPLEMENTAL_CONTEXT_KEYS
+        if supplemental.get(key) not in (None, "", [], {}, "unknown")
+    }
+    supplemental_block = (
+        "\n\nAdditional loan file details from the XML (use these to inform "
+        "document requests — e.g. a declared bankruptcy/foreclosure needs an "
+        "explanation letter, an owned rental property may need a lease/VOR, "
+        "declared liabilities may need verification, etc.):\n"
+        + json.dumps(supplemental_context, indent=2, default=str)
+        if supplemental_context else ""
+    )
+
+    failure_msg = ""
+    if critical_failure:
+        failure_msg = (
+            "\n\n*** CRITICAL FAILURE — RUN CANNOT PROCEED ***\n"
+            f"{critical_failure['message']}\n"
+            "This run will stop here; no document requests will be generated."
+        )
 
     return Command(update={
         "scenario_summary": summary,
         "missing_core_variables": missing,
         "document_inventory": doc_inventory,
         "guideline_section_refs": guideline_refs,
+        "critical_failure": critical_failure,
         "messages": [ToolMessage(
             f"Scenario summary built. Program: {summary['program']}, Purpose: {purpose}, "
             f"Occupancy: {summary['occupancy']}, LTV: {summary['numbers']['LTV']}, FICO: {fico}, "
@@ -1385,7 +1649,9 @@ def build_scenario_summary(
                     for m in missing
                 ) if missing else ""
             )
-            + lock_msg,
+            + lock_msg
+            + supplemental_block
+            + failure_msg,
             tool_call_id=tool_call_id,
         )],
     })
@@ -1477,6 +1743,64 @@ def detect_contradictions(
         "contradictions_detected": contradictions,
         "messages": [ToolMessage(msg, tool_call_id=tool_call_id)],
     })
+
+
+@tool
+def inspect_raw_xml_data(
+    section_names: Optional[List[str]] = None,
+    tool_call_id: Annotated[str, InjectedToolCallId] = "",
+    state: Annotated[dict, InjectedState] = None,
+) -> str:
+    """
+    On-demand access to the FULL raw MISMO XML extraction -- every leaf tag
+    value from the loan file, grouped by MISMO container (e.g.
+    TERMS_OF_LOAN, LIABILITY, DECLARATION_DETAIL), not just the curated
+    fields already surfaced in the scenario summary and its supplemental
+    data. Use this when you suspect a document requirement or condition
+    depends on an XML fact that isn't already visible elsewhere in your
+    context -- e.g. a specific MISMO section/tag you know or suspect exists
+    in this loan file but that isn't one of the fields this pipeline
+    extracts by name into scenario_summary.
+
+    Call with no arguments first to see which MISMO sections exist in this
+    loan file (and how many entries each has). Call again with
+    section_names=[...] naming the ones you need to get their full content.
+
+    Args:
+        section_names: MISMO container names to retrieve in full (e.g.
+                       ["LIABILITY", "DECLARATION_DETAIL"]). Omit to just
+                       list available section names instead of dumping
+                       content.
+    """
+    s = state or {}
+    ss = s.get("scenario_summary", {}) or {}
+    parsed = ss.get("_parsed_xml") or {}
+    raw = parsed.get("raw_xml") or {}
+
+    if not raw:
+        return (
+            "No raw XML data available -- loan_file_xml was empty/not "
+            "provided, or parse_loan_file hasn't run yet."
+        )
+
+    if not section_names:
+        listing = []
+        for name, val in sorted(raw.items()):
+            count = len(val) if isinstance(val, list) else 1
+            unit = "entry" if count == 1 else "entries"
+            listing.append(f"  {name} ({count} {unit})")
+        return (
+            f"{len(raw)} MISMO section(s) available in this loan file's raw "
+            "XML extraction. Call again with section_names=[...] to "
+            "retrieve full content for specific ones:\n" + "\n".join(listing)
+        )
+
+    result = {name: raw[name] for name in section_names if name in raw}
+    missing = [name for name in section_names if name not in raw]
+    out = json.dumps(result, indent=2, default=str)
+    if missing:
+        out += f"\n\n(Not present in this loan file: {', '.join(missing)})"
+    return out
 
 
 @tool
