@@ -237,7 +237,23 @@ if _USE_OPENROUTER_PRIMARY:
     # ~$1.1-3.0/run at "high"), so "low" is the default here; the simpler
     # satisfaction-check call in merger_tools.py uses its own "low" default
     # independently.
-    _or_effort = os.environ.get("OPENROUTER_REASONING_EFFORT", "low")
+    #
+    # OpenAI-family models routed THROUGH OpenRouter (e.g. OPENROUTER_MODEL=
+    # openai/gpt-5.6-luna) are a different case: direct-OpenAI testing on
+    # 2026-11-26 found gpt-5.6-luna rejects any non-"none" reasoning_effort
+    # combined with function tools on /v1/chat/completions outright (400
+    # "Function tools with reasoning_effort are not supported ... set
+    # reasoning_effort to 'none'"). OpenRouter proxies this parameter
+    # through to the same underlying OpenAI endpoint, so the same
+    # restriction is expected to apply there too. Default to "none" for any
+    # openai/* OpenRouter model so swapping OPENROUTER_MODEL to an OpenAI
+    # model doesn't immediately 400 on every call; Claude-via-OpenRouter
+    # keeps its original "low" default. Still fully overridable via the env
+    # var either way.
+    _or_effort_default = (
+        "none" if _OPENROUTER_MODEL.strip().lower().startswith("openai/") else "low"
+    )
+    _or_effort = os.environ.get("OPENROUTER_REASONING_EFFORT", _or_effort_default)
     if _or_effort:
         _or_primary_kwargs["reasoning_effort"] = _or_effort
     _llm = ChatOpenAI(**_or_primary_kwargs)
@@ -291,6 +307,18 @@ else:
 # 2026-11-07 testing anthropic/claude-sonnet-5.5 via OpenRouter). Giving it
 # its own "openrouter" label makes _bind() fall through to plain
 # bind_tools(step_tools) (auto tool choice) instead.
+#
+# BUT that's specifically wrong when the model routed through OpenRouter is
+# itself an OpenAI model (e.g. OPENROUTER_MODEL=openai/gpt-5.6-luna, added
+# 2026-11-27 to test cheaper-than-Sonnet options) -- it has the EXACT same
+# early-self-termination risk documented below for the direct-OpenAI
+# "openai" provider branch, since it's the same underlying model family.
+# _OPENROUTER_MODEL_IS_OPENAI flags this so _bind() can force tool_choice
+# for it too, while still leaving Claude-via-OpenRouter alone.
+_OPENROUTER_MODEL_IS_OPENAI = (
+    os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5")
+    .strip().lower().startswith("openai/")
+)
 _PRIMARY_LLM_PROVIDER = (
     "openrouter" if _USE_OPENROUTER_PRIMARY
     else ("openai" if _USE_OPENAI_PRIMARY else "anthropic")
@@ -915,7 +943,10 @@ def orchestrator_node(state: PredictiveConditionsState) -> dict:
     _workflow_incomplete = not final_output.get("document_requests")
 
     def _bind(llm, provider: str):
-        if _workflow_incomplete and provider == "openai":
+        _force_tool_choice = provider == "openai" or (
+            provider == "openrouter" and _OPENROUTER_MODEL_IS_OPENAI
+        )
+        if _workflow_incomplete and _force_tool_choice:
             return llm.bind_tools(step_tools, tool_choice="required")
         return llm.bind_tools(step_tools)
 
